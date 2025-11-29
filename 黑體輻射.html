@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>黑體輻射</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #d35400;
+            --bg: #fdfdfd;
+            --panel-bg: #f4f6f7;
+            --border: #dcdcdc;
+            --guide-bg: #e8f6f3;
+            --guide-border: #16a085;
+        }
+
+        body {
+            font-family: "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 5px; color: var(--primary); }
+        .subtitle { color: #7f8c8d; margin-bottom: 20px; font-size: 0.9em; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn {
+            padding: 12px 25px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            color: #7f8c8d;
+            transition: 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .tab-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: #fff8f0;
+            border-bottom: 3px solid var(--accent);
+        }
+
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            max-width: 1200px;
+            width: 100%;
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .view-section { display: none; width: 100%; display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } 
+        .view-section.hidden { display: none !important; }
+
+        .canvas-box {
+            position: relative;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas { cursor: crosshair; }
+
+        /* 顏色預覽視窗 */
+        .color-overlay {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 10;
+            pointer-events: none;
+            min-width: 110px;
+        }
+        #section-cavity .color-overlay {
+            top: 20px; left: 20px; right: auto;
+        }
+
+        .color-swatch {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: black;
+            border: 3px solid #f0f0f0;
+            margin-bottom: 8px;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .color-label {
+            font-size: 0.75em; color: #555; font-weight: bold; text-align: center; line-height: 1.3;
+        }
+
+        .controls {
+            flex: 1;
+            min-width: 340px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        .control-card h3 { 
+            margin-top: 0; margin-bottom: 12px; font-size: 1.1em; color: var(--primary); 
+            border-bottom: 2px solid #eee; padding-bottom: 5px;
+        }
+
+        /* 學習引導區塊樣式 - 全寬版 */
+        .guide-box {
+            width: 100%; /* 佔滿整行 */
+            background-color: var(--guide-bg);
+            border-left: 6px solid var(--guide-border);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .guide-title {
+            color: #16a085;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .guide-content li {
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        button.action-btn {
+            background: var(--primary); color: white; border: none; padding: 12px;
+            border-radius: 6px; font-size: 15px; cursor: pointer; width: 100%; font-weight: bold;
+            transition: 0.2s;
+        }
+        button.action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        
+        .preset-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;
+        }
+        .preset-btn {
+            background: #f1f2f6; border: 1px solid #ced6e0; padding: 10px;
+            border-radius: 5px; cursor: pointer; font-size: 0.9em; color: #2f3542;
+            transition: 0.2s; text-align: left;
+        }
+        .preset-btn:hover { background: #dfe4ea; border-color: #a4b0be; }
+        .preset-btn strong { display: block; font-size: 1.1em; }
+        
+        .slider-group { margin-bottom: 15px; }
+        .slider-label { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9em; margin-bottom: 6px; color: #555; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: var(--accent); }
+
+        .info-text { font-size: 0.95em; line-height: 1.5; color: #444; margin: 0; }
+        .legend { display: flex; gap: 15px; font-size: 0.85em; margin-top: 10px; color: #666; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>黑體輻射</h1>
+    <div class="subtitle">從空腔幾何到恆星光譜：探索黑體的物理本質</div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('cavity')">1. 什麼是黑體？</button>
+        <button class="tab-btn" onclick="switchTab('graph')">2. 輻射光譜 (溫度曲線)</button>
+    </div>
+
+    <div class="main-container">
+        
+        <div id="section-cavity" class="view-section">
+            <div class="canvas-box">
+                <div class="color-overlay">
+                    <div id="cavityObserverColor" class="color-swatch"></div>
+                    <div class="color-label">觀察者從針孔<br>看到的顏色</div>
+                </div>
+
+                <canvas id="cavityCanvas" width="400" height="400"></canvas>
+                <div class="legend">
+                    <div><span class="dot" style="background:#ffd700"></span>入射光 (被吸收)</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-card">
+                    <h3>什麼是黑體？</h3>
+                    <p class="info-text">
+                        黑體是一個理想化的物理模型，可用「開有<strong>極小針孔</strong>的空腔」來模擬。<br>
+                        <strong>定義：</strong>任何射入小孔的光都會在內部多次反射並被吸收（所以是黑的）；但空腔會因自身溫度而從針孔向外輻射出特定顏色的光。
+                    </p>
+                </div>
+
+                <div class="control-card" style="border-left: 4px solid #ffd700;">
+                    <h3>1. 吸收特性 (入射光)</h3>
+                    <p class="info-text" style="margin-bottom:10px;">點擊按鈕，觀察光線如何精準射入針孔並被困住。</p>
+                    <button class="action-btn" style="background:#f39c12; color: #000;" onclick="shootRay()">⚡ 發射入射光束</button>
+                </div>
+
+                <div class="control-card" style="border-left: 4px solid var(--accent);">
+                    <h3>2. 輻射特性 (觀察顏色)</h3>
+                    <p class="info-text">調整溫度，觀察左上角視窗中，從針孔看進去時會呈現什麼顏色。</p>
+                    <div class="slider-group" style="margin-top:10px; background:#f9f9f9; padding:10px; border-radius:5px;">
+                        <div class="slider-label">
+                            <span>空腔溫度</span>
+                            <span id="cavityTempDisplay">5500 K</span>
+                        </div>
+                        <input type="range" id="cavityTempSlider" min="1000" max="12000" step="100" value="5500">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-graph" class="view-section hidden">
+            <div class="canvas-box">
+                <div class="color-overlay">
+                    <div id="observerColor" class="color-swatch"></div>
+                    <div class="color-label">觀測到的顏色<br>(光譜總和)</div>
+                </div>
+                <canvas id="graphCanvas" width="600" height="450"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="control-card">
+                    <h3>快速選擇：常見輻射源</h3>
+                    <div class="preset-grid">
+                        <button class="preset-btn" onclick="applyPreset('human')"><strong>人體</strong> 310 K</button>
+                        <button class="preset-btn" onclick="applyPreset('bulb')"><strong>燈泡</strong> 3000 K</button>
+                        <button class="preset-btn" onclick="applyPreset('sun')"><strong>太陽</strong> 5500 K</button>
+                        <button class="preset-btn" onclick="applyPreset('star')"><strong>參宿七</strong> 12000 K</button>
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <h3>參數微調</h3>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span style="color:var(--accent)">溫度 (Temperature)</span>
+                            <span id="graphTempDisplay" style="font-family:monospace; font-size:1.2em;">5500 K</span>
+                        </div>
+                        <input type="range" id="graphTempSlider" min="100" max="15000" step="50" value="5500">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>Y 軸：強度縮放 (Y Zoom)</span>
+                        </div>
+                        <input type="range" id="scaleYSlider" min="1" max="200" value="100">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>X 軸：波長範圍 (X Range)</span>
+                            <span id="xScaleVal">3000 nm</span>
+                        </div>
+                        <input type="range" id="scaleXSlider" min="500" max="30000" step="500" value="3000">
+                    </div>
+                </div>
+            </div>
+
+            <div class="guide-box">
+                <div class="guide-title">💡 觀念引導</div>
+                <ul class="guide-content" style="margin:0; padding-left:20px;">
+                    <li><strong>連續光譜：</strong>請注意曲線是連續的。這代表在該溫度下，<strong>每一種波長的光</strong>都有被輻射出來，只是強弱不同。</li>
+                    <li><strong>波峰意義：</strong>曲線的最高點 ($\lambda_{max}$) 代表該溫度下<strong>成分最多、能量最強</strong>的光波長，這決定了我們肉眼看到的主要顏色（參見圖表右上角的顏色預覽）。</li>
+                    <li><strong>溫度效應：</strong>當溫度升高時，波峰會向左（短波長/藍光方向）移動（維恩位移定律），且總輻射能量（曲線下面積）會急劇增加。</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // === GLOBAL STATE & INIT ===
+        let currentTab = 'cavity'; 
+        let currentTemp = 5500;   
+        let currentYMaxLimit = 1.0; 
+
+        window.onload = function() {
+            switchTab('cavity'); 
+            updateTemp(5500, false); 
+            setYScaleToFit(5500);
+            animateCavity(); 
+        };
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(`section-${tabName}`).classList.remove('hidden');
+            const btns = document.querySelectorAll('.tab-btn');
+            if(tabName === 'cavity') btns[0].classList.add('active');
+            else btns[1].classList.add('active');
+
+            if(tabName === 'graph') updateGraph(); 
+        }
+
+        // ==========================================
+        // PART 1: CAVITY GEOMETRY
+        // ==========================================
+        const cCanvas = document.getElementById('cavityCanvas');
+        const cCtx = cCanvas.getContext('2d');
+        const cCenterX = cCanvas.width / 2;
+        const cCenterY = cCanvas.height / 2;
+        const cRadius = 150; 
+        const wallThickness = 20;
+        const holeGapHalfAngle = 0.035; 
+        let rays = [];
+
+        class Ray {
+            constructor() {
+                this.x = cCenterX + cRadius + 40; 
+                const randomOffsetY = (Math.random() - 0.5) * 4; 
+                this.y = cCenterY + randomOffsetY;
+                const angle = Math.PI; 
+                const spread = (Math.random() - 0.5) * 0.02; 
+                const speed = 25; 
+                this.vx = Math.cos(angle + spread) * speed;
+                this.vy = Math.sin(angle + spread) * speed;
+                this.life = 1.0; 
+                this.history = [];
+                this.hasEntered = false; 
+            }
+            update() {
+                const steps = 10; 
+                for(let i=0; i<steps; i++) {
+                    if(this.life < 0.01) break;
+                    this.x += this.vx / steps;
+                    this.y += this.vy / steps;
+                    if(i===0) {
+                        this.history.push({x: this.x, y: this.y});
+                        if(this.history.length > 50) this.history.shift(); 
+                    }
+                    const dx = this.x - cCenterX;
+                    const dy = this.y - cCenterY;
+                    const distSq = dx*dx + dy*dy;
+                    const dist = Math.sqrt(distSq);
+
+                    if (!this.hasEntered) {
+                        if (dist < cRadius - 5) this.hasEntered = true;
+                    } else {
+                        if (dist >= cRadius - 1) {
+                            const angleToCenter = Math.atan2(dy, dx);
+                            if (Math.abs(angleToCenter) < holeGapHalfAngle * 1.5) { 
+                                this.life = 0;
+                            } else {
+                                const nx = dx / dist;
+                                const ny = dy / dist;
+                                const dot = this.vx * nx + this.vy * ny;
+                                this.vx = this.vx - 2 * dot * nx;
+                                this.vy = this.vy - 2 * dot * ny;
+                                const scatter = (Math.random() - 0.5) * 0.5; 
+                                const v = Math.sqrt(this.vx**2 + this.vy**2);
+                                const ang = Math.atan2(this.vy, this.vx) + scatter;
+                                this.vx = Math.cos(ang) * v;
+                                this.vy = Math.sin(ang) * v;
+                                this.x = cCenterX + nx * (cRadius - 2);
+                                this.y = cCenterY + ny * (cRadius - 2);
+                                this.life *= 0.8; 
+                            }
+                        }
+                    }
+                }
+                return this.life >= 0.01;
+            }
+            draw() {
+                cCtx.beginPath();
+                cCtx.strokeStyle = `rgba(255, 215, 0, ${this.life})`; 
+                cCtx.lineWidth = 3; 
+                if(this.history.length>0) {
+                    cCtx.moveTo(this.history[0].x, this.history[0].y);
+                    for(let p of this.history) cCtx.lineTo(p.x, p.y);
+                    cCtx.lineTo(this.x, this.y);
+                }
+                cCtx.stroke();
+                cCtx.beginPath();
+                cCtx.fillStyle = `rgba(255, 255, 255, ${this.life})`;
+                cCtx.arc(this.x, this.y, 3, 0, Math.PI*2);
+                cCtx.fill();
+            }
+        }
+
+        function shootRay() {
+            rays.push(new Ray());
+            setTimeout(() => rays.push(new Ray()), 60);
+        }
+
+        function drawCavity() {
+            cCtx.fillStyle = '#fff';
+            cCtx.fillRect(0, 0, cCanvas.width, cCanvas.height);
+            cCtx.beginPath();
+            const wallCenterRadius = cRadius + wallThickness / 2; 
+            cCtx.arc(cCenterX, cCenterY, wallCenterRadius, holeGapHalfAngle, 2 * Math.PI - holeGapHalfAngle);
+            cCtx.strokeStyle = '#555';
+            cCtx.lineWidth = wallThickness;
+            cCtx.stroke();
+            cCtx.beginPath();
+            cCtx.arc(cCenterX, cCenterY, cRadius, 0, 2*Math.PI);
+            cCtx.fillStyle = '#000'; 
+            cCtx.fill();
+            cCtx.fillStyle = "#666";
+            cCtx.font = "14px Arial";
+            cCtx.fillText("針孔 (Pinhole)", cCenterX + cRadius + 25, cCenterY + 5);
+        }
+
+        function animateCavity() {
+            if(currentTab === 'cavity') {
+                drawCavity();
+                for (let i = rays.length - 1; i >= 0; i--) {
+                    if (!rays[i].update()) rays.splice(i, 1);
+                    else rays[i].draw();
+                }
+            }
+            requestAnimationFrame(animateCavity);
+        }
+
+        // ==========================================
+        // PART 2: GRAPH LOGIC
+        // ==========================================
+        const gCanvas = document.getElementById('graphCanvas');
+        const gCtx = gCanvas.getContext('2d');
+        const scaleYSlider = document.getElementById('scaleYSlider');
+        const scaleXSlider = document.getElementById('scaleXSlider');
+        const graphTempSlider = document.getElementById('graphTempSlider');
+        const observerColorSwatch = document.getElementById('observerColor');
+        const cavityObserverColorSwatch = document.getElementById('cavityObserverColor');
+
+        function planckLaw(wavelengthNm, temperatureK) {
+            const lam = wavelengthNm * 1e-9;
+            const c1 = 3.7418e-16;
+            const c2 = 1.4388e-2;
+            if(lam <= 0 || temperatureK <= 0) return 0;
+            const expVal = c2 / (lam * temperatureK);
+            if(expVal > 100) return 0; 
+            return (c1 / Math.pow(lam, 5)) * (1 / (Math.exp(expVal) - 1));
+        }
+
+        function calculatePeakIntensity(temp) {
+            const peakLambda = 2.898e6 / temp;
+            return planckLaw(peakLambda, temp);
+        }
+
+        function setYScaleToFit(temp) {
+            const peak = calculatePeakIntensity(temp);
+            currentYMaxLimit = peak * 1.3; 
+            scaleYSlider.value = 100; 
+        }
+
+        function applyPreset(type) {
+            let t = 5500;
+            let xMax = 3000;
+            if (type === 'human') { t = 310; xMax = 25000; } 
+            else if (type === 'bulb') { t = 3000; xMax = 6000; } 
+            else if (type === 'sun') { t = 5500; xMax = 2500; } 
+            else if (type === 'star') { t = 12000; xMax = 1500; }
+            updateTemp(t, false); 
+            setYScaleToFit(t);
+            scaleXSlider.value = xMax;
+            updateGraph();
+        }
+
+        function drawGraph() {
+            const width = gCanvas.width;
+            const height = gCanvas.height;
+            const padding = { top: 30, right: 30, bottom: 50, left: 70 };
+            gCtx.clearRect(0, 0, width, height);
+
+            const xMax = parseInt(scaleXSlider.value);
+            document.getElementById('xScaleVal').innerText = xMax + " nm";
+            const xMin = 100;
+            const sliderVal = parseInt(scaleYSlider.value);
+            let zoomFactor = 1;
+            if (sliderVal >= 100) zoomFactor = 1 / (1 + (sliderVal - 100) / 25); 
+            else zoomFactor = 1 + (100 - sliderVal) / 20; 
+
+            const effectiveYMax = currentYMaxLimit * zoomFactor;
+            const scaleX = (val) => padding.left + ((val - xMin) / (xMax - xMin)) * (width - padding.left - padding.right);
+            const scaleY = (val) => (height - padding.bottom) - (val / effectiveYMax) * (height - padding.top - padding.bottom);
+
+            const vS = scaleX(380);
+            const vE = scaleX(750);
+            gCtx.save();
+            gCtx.beginPath();
+            gCtx.rect(padding.left, padding.top, width-padding.left-padding.right, height-padding.bottom-padding.top);
+            gCtx.clip();
+            gCtx.fillStyle = "#fffcfc"; gCtx.fillRect(vE, padding.top, width, height);
+            gCtx.fillStyle = "#fcfcff"; gCtx.fillRect(0, padding.top, vS, height);
+            if(vE > padding.left && vS < width) {
+                const grad = gCtx.createLinearGradient(Math.max(vS,0), 0, Math.min(vE,width), 0);
+                grad.addColorStop(0, "rgba(148,0,211,0.2)"); grad.addColorStop(0.5, "rgba(0,255,0,0.2)"); grad.addColorStop(1, "rgba(255,0,0,0.2)"); 
+                gCtx.fillStyle = grad;
+                gCtx.fillRect(Math.max(vS, padding.left), padding.top, Math.min(vE, width)-Math.max(vS, padding.left), height);
+            }
+            gCtx.restore();
+
+            gCtx.beginPath(); gCtx.strokeStyle="#e0e0e0"; gCtx.lineWidth=1;
+            const stepX = Math.round(xMax/5/500)*500 || 500;
+            for(let x=0; x<=xMax; x+=stepX) {
+                if(x<xMin) continue;
+                let px = scaleX(x);
+                gCtx.moveTo(px, padding.top); gCtx.lineTo(px, height-padding.bottom);
+                gCtx.fillStyle = "#888"; gCtx.font="10px Arial"; gCtx.textAlign="center";
+                gCtx.fillText(x, px, height-padding.bottom+15);
+            }
+            gCtx.stroke();
+            gCtx.beginPath(); gCtx.strokeStyle="#333"; gCtx.lineWidth=2;
+            gCtx.moveTo(padding.left, padding.top); gCtx.lineTo(padding.left, height-padding.bottom);
+            gCtx.lineTo(width-padding.right, height-padding.bottom);
+            gCtx.stroke();
+            gCtx.fillStyle = "#333"; gCtx.font="12px Arial"; gCtx.textAlign = "center";
+            gCtx.fillText("波長 (nm)", width/2, height-10);
+            gCtx.save(); gCtx.rotate(-Math.PI/2);
+            gCtx.fillText("輻射強度 (Intensity)", -height/2, 20); gCtx.restore();
+
+            gCtx.beginPath(); gCtx.lineWidth = 3;
+            if(currentTemp < 1000) gCtx.strokeStyle = "#888";
+            else if(currentTemp < 3500) gCtx.strokeStyle = "#e74c3c";
+            else if(currentTemp < 6000) gCtx.strokeStyle = "#f39c12";
+            else gCtx.strokeStyle = "#3498db";
+
+            const stepDraw = xMax / 400; let first = true;
+            for(let lam=xMin; lam<=xMax; lam+=stepDraw) {
+                let val = planckLaw(lam, currentTemp);
+                let px = scaleX(lam);
+                let py = scaleY(val);
+                if(py < padding.top) py = padding.top - 5; 
+                if(first) { gCtx.moveTo(px, py); first=false; } else gCtx.lineTo(px, py);
+            }
+            gCtx.stroke();
+
+            const peakNm = 2.898e6 / currentTemp;
+            if(peakNm > xMin && peakNm < xMax) {
+                let px = scaleX(peakNm);
+                let val = planckLaw(peakNm, currentTemp);
+                let py = scaleY(val);
+                if(py >= padding.top && py <= height-padding.bottom) {
+                    gCtx.fillStyle = "#333";
+                    gCtx.beginPath(); gCtx.arc(px, py, 4, 0, Math.PI*2); gCtx.fill();
+                    gCtx.fillText(`${Math.round(peakNm)}nm`, px, py-10);
+                }
+            }
+        }
+
+        function updateGraph() {
+            if(currentTab === 'graph') requestAnimationFrame(drawGraph);
+        }
+
+        function updateTemp(val, autoFit = true) {
+            currentTemp = parseInt(val);
+            document.getElementById('cavityTempDisplay').innerText = currentTemp + " K";
+            document.getElementById('graphTempDisplay').innerText = currentTemp + " K";
+            document.getElementById('cavityTempSlider').value = currentTemp;
+            graphTempSlider.value = currentTemp;
+
+            let color = ""; let shadow = "";
+            if (currentTemp < 800) { color = "#110000"; shadow = "none"; } 
+            else if (currentTemp < 2000) { color = "rgb(180, 20, 0)"; shadow = "0 0 15px rgba(180, 20, 0, 0.6)"; } 
+            else if (currentTemp < 3500) { color = "rgb(255, 100, 0)"; shadow = "0 0 25px rgba(255, 100, 0, 0.8)"; } 
+            else if (currentTemp < 5500) { color = "rgb(255, 220, 150)"; shadow = "0 0 35px rgba(255, 220, 150, 0.9)"; } 
+            else { color = "rgb(200, 230, 255)"; shadow = "0 0 40px rgba(150, 200, 255, 1.0)"; }
+            
+            observerColorSwatch.style.backgroundColor = color;
+            observerColorSwatch.style.boxShadow = shadow;
+            cavityObserverColorSwatch.style.backgroundColor = color;
+            cavityObserverColorSwatch.style.boxShadow = shadow;
+
+            if(autoFit) { /* setYScaleToFit(currentTemp); */ }
+            updateGraph();
+        }
+
+        document.getElementById('cavityTempSlider').addEventListener('input', (e) => updateTemp(e.target.value));
+        graphTempSlider.addEventListener('input', (e) => updateTemp(e.target.value));
+        scaleYSlider.addEventListener('input', updateGraph);
+        scaleXSlider.addEventListener('input', updateGraph);
+        
+    </script>
+</body>
+</html>
