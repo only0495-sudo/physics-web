@@ -885,7 +885,7 @@
                 guide.innerHTML = '<div class="guide-box"><h4>觀察反射 (Reflection)</h4><ul><li><strong>惠更斯波前：</strong>觀察點波源產生子波，切線形成反射波。</li><li><strong>手電筒光線：</strong>光束如同撞球般反彈，反射角等於入射角。</li></ul></div>';
             } else if (mode === 'refraction') {
                 n2Group.style.opacity = '1';
-                guide.innerHTML = '<div class="guide-box"><h4>觀察折射 (Refraction)</h4><ul><li><strong>光強度：</strong>觀察菲涅耳效應，角度越大，反射越強、折射越弱。</li><li><strong>車輪模型：</strong>觀察速度差如何導致車身轉向。</li></ul></div>';
+                guide.innerHTML = '<div class="guide-box"><h4>觀察折射 (Refraction)</h4><ul><li><strong>類比折射：</strong>發現車輪轉向與光/波的折射相似！</li><li><strong>車輪模型：</strong>觀察速度差如何導致車身轉向。</li></ul></div>';
                 if (n1 === 1.5 && n2 === 1.0) { n1 = 1.0; n2 = 1.33; } 
                 updateMediumUI();
             } else if (mode === 'fiber') {
