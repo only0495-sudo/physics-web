@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波的繞射現象</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 { color: #333; font-weight: normal; margin-bottom: 5px; }
+        
+        .container {
+            position: relative;
+            background: #fff;
+            padding: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            border-radius: 4px;
+        }
+
+        canvas {
+            background-color: #ffffff;
+            border: 2px solid #333;
+            display: block;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            background: #f9f9f9;
+            padding: 15px 25px;
+            border-radius: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 800px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 160px;
+        }
+
+        label {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        input[type="number"] {
+            width: 70px;
+            padding: 3px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: right;
+            font-family: monospace;
+            color: #00b894;
+            font-weight: bold;
+        }
+
+        input[type="range"] { cursor: pointer; width: 100%; }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checkbox-group:hover { background: #f0f0f0; }
+        .checkbox-group label { cursor: pointer; flex: 1; }
+        .checkbox-group input { cursor: pointer; margin: 0; }
+
+        .btn-group { display: flex; gap: 5px; }
+        button {
+            flex: 1;
+            padding: 8px 15px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #555;
+            transition: 0.2s;
+        }
+        button.active {
+            background: #333;
+            color: #fff;
+            border-color: #333;
+        }
+        
+        .replay-btn {
+            background-color: #d63031;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+        }
+        .replay-btn:hover { background-color: #c0392b; }
+    </style>
+</head>
+<body>
+
+    <h1>📏 波的繞射現象</h1>
+
+    <div class="container">
+        <canvas id="geoCanvas" width="600" height="400"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>模式</label>
+            <div class="btn-group">
+                <button class="active" onclick="setMode('slit')">單狹縫</button>
+                <button onclick="setMode('obstacle')">障礙物</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>
+                波長 (λ) 
+                <input type="number" id="lambdaNum" step="0.01" min="0.10" max="2.00" value="0.60">
+            </label>
+            <input type="range" id="lambdaRange" min="10" max="200" value="60">
+        </div>
+
+        <div class="control-group">
+            <label>
+                開口寬度 (d)
+                <input type="number" id="widthNum" step="0.01" min="0.10" max="2.00" value="1.20">
+            </label>
+            <input type="range" id="widthRange" min="10" max="200" value="120">
+        </div>
+
+        <div class="control-group">
+            <label>輔助顯示</label>
+            <div class="checkbox-group">
+                <input type="checkbox" id="triangleCheck">
+                <label for="triangleCheck">顯示陰影區</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="huygensCheck">
+                <label for="huygensCheck">顯示惠更斯子波</label>
+            </div>
+        </div>
+
+        <button class="replay-btn" onclick="init()">🔄 重播 / 開始</button>
+    </div>
+
+<script>
+    const canvas = document.getElementById('geoCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const PIXELS_PER_METER = 100;
+    
+    let mode = 'slit'; 
+    let waves = []; 
+    let speed = 2.0; 
+    let animationId = null;
+
+    // DOM
+    const lambdaRange = document.getElementById('lambdaRange');
+    const lambdaNum = document.getElementById('lambdaNum');
+    const widthRange = document.getElementById('widthRange');
+    const widthNum = document.getElementById('widthNum');
+    const triangleCheck = document.getElementById('triangleCheck');
+    const huygensCheck = document.getElementById('huygensCheck');
+    const btns = document.querySelectorAll('.btn-group button');
+
+    function syncLambda(source) {
+        if (source === 'range') {
+            const px = parseInt(lambdaRange.value);
+            lambdaNum.value = (px / PIXELS_PER_METER).toFixed(2);
+        } else {
+            let m = parseFloat(lambdaNum.value);
+            if (m < 0.1) m = 0.1; if (m > 2.0) m = 2.0;
+            lambdaRange.value = m * PIXELS_PER_METER;
+        }
+    }
+
+    function syncWidth(source) {
+        if (source === 'range') {
+            const px = parseInt(widthRange.value);
+            widthNum.value = (px / PIXELS_PER_METER).toFixed(2);
+        } else {
+            let m = parseFloat(widthNum.value);
+            if (m < 0.1) m = 0.1; if (m > 2.0) m = 2.0;
+            widthRange.value = m * PIXELS_PER_METER;
+        }
+    }
+
+    function init() {
+        waves = [];
+        if (animationId) cancelAnimationFrame(animationId);
+        loop();
+    }
+
+    function update() {
+        const lambdaPx = parseInt(lambdaRange.value);
+        
+        // 移動
+        for (let i = 0; i < waves.length; i++) {
+            waves[i] += speed;
+        }
+
+        // 生成
+        if (waves.length === 0) {
+            waves.push(0);
+        } else {
+            let newestWaveX = waves[waves.length - 1];
+            if (newestWaveX >= lambdaPx) {
+                waves.push(0);
+            }
+        }
+
+        // 清除
+        if (waves.length > 0 && waves[0] > canvas.width * 1.5) {
+            waves.shift();
+        }
+    }
+
+    function draw() {
+        const widthPx = parseInt(widthRange.value);
+        const lambdaPx = parseInt(lambdaRange.value);
+        
+        const wallX = 200; 
+        const cy = canvas.height / 2;
+        const halfW = widthPx / 2;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // --- 1. 計算繞射參數 ---
+        let ratio = lambdaPx / widthPx;
+        let spreadAngle;
+        if (ratio >= 0.98) {
+            spreadAngle = Math.PI / 2;
+        } else {
+            spreadAngle = Math.asin(ratio); 
+        }
+
+        // --- 2. 繪製陰影區 (最底層) ---
+        if (triangleCheck.checked) {
+            ctx.save();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.1)';
+
+            if (mode === 'obstacle') {
+                // === 障礙物模式：中間的空白三角形 ===
+                // L = 陰影長度
+                let L;
+                if (spreadAngle >= Math.PI / 2 - 0.05) { L = 0; } else { L = halfW / Math.tan(spreadAngle); }
+                let tipX = wallX + L;
+
+                ctx.beginPath();
+                ctx.moveTo(wallX, cy - halfW);
+                ctx.lineTo(tipX, cy);
+                ctx.lineTo(wallX, cy + halfW);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+            } else {
+                // === 單狹縫模式：上下兩側的動態梯形陰影 ===
+                // 陰影邊界隨著 spreadAngle 改變
+                // 波傳播範圍是 +/- spreadAngle
+                // 所以陰影邊界線的角度也是 spreadAngle
+
+                let remainingWidth = canvas.width - wallX;
+                let yOffset = remainingWidth * Math.tan(spreadAngle);
+
+                // 1. 上方陰影區
+                ctx.beginPath();
+                ctx.moveTo(wallX, 0);                 // 左上 (牆壁頂)
+                ctx.lineTo(canvas.width, 0);          // 右上 (畫面頂)
+                // 陰影下邊界 (波的上邊界)
+                let waveTopY = (cy - halfW) - yOffset;
+                ctx.lineTo(canvas.width, waveTopY);   
+                ctx.lineTo(wallX, cy - halfW);        // 回到狹縫上緣
+                ctx.closePath();
+                ctx.fill();
+                
+                // 畫出分界線
+                ctx.beginPath();
+                ctx.moveTo(wallX, cy - halfW);
+                ctx.lineTo(canvas.width, waveTopY);
+                ctx.stroke();
+
+                // 2. 下方陰影區
+                ctx.beginPath();
+                ctx.moveTo(wallX, canvas.height);     // 左下 (牆壁底)
+                ctx.lineTo(canvas.width, canvas.height); // 右下 (畫面底)
+                // 陰影上邊界 (波的下邊界)
+                let waveBottomY = (cy + halfW) + yOffset;
+                ctx.lineTo(canvas.width, waveBottomY);
+                ctx.lineTo(wallX, cy + halfW);        // 回到狹縫下緣
+                ctx.closePath();
+                ctx.fill();
+
+                // 畫出分界線
+                ctx.beginPath();
+                ctx.moveTo(wallX, cy + halfW);
+                ctx.lineTo(canvas.width, waveBottomY);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // --- 3. 繪製綠色波前 (主層) ---
+        waves.forEach(x => {
+            ctx.beginPath();
+            ctx.strokeStyle = '#00b894'; 
+            ctx.lineWidth = 3;            
+            ctx.lineCap = 'round';
+
+            if (x <= wallX) {
+                // 左側平面波
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+            } 
+            else {
+                let r = x - wallX;
+
+                if (mode === 'slit') {
+                    // 單狹縫 (寬度修正版)
+                    let topY = cy - halfW;
+                    let bottomY = cy + halfW;
+
+                    // 中間直波
+                    ctx.moveTo(x, topY);
+                    ctx.lineTo(x, bottomY);
+
+                    // 上邊緣弧
+                    ctx.moveTo(x, topY);
+                    ctx.arc(wallX, topY, r, 0, -spreadAngle, true);
+
+                    // 下邊緣弧
+                    ctx.moveTo(x, bottomY);
+                    ctx.arc(wallX, bottomY, r, 0, spreadAngle, false);
+                } 
+                else {
+                    // 障礙物
+                    // 上直波
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, cy - halfW);
+                    // 下直波
+                    ctx.moveTo(x, cy + halfW);
+                    ctx.lineTo(x, canvas.height);
+
+                    // 繞射波
+                    ctx.moveTo(x, cy - halfW);
+                    ctx.arc(wallX, cy - halfW, r, 0, spreadAngle);
+
+                    ctx.moveTo(x, cy + halfW);
+                    ctx.arc(wallX, cy + halfW, r, 0, -spreadAngle, true);
+                }
+            }
+            ctx.stroke();
+        });
+
+        // --- 4. 繪製惠更斯子波 (上層) ---
+        if (huygensCheck.checked) {
+            waves.forEach(x => {
+                if (x > wallX) { 
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(100, 100, 255, 0.5)';
+                    ctx.lineWidth = 1;
+                    
+                    let subwaveR = x - wallX; 
+
+                    if (mode === 'slit') {
+                        // 狹縫
+                        let topY = cy - halfW;
+                        const numSources = Math.max(2, Math.floor(widthPx / 20)); 
+                        const stepY = widthPx / (numSources - 1);
+
+                        for (let i = 0; i < numSources; i++) {
+                            let sourceY = topY + i * stepY;
+                            ctx.beginPath();
+                            ctx.arc(wallX, sourceY, subwaveR, -Math.PI/2, Math.PI/2); 
+                            ctx.stroke();
+                        }
+                    } else {
+                        // 障礙物：上下邊緣，只畫右半圓
+                        ctx.beginPath();
+                        ctx.arc(wallX, cy - halfW, subwaveR, -Math.PI/2, Math.PI/2); 
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(wallX, cy + halfW, subwaveR, -Math.PI/2, Math.PI/2); 
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            });
+        }
+
+        // --- 5. 繪製牆壁 (遮擋層) ---
+        ctx.fillStyle = '#2d3436';
+        if (mode === 'slit') {
+            ctx.fillRect(wallX - 3, 0, 6, cy - halfW);
+            ctx.fillRect(wallX - 3, cy + halfW, 6, canvas.height);
+        } else {
+            ctx.fillRect(wallX - 3, cy - halfW, 6, widthPx);
+        }
+    }
+
+    function loop() {
+        update();
+        draw();
+        animationId = requestAnimationFrame(loop);
+    }
+
+    function setMode(m) {
+        mode = m;
+        btns.forEach(b => b.classList.remove('active'));
+        if(m==='slit') {
+            btns[0].classList.add('active');
+            btns[1].classList.remove('active');
+        } else {
+            btns[1].classList.add('active');
+            btns[0].classList.remove('active');
+        }
+        init();
+    }
+
+    lambdaRange.addEventListener('input', () => syncLambda('range'));
+    lambdaNum.addEventListener('input', () => syncLambda('num'));
+    
+    widthRange.addEventListener('input', () => syncWidth('range'));
+    widthNum.addEventListener('input', () => syncWidth('num'));
+
+    syncLambda('range'); 
+    syncWidth('range');
+    init();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冷次定律(線圈動)</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        
+        .controls-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+
+        .flow-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 15px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        input[type="radio"] { transform: scale(1.3); cursor: pointer; }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-manual { background-color: #607D8B; color: white; }
+        .btn-enter { background-color: #4CAF50; color: white; }
+        .btn-inside { background-color: #FF9800; color: white; }
+        .btn-exit { background-color: #f44336; color: white; }
+        button:hover { opacity: 0.9; transform: scale(1.05); }
+        button.active { box-shadow: 0 0 0 3px #333; }
+
+        .slider-container { margin-top: 10px; }
+        input[type=range] { width: 80%; cursor: pointer; }
+
+        .status-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border-left: 5px solid #2196F3;
+            text-align: left;
+            line-height: 1.6;
+            min-height: 140px;
+        }
+        .status-title { font-weight: bold; font-size: 1.2em; color: #1565C0; margin-bottom: 8px; }
+        .highlight { color: #d32f2f; font-weight: bold; }
+        .note { font-size: 0.9em; color: #666; font-style: italic;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>冷次定律(線圈動)</h1>
+        
+        <div class="legend" style="display:flex; justify-content:center; gap:20px; margin-bottom:10px; font-size:0.9em;">
+            <div><span style="display:inline-block;width:10px;height:10px;background:gray;border-radius:50%;"></span> 外磁場(入)</div>
+            <div><span style="display:inline-block;width:10px;height:10px;background:blue;"></span> 電流(I)</div>
+            <div><span style="display:inline-block;width:10px;height:10px;background:#e53935;"></span> 電子流(e⁻)</div>
+        </div>
+
+        <canvas id="simCanvas" width="700" height="360"></canvas>
+
+        <div class="controls-area">
+            <div class="flow-toggle">
+                <label class="radio-label" style="color:#1565C0;">
+                    <input type="radio" name="flowType" value="current" checked onchange="setFlowType('current')">
+                    顯示電流 (I)
+                </label>
+                <label class="radio-label" style="color:#e53935;">
+                    <input type="radio" name="flowType" value="electron" onchange="setFlowType('electron')">
+                    顯示電子流 (e⁻)
+                </label>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-manual active" onclick="setMode('manual')">🖐 手動操作</button>
+                <button class="btn-enter" onclick="setMode('enter')">📸 定格：進入</button>
+                <button class="btn-inside" onclick="setMode('inside')">📸 定格：在內</button>
+                <button class="btn-exit" onclick="setMode('exit')">📸 定格：離開</button>
+            </div>
+
+            <div class="slider-container">
+                <input type="range" id="coilPos" min="0" max="600" value="50">
+            </div>
+        </div>
+
+        <div class="status-panel" id="statusText">
+            <div class="status-title">狀態：線圈在磁場外</div>
+            無感應電流。
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('coilPos');
+        const statusDiv = document.getElementById('statusText');
+
+        const fieldStart = 250;
+        const fieldWidth = 300;
+        const fieldEnd = fieldStart + fieldWidth;
+        const coilWidth = 120;
+        const coilHeight = 120;
+        const coilY = 115;
+
+        let coilX = 50; 
+        let lastCoilX = 50; 
+        let offsetCounter = 0; // 用於動畫跑動
+        let currentMode = 'manual'; 
+        let flowType = 'current'; 
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawMagneticField();
+
+            let state = determineState();
+            if (currentMode !== 'manual') {
+                coilX = state.forcedX;
+            }
+
+            // 繪製線圈框架
+            drawCoilFrame(coilX);
+
+            // 繪製流動動畫與箭頭
+            if (state.currentDir !== "none") {
+                // 1. 決定視覺方向
+                // 物理上：進入=CCW, 離開=CW (電流 I)
+                let visualDir = state.currentDir; 
+                if (flowType === 'electron') {
+                    // 電子流方向與電流相反
+                    visualDir = (state.currentDir === 'ccw') ? 'cw' : 'ccw';
+                }
+                
+                drawFlowAnimation(visualDir, coilX, flowType);
+                drawInducedField(state.currentDir, coilX); // 感應磁場永遠由電流決定
+            }
+
+            drawGalvanometer(state.currentDir, coilX);
+            updateStatusText(state);
+
+            if (currentMode === 'manual') lastCoilX = coilX;
+            
+            // 動畫計數器持續增加
+            offsetCounter += 1; 
+
+            requestAnimationFrame(draw);
+        }
+
+        function determineState() {
+            let speed = coilX - lastCoilX;
+            let fluxChange = "none";
+            let currentDir = "none"; 
+            const coilLeft = coilX;
+            const coilRight = coilX + coilWidth;
+
+            // 物理邏輯：判斷「電流 (I)」的方向
+            // 進入磁場(N入) -> 抵抗變化 -> 產生(N出) -> 電流逆時針 (CCW)
+            // 離開磁場(N入) -> 抵抗變化 -> 產生(N入) -> 電流順時針 (CW)
+
+            if (currentMode === 'manual') {
+                if (speed > 0) { // 向右
+                    if (coilRight > fieldStart && coilLeft < fieldStart) {
+                        fluxChange = "increasing"; currentDir = "ccw";
+                    } else if (coilLeft > fieldStart && coilRight < fieldEnd) {
+                        fluxChange = "constant"; currentDir = "none";
+                    } else if (coilRight > fieldEnd && coilLeft < fieldEnd) {
+                        fluxChange = "decreasing"; currentDir = "cw";
+                    }
+                } else if (speed < 0) { // 向左
+                    if (coilRight > fieldEnd && coilLeft < fieldEnd) {
+                        fluxChange = "increasing"; currentDir = "ccw"; 
+                    } else if (coilLeft > fieldStart && coilRight < fieldEnd) {
+                        fluxChange = "constant"; currentDir = "none";
+                    } else if (coilRight > fieldStart && coilLeft < fieldStart) {
+                        fluxChange = "decreasing"; currentDir = "cw"; 
+                    }
+                }
+                return { fluxChange, currentDir, speed, mode: 'manual' };
+            } 
+            else if (currentMode === 'enter') {
+                return { fluxChange: "increasing", currentDir: "ccw", speed: 1, forcedX: fieldStart - coilWidth/2 + 20, mode: 'demo' };
+            } else if (currentMode === 'inside') {
+                return { fluxChange: "constant", currentDir: "none", speed: 0, forcedX: fieldStart + fieldWidth/2 - coilWidth/2, mode: 'demo' };
+            } else if (currentMode === 'exit') {
+                return { fluxChange: "decreasing", currentDir: "cw", speed: 1, forcedX: fieldEnd - coilWidth/2 - 20, mode: 'demo' };
+            }
+        }
+
+        function drawMagneticField() {
+            ctx.fillStyle = "#e0e0e0";
+            ctx.fillRect(fieldStart, 50, fieldWidth, 250);
+            
+            ctx.fillStyle = "#d32f2f"; ctx.font = "bold 20px Arial"; ctx.textAlign = "center";
+            ctx.fillText("N (上方)", fieldStart + fieldWidth/2, 40);
+            ctx.fillStyle = "#1976D2";
+            ctx.fillText("S (下方)", fieldStart + fieldWidth/2, 320);
+
+            ctx.fillStyle = "#999"; ctx.font = "16px Arial";
+            for (let x = fieldStart + 20; x < fieldEnd; x += 40) {
+                for (let y = 70; y < 300; y += 40) ctx.fillText("✕", x, y);
+            }
+        }
+
+        function drawCoilFrame(xPos) {
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = "#ff9800"; 
+            ctx.strokeRect(xPos, coilY, coilWidth, coilHeight);
+        }
+
+        function drawFlowAnimation(dir, xPos, type) {
+            let color = (type === 'current') ? "#2979ff" : "#e53935"; 
+            let dashStyle = (type === 'current') ? [10, 10] : [5, 12];
+            
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = color;
+            ctx.setLineDash(dashStyle);
+            
+            // 這裡使用明確的路徑繪製，確保繞行方向是「順時針 (Top-Left -> Top-Right -> ...)」
+            // 這樣我們就可以精確控制 lineDashOffset 來決定視覺流動方向
+            
+            ctx.beginPath();
+            ctx.moveTo(xPos, coilY); // Top-Left
+            ctx.lineTo(xPos + coilWidth, coilY); // Top-Right
+            ctx.lineTo(xPos + coilWidth, coilY + coilHeight); // Bottom-Right
+            ctx.lineTo(xPos, coilY + coilHeight); // Bottom-Left
+            ctx.closePath(); // Back to Top-Left
+
+            // 控制虛線流動
+            // Canvas 路徑從上面畫是「順時針」繞的
+            // 若要看起來是順時針(CW)流動：offset 應該要「減少」(往前跑)
+            // 若要看起來是逆時針(CCW)流動：offset 應該要「增加」(往後退)
+            
+            if (dir === "cw") {
+                ctx.lineDashOffset = -offsetCounter * 2; 
+            } else {
+                ctx.lineDashOffset = offsetCounter * 2;
+            }
+
+            ctx.stroke();
+            ctx.setLineDash([]); // 重置
+
+            // 繪製箭頭 (保持絕對正確)
+            ctx.fillStyle = color;
+            ctx.font = "bold 20px Arial";
+            ctx.textAlign = "center"; 
+            
+            let sUp="▲", sDown="▼", sLeft="◀", sRight="▶";
+            let labelOffset = (type === 'electron') ? 28 : 25;
+            let eLabel = (type === 'electron') ? "e⁻" : "";
+            
+            if (dir === "ccw") {
+                // 視覺逆時針 (Counter-Clockwise)
+                // 上邊：向左
+                // 左邊：向下
+                // 右邊：向上
+                ctx.fillText(sLeft, xPos + coilWidth/2, coilY - 10); 
+                ctx.fillText(sDown, xPos - 15, coilY + coilHeight/2); 
+                ctx.fillText(sUp, xPos + coilWidth + 15, coilY + coilHeight/2); 
+            } else {
+                // 視覺順時針 (Clockwise)
+                // 上邊：向右
+                // 左邊：向上
+                // 右邊：向下
+                ctx.fillText(sRight, xPos + coilWidth/2, coilY - 10); 
+                ctx.fillText(sUp, xPos - 15, coilY + coilHeight/2); 
+                ctx.fillText(sDown, xPos + coilWidth + 15, coilY + coilHeight/2); 
+            }
+
+            if(type === 'electron') ctx.fillText(eLabel, xPos + coilWidth/2, coilY - labelOffset);
+        }
+
+        function drawInducedField(dir, xPos) {
+            const cx = xPos + coilWidth / 2;
+            const cy = coilY + coilHeight / 2;
+            ctx.fillStyle = "blue";
+            ctx.textAlign = "center";
+
+            if (dir === "ccw") { 
+                // 電流逆時針 -> B' 向上
+                ctx.font = "bold 16px Arial";
+                ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillText("B' (向上)", cx, cy - 25);
+            } else { 
+                // 電流順時針 -> B' 向下
+                ctx.font = "bold 24px Arial";
+                ctx.fillText("✕", cx, cy + 8);
+                ctx.font = "bold 16px Arial";
+                ctx.fillText("B' (向下)", cx, cy - 25);
+            }
+        }
+
+        function drawGalvanometer(dir, xPos) {
+            const gx = xPos + coilWidth / 2;
+            const gy = coilY + coilHeight + 10;
+            const r = 18; 
+
+            ctx.beginPath(); 
+            ctx.arc(gx, gy, r, 0, Math.PI * 2);
+            ctx.fillStyle = "white"; 
+            ctx.fill();
+            ctx.strokeStyle = "#333"; 
+            ctx.lineWidth = 3; 
+            ctx.stroke();
+
+            ctx.beginPath(); 
+            ctx.moveTo(gx, gy + 5);
+            let angle = 0;
+            // 指針永遠跟隨「電流 I」
+            if (dir === "ccw") angle = -Math.PI / 4; 
+            if (dir === "cw") angle = Math.PI / 4;   
+            
+            ctx.lineTo(gx + Math.sin(angle)*14, gy - Math.cos(angle)*14);
+            ctx.strokeStyle = "red"; 
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = "black"; 
+            ctx.font = "bold 12px Arial"; 
+            ctx.textAlign = "center";
+            ctx.fillText("G", gx, gy + 32);
+        }
+
+        function updateStatusText(state) {
+            let title = "";
+            let desc = "";
+            let badge = state.mode === 'demo' ? '(定格)' : '';
+            
+            let flowText = "";
+            if (state.currentDir !== 'none') {
+                if (flowType === 'current') {
+                    let dirName = state.currentDir === 'ccw' ? '逆時針 (CCW)' : '順時針 (CW)';
+                    flowText = `3. 感應電流(I)：<span class="highlight" style="color:#2979ff">${dirName}</span>`;
+                } else {
+                    let eDir = state.currentDir === 'ccw' ? '順時針 (CW)' : '逆時針 (CCW)';
+                    flowText = `3. 電子流(e⁻)：<span class="highlight" style="color:#e53935">${eDir}</span> <span class="note">(與電流方向相反)</span>`;
+                }
+            } else {
+                flowText = "3. 無電流/電子流";
+            }
+
+            if (state.fluxChange === "increasing") {
+                title = `狀態：進入磁場中 (Entering) ${badge}`;
+                desc = `
+                    1. 向下的磁力線數目 <span class="highlight">變多 (↑)</span>。<br>
+                    2. 線圈抵抗變化，產生 <span class="highlight">向上 (●)</span> 的感應磁場。<br>
+                    ${flowText}
+                `;
+            } else if (state.fluxChange === "constant") {
+                title = `狀態：完全在磁場內 / 無變化`;
+                desc = `無磁通量變化，無感應電流。`;
+            } else if (state.fluxChange === "decreasing") {
+                title = `狀態：離開磁場中 (Exiting) ${badge}`;
+                desc = `
+                    1. 向下的磁力線數目 <span class="highlight">變少 (↓)</span>。<br>
+                    2. 線圈抵抗變化，產生 <span class="highlight">向下 (✕)</span> 的感應磁場。<br>
+                    ${flowText}
+                `;
+            } else {
+                title = "狀態：磁場外";
+                desc = "無磁場影響。";
+            }
+
+            statusDiv.innerHTML = `<div class="status-title">${title}</div>${desc}`;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.btn-group button').forEach(btn => btn.classList.remove('active'));
+            if(mode === 'manual') document.querySelector('.btn-manual').classList.add('active');
+            if(mode === 'enter') document.querySelector('.btn-enter').classList.add('active');
+            if(mode === 'inside') document.querySelector('.btn-inside').classList.add('active');
+            if(mode === 'exit') document.querySelector('.btn-exit').classList.add('active');
+
+            if (mode === 'manual') {
+                slider.disabled = false;
+                coilX = 50; slider.value = 50;
+            } else {
+                slider.disabled = true;
+            }
+        }
+
+        function setFlowType(type) {
+            flowType = type;
+        }
+
+        slider.addEventListener('input', (e) => {
+            if(currentMode === 'manual') coilX = parseInt(e.target.value);
+        });
+
+        requestAnimationFrame(draw);
+
+    </script>
+</body>
+</html>

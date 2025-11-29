@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>惠更斯原理模擬器</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+        }
+        button, select {
+            padding: 8px 16px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            color: #333;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        button:hover, select:hover {
+            background-color: #f0f0f0;
+            border-color: #bbb;
+        }
+        
+        button.mode-btn {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+        button.mode-btn.active {
+            background-color: #1976d2;
+            color: white;
+            border-color: #1565c0;
+            font-weight: bold;
+        }
+
+        /* 視圖切換按鈕 */
+        #btnToggleHuygens {
+            border: 1px solid #d1c4e9;
+            color: #512da8;
+            background-color: #ede7f6;
+        }
+        /* 當處於"隱藏模式"(等待被點開)時的樣式 */
+        #btnToggleHuygens.hidden-mode {
+            background-color: #7e57c2; 
+            color: white;
+            border-color: #5e35b1;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: pulse 2s infinite; /* 加入輕微跳動效果吸引點擊 */
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        #btnPause {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+            min-width: 80px;
+        }
+        #btnPause.paused {
+            background-color: #c62828;
+            color: white;
+        }
+
+        select {
+            background-color: #f1f8e9;
+            color: #33691e;
+            border: 1px solid #dcedc8;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 2px solid #ddd;
+        }
+        canvas { display: block; }
+
+        .legend {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .line { width: 20px; height: 3px; display: inline-block; }
+        .dashed { border-top: 2px dashed; height: 0; width: 20px; }
+        
+        .color-source { background-color: #e67e22; }
+        .color-wavelet { border-color: #27ae60; color: #27ae60; }
+        .color-wavefront { background-color: #27ae60; }
+
+        .explanation {
+            max-width: 800px;
+            margin-top: 20px;
+            background: #fff8e1;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #e67e22;
+            line-height: 1.6;
+        }
+        .explanation h3 {
+            margin-top: 0;
+            color: #e65100;
+        }
+        .divider {
+            width: 1px; height: 24px; background: #ddd; margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>惠更斯原理模擬 (Huygens' Principle)</h1>
+
+    <div class="controls">
+        <button id="btnLine" class="mode-btn active" onclick="setMode('line')">直線波</button>
+        <button id="btnCircle" class="mode-btn" onclick="setMode('circle')">圓形波</button>
+        
+        <div class="divider"></div>
+
+        <button id="btnToggleHuygens" class="hidden-mode" onclick="toggleHuygens()">顯示惠更斯細節</button>
+        
+        <div class="divider"></div>
+        
+        <button id="btnPause" onclick="togglePause()">暫停</button>
+        
+        <select id="speedSelect" onchange="setSpeed(this.value)">
+            <option value="1.0">速度：正常</option>
+            <option value="0.5">速度：慢速</option>
+            <option value="0.2">速度：極慢</option>
+        </select>
+
+        <div class="divider"></div>
+
+        <button onclick="resetSimulation()">重播</button>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="simCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><span class="dot color-source"></span> 點波源</div>
+        <div class="legend-item"><span class="dashed color-wavelet"></span> 球型子波</div>
+        <div class="legend-item"><span class="line color-wavefront"></span> 新波前 (包絡線)</div>
+    </div>
+
+    <div class="explanation">
+        <h3>給同學的觀看指南：</h3>
+        <ul>
+            <li><strong>1. 觀察波動：</strong> <br>
+                看著畫面中的波不斷前進。試著思考一下：波為什麼會這樣傳遞？如果我們把時間暫停，在波前上的每一個點，接下來會發生什麼事？</li>
+            
+            <li><strong>2. 揭開原理：</strong> <br>
+                點擊上方紫色的<strong>「顯示惠更斯細節」</strong>按鈕。你會看到波前上出現了許多「橘色小點」，每一個點都像是一個獨立的石頭丟進水裡，產生圓形的「綠色虛線波紋（子波）」。</li>
+            
+            <li><strong>3. 尋找規律：</strong> <br>
+                仔細觀察那些綠色虛線圓圈的最外緣。你會發現，新的波前（綠色實線）剛好就是所有小圓圈的<strong>切線（包絡線）</strong>。這就是惠更斯原理的核心概念！建議切換到「極慢速」看得更清楚。</li>
+        </ul>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let mode = 'line'; 
+        let time = 0;       
+        let pixelsPerUnit = 2; 
+        let maxTime = 120;  
+        let animationId;
+        
+        let isPaused = false;
+        let speedMultiplier = 1.0; 
+        let showHuygensDetails = false; // 預設關閉
+
+        let lineX = 100;
+        let circleRadius = 50;
+        let centerX = 100;
+        let centerY = canvas.height / 2;
+
+        function init() {
+            setMode('line');
+        }
+
+        function setMode(newMode) {
+            mode = newMode;
+            document.getElementById('btnLine').className = mode === 'line' ? 'mode-btn active' : 'mode-btn';
+            document.getElementById('btnCircle').className = mode === 'circle' ? 'mode-btn active' : 'mode-btn';
+            resetSimulation();
+        }
+
+        function toggleHuygens() {
+            showHuygensDetails = !showHuygensDetails;
+            const btn = document.getElementById('btnToggleHuygens');
+            if (showHuygensDetails) {
+                btn.innerText = "隱藏惠更斯細節";
+                btn.classList.remove('hidden-mode');
+            } else {
+                btn.innerText = "顯示惠更斯細節";
+                btn.classList.add('hidden-mode');
+            }
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btnPause');
+            if (isPaused) {
+                btn.innerText = "繼續播放";
+                btn.classList.add('paused');
+            } else {
+                btn.innerText = "暫停";
+                btn.classList.remove('paused');
+            }
+        }
+
+        function setSpeed(val) {
+            speedMultiplier = parseFloat(val);
+        }
+
+        function resetSimulation() {
+            time = 0;
+            lineX = 100;
+            circleRadius = 50;
+        }
+
+        function drawPoint(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#e67e22'; 
+            ctx.fill();
+        }
+
+        function drawDashedCircle(x, y, r, opacity) {
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(39, 174, 96, ${opacity})`;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]); 
+            ctx.stroke();
+            ctx.setLineDash([]); 
+        }
+
+        function drawWavefrontLine(x, opacity) {
+            ctx.beginPath();
+            ctx.moveTo(x, 50);
+            ctx.lineTo(x, canvas.height - 50);
+            ctx.strokeStyle = `rgba(39, 174, 96, ${opacity})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        function drawWavefrontArc(cx, cy, r, opacity) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, -Math.PI/3, Math.PI/3); 
+            ctx.strokeStyle = `rgba(39, 174, 96, ${opacity})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        function drawArrow(x, y, label) {
+             ctx.beginPath();
+             ctx.moveTo(x, y);
+             ctx.lineTo(x + 30, y);
+             ctx.strokeStyle = "#3498db";
+             ctx.lineWidth = 2;
+             ctx.stroke();
+             
+             ctx.beginPath();
+             ctx.moveTo(x + 30, y);
+             ctx.lineTo(x + 25, y - 5);
+             ctx.lineTo(x + 25, y + 5);
+             ctx.fillStyle = "#3498db";
+             ctx.fill();
+             
+             ctx.fillStyle = "#3498db";
+             ctx.font = "16px Arial";
+             ctx.fillText(label, x + 35, y + 5);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#f8f8f8';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+            for(let i=0; i<canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke(); }
+
+            let waveletRadius = time * pixelsPerUnit;
+            let alpha = 1; 
+
+            if (mode === 'line') {
+                let currentSourceX = lineX;
+                let numPoints = 12;
+                let gap = (canvas.height - 100) / (numPoints - 1);
+                
+                for (let i = 0; i < numPoints; i++) {
+                    let py = 50 + i * gap;
+                    if (showHuygensDetails) {
+                        if (time > 0) drawDashedCircle(currentSourceX, py, waveletRadius, alpha);
+                        drawPoint(currentSourceX, py);
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(currentSourceX, 50);
+                ctx.lineTo(currentSourceX, canvas.height - 50);
+                ctx.strokeStyle = '#e67e22'; 
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                let newWavefrontX = currentSourceX + waveletRadius;
+                ctx.fillStyle = "#666";
+                ctx.font = "16px Arial";
+                ctx.fillText("t = 0", currentSourceX - 20, canvas.height - 20);
+                
+                if (time > 0) {
+                    drawWavefrontLine(newWavefrontX, alpha);
+                    ctx.fillText("t = Δt", newWavefrontX - 20, canvas.height - 20);
+                    drawArrow(newWavefrontX, canvas.height/2, "v");
+                }
+            } 
+            else if (mode === 'circle') {
+                let currentRadius = circleRadius;
+                let numPoints = Math.floor(currentRadius / 8); 
+                if (numPoints < 6) numPoints = 6;
+                let startAngle = -Math.PI / 3;
+                let endAngle = Math.PI / 3;
+                let angleStep = (endAngle - startAngle) / (numPoints - 1);
+
+                for (let i = 0; i < numPoints; i++) {
+                    let theta = startAngle + i * angleStep;
+                    let px = centerX + currentRadius * Math.cos(theta);
+                    let py = centerY + currentRadius * Math.sin(theta);
+                    
+                    if (showHuygensDetails) {
+                        if (time > 0) drawDashedCircle(px, py, waveletRadius, alpha);
+                        drawPoint(px, py);
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, currentRadius, startAngle, endAngle);
+                ctx.strokeStyle = '#e67e22';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                if (time > 0) {
+                    let newRadius = currentRadius + waveletRadius;
+                    drawWavefrontArc(centerX, centerY, newRadius, alpha);
+                    
+                    let txtX = centerX + newRadius * Math.cos(Math.PI/4);
+                    let txtY = centerY + newRadius * Math.sin(Math.PI/4);
+                    ctx.fillStyle = "#666";
+                    ctx.fillText("t = Δt", txtX + 10, txtY);
+                    
+                    let vecX = centerX + newRadius;
+                    let vecY = centerY;
+                    drawArrow(vecX, vecY, "v");
+                } else {
+                     let txtX = centerX + currentRadius * Math.cos(Math.PI/4);
+                     let txtY = centerY + currentRadius * Math.sin(Math.PI/4);
+                     ctx.fillStyle = "#666";
+                     ctx.fillText("t = 0", txtX + 10, txtY);
+                }
+            }
+
+            if (!isPaused) {
+                time += speedMultiplier;
+                if (time > maxTime) {
+                    time = 0;
+                    if (mode === 'line') {
+                        lineX += maxTime * pixelsPerUnit;
+                        if (lineX > canvas.width - 150) lineX = 100;
+                    } else {
+                        circleRadius += maxTime * pixelsPerUnit;
+                        if (circleRadius > canvas.height/2 + 50) circleRadius = 50;
+                    }
+                }
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        animate();
+
+    </script>
+</body>
+</html>

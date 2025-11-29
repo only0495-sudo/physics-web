@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    background-color: #f5f5f7; 
+    color: #333; 
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 95%;
+    max-width: 950px;
+  }
+
+  .controls {
+    width: 100%;
+    background: linear-gradient(to bottom, #ffffff, #e0e0e0);
+    padding: 18px 25px;
+    border-radius: 8px 8px 0 0;
+    border-bottom: 1px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+  }
+
+  h3 { margin: 0 0 15px 0; color: #a0522d; font-size: 1.3rem; letter-spacing: 1px;}
+
+  .control-row {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+  }
+
+  .main-label { 
+      cursor: pointer; display: flex; align-items: center; 
+      margin-bottom: 8px; font-size: 1.05rem; font-weight: 500; 
+      color: #333; 
+  }
+  input[type="checkbox"], input[type="radio"] { 
+      transform: scale(1.2); margin-right: 10px; cursor: pointer; accent-color: #a0522d;
+  }
+
+  .sub-options { margin-left: 30px; display: flex; gap: 20px; }
+  .radio-label { font-size: 0.9rem; color: #555; cursor: pointer; display: flex; align-items: center;}
+  .electron { color: #008080; font-weight: bold; } 
+  .positive { color: #800080; font-weight: bold; } 
+
+  .instruction { margin: 15px 0 0 0; color: #666; font-size: 0.85rem; border-top: 1px solid #ccc; padding-top: 10px;}
+
+  canvas {
+    background: #ffffff;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+    cursor: grab;
+    border: 1px solid #ddd; 
+    border-top: none;
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  canvas:active { cursor: grabbing; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="controls">
+    <h3>冷次定律(磁鐵動) </h3>
+      <div class="control-row">
+      <div class="option-group">
+        <label class="main-label">
+          <input type="checkbox" id="showFieldLines" checked> 顯示磁力線
+        </label>
+      </div>
+
+      <div class="option-group">
+        <label class="main-label">
+          <input type="checkbox" id="showCharges"> 顯示導線電荷
+        </label>
+        <div class="sub-options">
+          <label class="radio-label electron">
+            <input type="radio" name="chargeType" value="electron" checked> 電子流 (負電荷)
+          </label>
+          <label class="radio-label positive">
+            <input type="radio" name="chargeType" value="positive"> 電流 (正電荷)
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <p class="instruction">
+      操作：拖曳磁鐵。觀察左方<b>電流方向</b>指示器 (已修正方向)。
+    </p>
+  </div>
+  
+  <canvas id="simCanvas" width="900" height="600"></canvas>
+</div>
+
+<script>
+window.onload = function() {
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // --- 物件參數 ---
+    let magnet = { 
+        x: 750, y: height/2 - 50, 
+        w: 200, h: 70, 
+        dragging: false 
+    };
+
+    let coil = { 
+        x: 400, y: height/2 - 50, 
+        radius: 80, 
+        length: 320, 
+        turns: 12,
+        wireThickness: 10 
+    };
+
+    let lastMagnetX = magnet.x;
+    let inducedCurrent = 0;
+    let chargeOffset = 0;
+    let loadingAngle = 0;
+
+    const ui = {
+        showField: true,
+        showCharges: false,
+        chargeType: 'electron'
+    };
+
+    document.getElementById('showFieldLines').addEventListener('change', e => ui.showField = e.target.checked);
+    document.getElementById('showCharges').addEventListener('change', e => ui.showCharges = e.target.checked);
+    document.querySelectorAll('input[name="chargeType"]').forEach(r => {
+        r.addEventListener('change', e => ui.chargeType = e.target.value);
+    });
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+    function startDrag(e) {
+        const p = getPos(e);
+        if (p.x > magnet.x - magnet.w/2 - 30 && p.x < magnet.x + magnet.w/2 + 30 &&
+            p.y > magnet.y - magnet.h/2 - 30 && p.y < magnet.y + magnet.h/2 + 30) {
+            magnet.dragging = true;
+        }
+    }
+    function moveDrag(e) {
+        if (!magnet.dragging) return;
+        e.preventDefault();
+        const p = getPos(e);
+        magnet.x = p.x;
+        if (magnet.x < 50) magnet.x = 50;
+        if (magnet.x > width - 50) magnet.x = width - 50;
+    }
+    function endDrag() { magnet.dragging = false; }
+
+    canvas.addEventListener('mousedown', startDrag);
+    canvas.addEventListener('mousemove', moveDrag);
+    window.addEventListener('mouseup', endDrag);
+    canvas.addEventListener('touchstart', startDrag, {passive: false});
+    canvas.addEventListener('touchmove', moveDrag, {passive: false});
+    window.addEventListener('touchend', endDrag);
+
+    function generateSmoothCoilPaths() {
+        const pointsPerTurn = 50; 
+        const totalSteps = coil.turns * pointsPerTurn;
+        const startX = coil.x - coil.length / 2;
+        
+        let backSegments = [];
+        let frontSegments = [];
+        let currentPath = [];
+        let isCurrentPathBack = true; 
+        
+        for (let i = 0; i <= totalSteps; i++) {
+            let t = i / totalSteps; 
+            let angle = t * coil.turns * 2 * Math.PI;
+            
+            let px = startX + t * coil.length;
+            let py = coil.y + coil.radius * Math.sin(angle);
+            let pz = Math.cos(angle); 
+            
+            let isBack = pz < 0;
+            
+            if (isBack !== isCurrentPathBack) {
+                if (currentPath.length > 1) {
+                    if (isCurrentPathBack) backSegments.push(currentPath);
+                    else frontSegments.push(currentPath);
+                }
+                let lastPt = currentPath[currentPath.length-1];
+                currentPath = lastPt ? [lastPt] : [];
+                isCurrentPathBack = isBack;
+            }
+            
+            currentPath.push({x: px, y: py, z: pz, angle: angle});
+        }
+        if (currentPath.length > 1) {
+            if (isCurrentPathBack) backSegments.push(currentPath);
+            else frontSegments.push(currentPath);
+        }
+        
+        return { backSegments, frontSegments };
+    }
+
+    // --- 繪圖函數 ---
+    function drawFieldLines() {
+        if (!ui.showField) return;
+        ctx.save();
+        // **磁力線顏色調整為更深**
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)'; // 透明度從 0.15 提高到 0.4
+        ctx.lineWidth = 1.5;
+        
+        const mx = magnet.x, my = magnet.y, mw = magnet.w, mh = magnet.h;
+        const nX = mx - mw/2; 
+        const sX = mx + mw/2; 
+        
+        for (let layer = 1; layer <= 4; layer++) {
+            let scale = layer * 55;
+            let p0 = {x: nX, y: my - mh/4};
+            let p1 = {x: nX - scale, y: my - scale - 60};
+            let p2 = {x: sX + scale, y: my - scale - 60};
+            let p3 = {x: sX, y: my - mh/4};
+            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y); ctx.stroke();
+            drawArrowOnBezierTop(p0, p1, p2, p3);
+
+            p0 = {x: nX, y: my + mh/4};
+            p1 = {x: nX - scale, y: my + scale + 60};
+            p2 = {x: sX + scale, y: my + scale + 60};
+            p3 = {x: sX, y: my + mh/4};
+            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y); ctx.stroke();
+            drawArrowOnBezierBottom(p0, p1, p2, p3);
+        }
+        ctx.restore();
+    }
+    
+    function drawArrowOnBezierTop(p0, p1, p2, p3) {
+        let arrowX = magnet.x;
+        let arrowY = 0.125*p0.y + 0.375*p1.y + 0.375*p2.y + 0.125*p3.y;
+        drawArrow(arrowX, arrowY);
+    }
+    
+    function drawArrowOnBezierBottom(p0, p1, p2, p3) {
+        let arrowX = magnet.x;
+        let arrowY = 0.125*p0.y + 0.375*p1.y + 0.375*p2.y + 0.125*p3.y;
+        drawArrow(arrowX, arrowY);
+    }
+
+    function drawArrow(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(-5, -5); ctx.lineTo(5, 0); ctx.lineTo(-5, 5);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawMagnet() {
+        const mx = magnet.x, my = magnet.y, w = magnet.w, h = magnet.h;
+        ctx.save();
+        ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(0,0,0,0.3)'; 
+        ctx.fillStyle = '#d32f2f'; ctx.fillRect(mx - w/2, my - h/2, w/2, h);
+        ctx.fillStyle = '#1976d2'; ctx.fillRect(mx, my - h/2, w/2, h);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Arial'; 
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('N', mx - w/4, my); 
+        ctx.fillText('S', mx + w/4, my);
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1;
+        ctx.strokeRect(mx - w/2, my - h/2, w, h);
+        ctx.restore();
+    }
+
+    function drawCoilSegments(segments, isBack) {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = coil.wireThickness;
+
+        if (isBack) {
+            ctx.strokeStyle = '#5d4037'; 
+        } else {
+            const grad = ctx.createLinearGradient(0, coil.y - coil.radius, 0, coil.y + coil.radius);
+            grad.addColorStop(0, '#a0522d'); 
+            grad.addColorStop(0.5, '#d2691e'); 
+            grad.addColorStop(1, '#a0522d');
+            ctx.strokeStyle = grad;
+        }
+        segments.forEach(path => {
+            if (path.length < 2) return;
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.stroke();
+        });
+    }
+
+    function drawMovingCharges(drawBackLayer) {
+        if (!ui.showCharges) return;
+
+        const chargesCount = 120;
+        const spacing = coil.length / coil.turns;
+        const startX = coil.x - coil.length / 2;
+        const color = (ui.chargeType === 'electron') ? '#00838f' : '#8e24aa'; 
+        ctx.fillStyle = color;
+
+        for (let i = 0; i < chargesCount; i++) {
+            let baseT = i / chargesCount;
+            let t = (baseT + chargeOffset) % 1;
+            if (t < 0) t += 1;
+            let angle = t * coil.turns * 2 * Math.PI;
+            let pz = Math.cos(angle);
+            let isBack = pz < 0;
+            if (isBack === drawBackLayer) {
+                let px = startX + t * coil.length;
+                let py = coil.y + coil.radius * Math.sin(angle);
+                let size = isBack ? 3 : 5; 
+                ctx.beginPath();
+                ctx.arc(px, py, size, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // --- 修正版：Loading 圈圈 (反轉方向) ---
+    function drawLoadingIndicator() {
+        const cx = coil.x - coil.length / 2 - 60; 
+        const cy = coil.y; 
+        const radius = 25;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        ctx.font = '14px Segoe UI';
+        ctx.fillStyle = '#333'; 
+        ctx.textAlign = 'center';
+        ctx.fillText("Current", 0, -radius - 12);
+
+        if (Math.abs(inducedCurrent) < 0.1) {
+            ctx.strokeStyle = '#ccc'; 
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI*2);
+            ctx.stroke();
+            ctx.restore();
+            return;
+        }
+
+        loadingAngle -= inducedCurrent * 0.15; // 反轉旋轉方向
+
+        ctx.rotate(loadingAngle);
+
+        // 鏡像翻轉繪圖，使箭頭指向修正後的方向 (CCW) 
+        // 只有在繪製弧線和箭頭時才應用此翻轉
+        ctx.scale(-1, 1); 
+
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#f9a825'; 
+
+        for(let i=0; i<3; i++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, i * (Math.PI*2/3), i * (Math.PI*2/3) + Math.PI/2);
+            ctx.stroke();
+        }
+        
+        // 畫小箭頭
+        ctx.save();
+        ctx.rotate(Math.PI/2); 
+        ctx.translate(radius, 0);
+        ctx.fillStyle = '#f9a825';
+        ctx.beginPath();
+        ctx.moveTo(0, -6); ctx.lineTo(6, 4); ctx.lineTo(-6, 4);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.restore();
+    }
+
+    function drawLightBulb() {
+        const bulbX = coil.x;
+        const bulbY = coil.y + coil.radius + 120;
+        const bulbRadius = 30;
+
+        let brightness = Math.min(Math.abs(inducedCurrent) * 0.8, 1.0); 
+        
+        ctx.save();
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(coil.x - coil.length/2, coil.y); ctx.lineTo(coil.x - coil.length/2, bulbY - 20); ctx.lineTo(bulbX - 15, bulbY - 20); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(coil.x + coil.length/2, coil.y); ctx.lineTo(coil.x + coil.length/2, bulbY - 20); ctx.lineTo(bulbX + 15, bulbY - 20); ctx.stroke();
+
+        ctx.translate(bulbX, bulbY);
+
+        if (brightness > 0.01) {
+            let glowRadius = bulbRadius * (1.5 + brightness * 2); 
+            let grd = ctx.createRadialGradient(0, 0, bulbRadius * 0.4, 0, 0, glowRadius);
+            grd.addColorStop(0, `rgba(255, 235, 59, ${brightness})`); 
+            grd.addColorStop(0.5, `rgba(255, 152, 0, ${brightness * 0.6})`); 
+            grd.addColorStop(1, 'rgba(255, 152, 0, 0)');
+            ctx.fillStyle = grd;
+            ctx.beginPath(); ctx.arc(0, 0, glowRadius, 0, Math.PI * 2); ctx.fill();
+        }
+
+        ctx.beginPath(); ctx.arc(0, 0, bulbRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 200, 200, 0.2)`; ctx.fill();
+        ctx.strokeStyle = '#666'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-5, -10); ctx.lineTo(0, 0); ctx.lineTo(5, -10); ctx.lineTo(10, 0);
+        if (brightness > 0.1) {
+            ctx.strokeStyle = '#e65100'; ctx.lineWidth = 2 + brightness * 2; 
+        } else {
+            ctx.strokeStyle = '#888'; ctx.lineWidth = 2;
+        }
+        ctx.stroke();
+        ctx.fillStyle = '#555'; ctx.fillRect(-12, bulbRadius - 2, 24, 15);
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-12, bulbRadius + 3); ctx.lineTo(12, bulbRadius + 3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-12, bulbRadius + 8); ctx.lineTo(12, bulbRadius + 8); ctx.stroke();
+        ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, bulbRadius + 15, 5, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        let dx = magnet.x - lastMagnetX;
+        let dist = magnet.x - coil.x;
+        let interaction = Math.exp(-0.00004 * dist * dist);
+        let targetCurrent = -dx * interaction * 2.0;
+        
+        inducedCurrent += (targetCurrent - inducedCurrent) * 0.2;
+        lastMagnetX = magnet.x;
+
+        if (Math.abs(inducedCurrent) > 0.05) {
+            let speed = inducedCurrent * 0.0005; 
+            if (ui.chargeType === 'electron') speed *= -1;
+            chargeOffset += speed;
+        }
+
+        const paths = generateSmoothCoilPaths();
+
+        drawFieldLines();
+        drawCoilSegments(paths.backSegments, true);
+        drawMovingCharges(true); 
+        drawLightBulb();
+        drawMagnet();
+        drawCoilSegments(paths.frontSegments, false);
+        drawMovingCharges(false); 
+        drawLoadingIndicator();
+
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波的干涉與雙波源干涉</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            padding: 10px;
+            color: #333;
+            user-select: none; 
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 850px;
+            width: 100%;
+            text-align: center;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 分頁樣式 */
+        .nav-tabs {
+            display: flex;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            height: 45px;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            font-size: 15px;
+            transition: background 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-item:hover { background-color: #e9ecef; }
+        .nav-item.active {
+            background-color: white;
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+        }
+
+        /* 畫布區域 */
+        .canvas-wrapper {
+            position: relative;
+            background: white; 
+            margin: 10px auto;
+            border: 1px solid #ccc;
+            image-rendering: pixelated; 
+            width: 95%; 
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        #canvas1D { background-color: #fff; }
+
+        /* 圖例 */
+        .legend {
+            margin: 0 0 10px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            font-size: 12px;
+            color: #666;
+            flex-wrap: wrap;
+        }
+        
+        .line-ex { width: 20px; height: 0; border-bottom: 2px solid; display: inline-block; vertical-align: middle; margin-right: 4px;}
+        .wave-crest-ex { 
+            width: 20px; height: 10px; 
+            background: linear-gradient(to right, white, #007bff);
+            border: 1px solid #ddd;
+            display: inline-block; vertical-align: middle; margin-right: 4px;
+        }
+
+        /* 控制面板 */
+        .controls-area {
+            padding: 15px;
+            background-color: #fafafa;
+            border-top: 1px solid #eee;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            align-items: start;
+        }
+
+        .control-group {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            text-align: left;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .control-group h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #555;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+            font-weight: 700;
+        }
+
+        label {
+            margin-bottom: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #444;
+            justify-content: space-between; 
+        }
+
+        label span { font-weight: bold; color: #007bff; font-size: 13px; min-width: 60px; text-align: right; font-family: monospace;}
+
+        input[type="range"] { 
+            width: 100%; 
+            margin: 2px 0 8px 0; 
+            height: 4px; 
+        }
+        input[type="checkbox"], input[type="radio"] { margin-right: 6px; }
+
+        .btn-row { display: flex; gap: 8px; margin-bottom: 5px; }
+        
+        button {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            background-color: #fff;
+            transition: 0.1s;
+        }
+        button:hover { background-color: #f1f3f5; }
+        
+        #btnPlay { background-color: #007bff; color: white; border: none;}
+        #btnPlay:hover { background-color: #0069d9; }
+        
+        .step-btn { flex: 0 0 30px; padding: 0; font-size: 16px; line-height: 28px;}
+
+        .hidden { display: none !important; }
+
+        .preset-btn {
+            font-size: 11px; padding: 2px 5px; margin-left: 5px; border-radius: 3px; background: #e9ecef;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="nav-tabs">
+        <div class="nav-item active" onclick="switchMode('1D')">1. 繩波脈衝 (1D)</div>
+        <div class="nav-item" onclick="switchMode('2D')">2. 雙源干涉 (2D)</div>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="canvas1D" width="800" height="350"></canvas>
+        <canvas id="canvas2D" width="400" height="220" class="hidden"></canvas>
+    </div>
+
+    <div id="legend1D" class="legend">
+        <span><div class="line-ex" style="border-width:4px; border-color: saddlebrown;"></div>合成波</span>
+        <span><div class="line-ex" style="border-style:dashed; border-color:#00aaff;"></div>向右波</span>
+        <span><div class="line-ex" style="border-style:dashed; border-color:#ff3399;"></div>向左波</span>
+    </div>
+
+    <div id="legend2D" class="legend hidden">
+        <span><div class="wave-crest-ex"></div>波峰 (藍)</span>
+        <span style="color:#999;">(波谷無色)</span>
+        <span><div class="line-ex" style="border-style:dashed; border-color: #0056b3;"></div>腹線 (A)</span>
+        <span><div class="line-ex" style="border-style:dashed; border-color: #999;"></div>節線 (N)</span>
+    </div>
+
+    <div class="controls-area">
+        <div class="controls-grid">
+            
+            <div class="control-group">
+                <h4>播放控制</h4>
+                <div class="btn-row">
+                    <button id="btnPlay">暫停 / 播放</button>
+                    <button id="btnReset">重置</button>
+                </div>
+                <div class="btn-row">
+                    <button id="btnPrev" class="step-btn">⏮</button>
+                    <span style="font-size:12px; color:#666; align-self:center; flex:1; text-align:center;">微調</span>
+                    <button id="btnNext" class="step-btn">⏭</button>
+                </div>
+                <label style="color:#d9534f; margin-top:5px; justify-content: start;">
+                    <input type="checkbox" id="chkSlowMotion"> 
+                    慢動作演示
+                </label>
+            </div>
+
+            <div id="controls1D" class="control-group">
+                <h4>1D 繩波設定</h4>
+                <label style="justify-content: start;"><input type="checkbox" id="chkShowComponents" checked> 顯示成分波 (虛線)</label>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #eee;">
+                    <label style="justify-content: start;"><input type="radio" name="interferenceType" value="destructive" checked> 破壞性干涉 (反相)</label>
+                    <label style="justify-content: start;"><input type="radio" name="interferenceType" value="constructive"> 建設性干涉 (同相)</label>
+                </div>
+            </div>
+
+            <div id="controls2D_1" class="control-group hidden">
+                <h4>2D 參數設定</h4>
+                <label>兩源距離 (d)<span id="valDistance">8.0 m</span></label>
+                <input type="range" id="rngDistance" min="20" max="180" value="80">
+                
+                <label>波長 (λ)<span id="valWavelength">2.5 m</span></label>
+                <input type="range" id="rngWavelength" min="15" max="60" value="25">
+            </div>
+
+            <div id="controls2D_2" class="control-group hidden">
+                <h4>2D 相位與顯示</h4>
+                <label>
+                    相位差 (φ)
+                    <span id="valPhase">0°</span>
+                </label>
+                <input type="range" id="rngPhase" min="0" max="360" step="1" value="0">
+                
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <button class="preset-btn" onclick="setPhase(0)">同相 (0°)</button>
+                    <button class="preset-btn" onclick="setPhase(180)">反相 (180°)</button>
+                </div>
+                
+                <div>
+                    <label style="color:#007bff; justify-content: start;">
+                        <input type="checkbox" id="chkShowLines"> 顯示干涉線與標籤
+                    </label>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 全域狀態 ---
+    let currentMode = '1D';
+    let isRunning = true;
+    
+    const PX_PER_METER = 10.0; 
+    
+    // 速度設定
+    const WAVE_VELOCITY = 1.5; 
+    const SLOW_FACTOR = 0.2; 
+    const SPEED_1D = 1.0; 
+
+    // --- 1D 變數 ---
+    const c1 = document.getElementById('canvas1D');
+    const ctx1 = c1.getContext('2d');
+    let pLeft = -150, pRight = c1.width + 150;
+    
+    // --- 2D 變數 ---
+    const c2 = document.getElementById('canvas2D');
+    const ctx2 = c2.getContext('2d', { alpha: false });
+    const w2 = c2.width, h2 = c2.height;
+    const imgData = ctx2.createImageData(w2, h2);
+    const pixels = imgData.data;
+    
+    let timeTick = 0; 
+
+    // --- 初始化 ---
+    function switchMode(mode) {
+        currentMode = mode;
+        
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        const is1D = (mode === '1D');
+        c1.classList.toggle('hidden', !is1D);
+        c2.classList.toggle('hidden', is1D);
+        
+        document.getElementById('controls1D').classList.toggle('hidden', !is1D);
+        document.getElementById('controls2D_1').classList.toggle('hidden', is1D);
+        document.getElementById('controls2D_2').classList.toggle('hidden', is1D);
+        
+        document.getElementById('legend1D').classList.toggle('hidden', !is1D);
+        document.getElementById('legend2D').classList.toggle('hidden', is1D);
+
+        resetSim();
+    }
+
+    function resetSim() {
+        if(currentMode === '1D') {
+            pLeft = -150; pRight = c1.width + 150;
+        } else {
+            timeTick = 0;
+        }
+        if(!isRunning) togglePlay(true);
+    }
+
+    function togglePlay(state) {
+        isRunning = state;
+        const btn = document.getElementById('btnPlay');
+        btn.innerText = isRunning ? "暫停" : "播放";
+        btn.style.backgroundColor = isRunning ? "#007bff" : "#28a745";
+    }
+
+    // --- Loop ---
+    function loop() {
+        if(isRunning) updatePhysics();
+        render();
+        requestAnimationFrame(loop);
+    }
+
+    function updatePhysics() {
+        const isSlow = document.getElementById('chkSlowMotion').checked;
+        if(currentMode === '1D') {
+            const step = isSlow ? (SPEED_1D * SLOW_FACTOR) : SPEED_1D;
+            pLeft += step; pRight -= step;
+            if(pLeft > c1.width + 450) resetSim();
+        } else {
+            timeTick += (isSlow ? SLOW_FACTOR : 1.0);
+        }
+    }
+
+    function render() {
+        if(currentMode === '1D') draw1D();
+        else draw2D();
+    }
+
+    // --- 1D Drawing ---
+    function gaussian(x, c, a, w) { return a * Math.exp(-Math.pow(x-c, 2)/w); }
+    function draw1D() {
+        ctx1.clearRect(0,0,c1.width,c1.height);
+        const cy = c1.height/2;
+        const width = 2000, amp = 80;
+        
+        ctx1.beginPath(); ctx1.strokeStyle='#eee'; ctx1.lineWidth=1; 
+        ctx1.moveTo(0,cy); ctx1.lineTo(c1.width,cy); ctx1.stroke();
+
+        const showC = document.getElementById('chkShowComponents').checked;
+        const type = document.querySelector('input[name="interferenceType"]:checked').value;
+        const amp2 = (type==='constructive') ? -amp : amp;
+
+        if(showC) {
+            ctx1.lineWidth=2; ctx1.setLineDash([4,4]);
+            ctx1.beginPath(); ctx1.strokeStyle='#00aaff';
+            for(let x=0;x<c1.width;x+=4) {
+                let y = gaussian(x,pLeft,-amp,width);
+                if(Math.abs(y)>0.5) ctx1.lineTo(x,cy+y); else ctx1.moveTo(x,cy);
+            }
+            ctx1.stroke();
+            ctx1.beginPath(); ctx1.strokeStyle='#ff3399';
+            for(let x=0;x<c1.width;x+=4) {
+                let y = gaussian(x,pRight,amp2,width);
+                if(Math.abs(y)>0.5) ctx1.lineTo(x,cy+y); else ctx1.moveTo(x,cy);
+            }
+            ctx1.stroke();
+            ctx1.setLineDash([]);
+        }
+
+        ctx1.lineWidth=4; ctx1.strokeStyle='saddlebrown'; ctx1.lineCap='round'; ctx1.lineJoin='round';
+        ctx1.beginPath();
+        let started=false;
+        for(let x=0;x<c1.width;x+=2) {
+            let y = gaussian(x,pLeft,-amp,width) + gaussian(x,pRight,amp2,width);
+            if(!started) { ctx1.moveTo(x,cy+y); started=true;} else ctx1.lineTo(x,cy+y);
+        }
+        ctx1.stroke();
+    }
+
+    // --- 2D Drawing ---
+    function setPhase(val) { document.getElementById('rngPhase').value = val; }
+
+    function draw2D() {
+        const d_px = parseInt(document.getElementById('rngDistance').value);
+        const lambda_px = parseInt(document.getElementById('rngWavelength').value);
+        // 讀取角度
+        const phaseDeg = parseFloat(document.getElementById('rngPhase').value); 
+        // 轉為弧度
+        const phaseRad = phaseDeg * (Math.PI / 180);
+
+        const d_meters = d_px / PX_PER_METER;
+        const lambda_meters = lambda_px / PX_PER_METER;
+
+        document.getElementById('valDistance').innerText = d_meters.toFixed(1) + " m";
+        document.getElementById('valWavelength').innerText = lambda_meters.toFixed(1) + " m";
+        document.getElementById('valPhase').innerText = phaseDeg + "°";
+
+        const cx = w2/2;
+        const cy = h2 - 20; 
+        const x1 = cx - d_px/2;
+        const x2 = cx + d_px/2;
+        const maxRadius = timeTick * WAVE_VELOCITY;
+
+        // Reset pixels
+        for (let i = 0; i < pixels.length; i += 4) {
+            pixels[i]=255; pixels[i+1]=255; pixels[i+2]=255; pixels[i+3]=255;
+        }
+
+        const k = 2 * Math.PI / lambda_px;
+        const omega = k * WAVE_VELOCITY;
+
+        let idx = 0;
+        for(let y=0; y<h2; y++) {
+            for(let x=0; x<w2; x++) {
+                const dx1=x-x1, dy=y-cy;
+                const r1 = Math.sqrt(dx1*dx1 + dy*dy);
+                const dx2=x-x2;
+                const r2 = Math.sqrt(dx2*dx2 + dy*dy);
+
+                let val = 0;
+                if(r1 < maxRadius) {
+                    val += (15.0 / Math.sqrt(r1 + 10)) * Math.sin(k * r1 - omega * timeTick);
+                }
+                if(r2 < maxRadius) {
+                    // 這裡加上相位差(弧度)
+                    val += (15.0 / Math.sqrt(r2 + 10)) * Math.sin(k * r2 - omega * timeTick + phaseRad);
+                }
+
+                idx = (y * w2 + x) * 4;
+                if (val > 0) { 
+                    let intensity = Math.min(1, val * 0.8); 
+                    pixels[idx] = 255 * (1 - intensity);       
+                    pixels[idx+1] = 255 * (1 - intensity * 0.6); 
+                    pixels[idx+2] = 255;                       
+                } 
+                pixels[idx + 3] = 255; 
+            }
+        }
+        ctx2.putImageData(imgData, 0, 0);
+
+        ctx2.fillStyle = '#28a745';
+        ctx2.fillRect(x1-2, cy-2, 5, 5);
+        ctx2.fillRect(x2-2, cy-2, 5, 5);
+
+        if(document.getElementById('chkShowLines').checked) {
+            drawLinesAndLabels(ctx2, w2, h2, x1, x2, lambda_px, cy, phaseRad);
+        }
+    }
+
+    // --- 修正後的標籤繪製邏輯 ---
+    function drawLinesAndLabels(ctx, w, h, x1, x2, lambda, cy, phaseRad) {
+        // Shift logic:
+        // phase=0 (0 deg) -> shift=0
+        // phase=PI (180 deg) -> shift=-0.5
+        // phase=2PI (360 deg) -> shift=-1
+        const shift = -phaseRad / (2 * Math.PI);
+        const d = x2 - x1;
+        const maxOrder = Math.floor(d / lambda) + 1; 
+
+        // 判斷特殊相位 (使用弧度比較)
+        const EPSILON = 0.05; 
+        // 同相: 0 或 2PI (約6.28)
+        const isConstructiveCenter = (Math.abs(phaseRad) < EPSILON || Math.abs(phaseRad - 2*Math.PI) < EPSILON);
+        // 反相: PI (約3.14)
+        const isDestructiveCenter = (Math.abs(phaseRad - Math.PI) < EPSILON);
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "bold 12px Arial";
+
+        function drawCurve(k, type) {
+            let baseOrder = k;
+            if (type === 'node') baseOrder += 0.5;
+
+            const effectiveOrder = baseOrder + shift;
+            const sinTheta = (effectiveOrder * lambda) / d;
+
+            if (Math.abs(sinTheta) <= 1) {
+                const theta = Math.asin(sinTheta);
+                const R = Math.max(w, h) * 1.5;
+                const cx = (x1 + x2) / 2;
+                
+                const destX = cx + R * Math.sin(theta);
+                const destY = cy - R * Math.cos(theta);
+
+                // 畫線
+                ctx.beginPath();
+                if (type === 'antinode') {
+                    ctx.strokeStyle = 'rgba(0, 86, 179, 0.6)'; 
+                    ctx.setLineDash([4, 4]);
+                } else {
+                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.5)'; 
+                    ctx.setLineDash([2, 4]);
+                }
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(destX, destY);
+                ctx.stroke();
+
+                // 命名邏輯
+                let text = "";
+                let absOrder = Math.abs(effectiveOrder);
+                let labelNum = 0;
+
+                // 判定是否為幾何中心 (effectiveOrder ~= 0)
+                if (absOrder < 0.05) {
+                    labelNum = 0;
+                } else {
+                    labelNum = Math.ceil(absOrder);
+                }
+
+                // 決定顯示文字
+                let shouldLabel = true;
+                if (type === 'antinode') {
+                    if (labelNum === 0) {
+                        if (isConstructiveCenter) text = "A0";
+                        else shouldLabel = false; 
+                    } else {
+                        text = "A" + labelNum;
+                    }
+                } else {
+                    if (labelNum === 0) {
+                        if (isDestructiveCenter) text = "N0";
+                        else text = "N1"; 
+                    } else {
+                        let nIdx = labelNum + 1;
+                        if(labelNum === 0 && !isDestructiveCenter) nIdx = 1; 
+                        
+                        // 修正：當 N0 存在時 (反相)，原本的 m=0.5 和 -0.5 已經變成 effective=0
+                        // 旁邊的 m=1.5 變成 effective=1 -> ceil=1 -> N(1+1)=N2. 
+                        // 這沒錯，因為反相時中間是N0，旁邊是A1，再旁邊是N2...
+                        
+                        // 但是普通狀態 (同相)，m=0 -> eff=0.5 -> ceil=1 -> N(1+1)=N2? 不對，這應該是N1
+                        // 讓我們重新梳理 "N" 的命名慣例：
+                        // 同相: m=0(0.5)->N1, m=1(1.5)->N2
+                        // 反相: m=0(0)->N0, m=1(1)->N1 ?
+                        
+                        // 簡單暴力法：根據 labelNum
+                        // 如果是 Node:
+                        // labelNum=0 -> N0 (if destructive)
+                        // labelNum=1 -> N1
+                        // labelNum=2 -> N2
+                        
+                        // 上面的 Math.ceil(0.5) = 1. -> N1. 正確.
+                        // 上面的 Math.ceil(0) = 0 -> N0. 正確.
+                        // 上面的 Math.ceil(1.5) = 2 -> N2. 正確.
+                        
+                        text = "N" + Math.max(1, labelNum); // 預設至少是 N1
+                        if(labelNum === 0 && isDestructiveCenter) text = "N0";
+                    }
+                }
+
+                if (shouldLabel) {
+                    let labelY = 25;
+                    let labelX = cx + (cy - labelY) * Math.tan(theta);
+
+                    if(labelX < 20) labelX = 20;
+                    if(labelX > w-20) labelX = w-20;
+
+                    let color = (type === 'antinode') ? "#0056b3" : "#888";
+                    const tm = ctx.measureText(text);
+                    ctx.fillStyle = "rgba(255,255,255,0.9)";
+                    ctx.fillRect(labelX - tm.width/2 - 2, labelY - 8, tm.width + 4, 16);
+                    
+                    ctx.fillStyle = color;
+                    ctx.fillText(text, labelX, labelY);
+                }
+            }
+        }
+
+        for (let k = -maxOrder - 2; k <= maxOrder + 2; k++) {
+            drawCurve(k, 'antinode');
+            drawCurve(k, 'node');
+        }
+        ctx.setLineDash([]);
+    }
+
+    document.getElementById('btnPlay').addEventListener('click', ()=>togglePlay(!isRunning));
+    document.getElementById('btnReset').addEventListener('click', resetSim);
+    
+    document.getElementById('btnNext').addEventListener('click', ()=>{
+        togglePlay(false);
+        if(currentMode==='1D') {
+            pLeft += SPEED_1D; pRight -= SPEED_1D; render();
+        } else {
+            timeTick += 1.0; render();
+        }
+    });
+
+    document.getElementById('btnPrev').addEventListener('click', ()=>{
+        togglePlay(false);
+        if(currentMode==='1D') {
+            pLeft -= SPEED_1D; pRight += SPEED_1D; render();
+        } else {
+            timeTick -= 1.0; if(timeTick<0) timeTick=0; render();
+        }
+    });
+
+    requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
