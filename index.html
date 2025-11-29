@@ -5,37 +5,135 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>瑋澤老師的物理模擬器</title>
     <style>
-        /* 這裡是一些簡單的樣式，讓列表比較好看，不會擠在一起 */
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        li { margin-bottom: 10px; } /* 讓每個選項之間有點距離 */
-        a { text-decoration: none; color: #0066cc; font-size: 18px; } /* 設定連結顏色與字體大小 */
-        a:hover { text-decoration: underline; color: #d32f2f; } /* 滑鼠移過去會變色 */
+        * { box-sizing: border-box; }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
+            background-color: #f4f6f9; 
+            max-width: 1200px; /* 保持最大寬度 */
+            margin: 0 auto; 
+        }
+
+        h1 { color: #333; text-align: center; margin-bottom: 10px; }
+        h2 { 
+            color: #444; 
+            border-left: 5px solid #0066cc; 
+            padding-left: 10px; 
+            margin-top: 30px; /* 稍微縮小間距 */
+            margin-bottom: 15px;
+            font-size: 1.2em; /* 標題字體也稍微縮小一點 */
+        }
+
+        /* --- 關鍵修改區：網格設定 --- */
+        ol {
+            padding: 0;
+            list-style: none; 
+            display: grid;
+            /* 修改點 1：將最小寬度從 220px 改為 180px 
+               這樣 1000px 寬的螢幕就能放下 5 個了 (180x5 = 900)
+            */
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+            gap: 15px; /* 修改點 2：間距從 20px 改為 15px，更緊湊 */
+        }
+
+        li {
+            display: flex;
+        }
+
+        /* --- 關鍵修改區：卡片樣式 --- */
+        li a {
+            width: 100%;
+            /* 修改點 3：高度從 120px 改為 90px，看起來更扁平精緻 */
+            min-height: 90px; 
+            
+            background-color: white;
+            border: 1px solid #e1e4e8; /* 邊框改細一點 */
+            border-radius: 10px;       /* 圓角改小一點 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            
+            display: flex;
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center;     
+            text-align: center;      
+            
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            /* 修改點 4：字體從 19px 改為 17px，配合縮小的卡片 */
+            font-size: 17px; 
+            padding: 10px; /* 內距縮小 */
+        }
+
+        li a:hover {
+            transform: translateY(-3px); /* 浮起幅度改小 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-color: #0066cc;
+            color: #0066cc;
+            background-color: #fff;
+        }
+
+        .sub-text {
+            display: block;
+            font-size: 0.75em; /* 附註文字也縮小 */
+            color: #888;
+            margin-top: 3px;
+            font-weight: normal;
+        }
+
+        /* 回饋按鈕 */
+        .feedback-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .feedback-btn {
+            display: inline-block;
+            background-color: #0066cc; 
+            color: #fff;
+            padding: 8px 20px; /* 按鈕也稍微縮小 */
+            border-radius: 50px;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 0.9em;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        .feedback-btn:hover {
+            background-color: #004c99;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
 
     <h1>瑋澤老師的物理模擬器</h1>
-    <p>若視窗超出螢幕，可以試著改橫放使用。</p>
-    <h1>力學</h2>
+    
+    <div class="feedback-container">
+        <a href="https://forms.gle/BY8D79neJCmNMdeh9"_blank" class="feedback-btn">
+            📝 填寫回饋問卷 (Bug 回報 / 許願)
+        </a>
+    </div>
+
+    <h2>力學</h2>
     <ol>
         <li><a href="SHM.html">簡諧運動</a></li>
     </ol>
 
     <h2>電磁學</h2>
     <ol>
-        <li><a href="冷次定律(磁鐵動).html">冷次定律(磁鐵動)</a></li>
-        <li><a href="冷次定律(線圈動).html">冷次定律(線圈動)</a></li>
+        <li><a href="冷次定律(磁鐵動).html">冷次定律<span class="sub-text">(磁鐵動)</span></a></li>
+        <li><a href="冷次定律(線圈動).html">冷次定律<span class="sub-text">(線圈動)</span></a></li>
     </ol>
 
-    <h3>波動學</h3>
+    <h2>波動學</h2>
     <ol>
         <li><a href="惠更斯原理.html">惠更斯原理</a></li>
-        <li><a href="波的折射、反射與全反射.html">波的折射、反射與全反射</a></li>
-        <li><a href="波的繞射現象.html">波的繞射現象</a></li>
-        <li><a href="波的干涉與雙波源.html">波的干涉與雙波源</a></li>
+        <li><a href="波的折射、反射與全反射.html">波的折射與<br>全反射</a></li> <li><a href="波的繞射現象.html">波的繞射現象</a></li>
+        <li><a href="波的干涉與雙波源.html">波的干涉與<br>雙波源</a></li>
         <li><a href="都卜勒效應.html">都卜勒效應</a></li>
     </ol>
-
 
 </body>
 </html>
