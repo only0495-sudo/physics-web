@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>波的折射</title>
+    <title>物理光學多重模擬器 (動態公式版)</title>
     <style>
         :root {
             --primary-color: #3498db;
             --success-color: #28a745;
+            --warning-color: #f39c12;
+            --purple-color: #9b59b6;
             --bg-color: #f4f6f8;
             --panel-bg: #ffffff;
             --text-main: #2c3e50;
@@ -44,7 +46,7 @@
             box-sizing: border-box;
         }
 
-        /* --- 極簡控制區塊 --- */
+        /* --- 控制區塊 --- */
         .controls-compact {
             width: 100%;
             background-color: #f8f9fa;
@@ -54,17 +56,35 @@
             margin-bottom: 15px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
+        }
+
+        .control-label {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            font-weight: bold;
+            margin-bottom: -8px;
+            margin-left: 5px;
         }
 
         .row-buttons {
             display: flex;
             justify-content: center;
             gap: 10px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 12px;
+            margin-bottom: 5px;
+        }
+        
+        .row-buttons:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
         }
 
         button {
-            padding: 8px 20px;
+            padding: 8px 16px;
             border: none;
             border-radius: 6px;
             font-size: 15px;
@@ -72,33 +92,42 @@
             transition: all 0.2s;
             font-weight: 600;
             letter-spacing: 0.5px;
+            flex: 1;
+            max-width: 180px;
         }
 
-        .btn-mode {
-            background-color: #e2e6ea;
-            color: #555;
-        }
+        .btn-phys { background-color: #e2e6ea; color: #555; }
+        .btn-phys.active { background-color: var(--primary-color); color: white; box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3); }
 
-        .btn-mode.active {
-            background-color: var(--primary-color);
-            color: white;
-            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
-        }
+        .btn-vis { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .btn-vis.active { background-color: var(--warning-color); color: white; border-color: var(--warning-color); box-shadow: 0 2px 4px rgba(243, 156, 18, 0.3); }
+        .btn-vis.disabled { opacity: 0.4; pointer-events: none; display: none; } 
 
-        .btn-action {
-            background-color: var(--success-color);
-            color: white;
-            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+        .btn-action { 
+            background-color: var(--success-color); color: white; 
+            box-shadow: 0 3px 6px rgba(40, 167, 69, 0.3); 
+            font-size: 1.1em;
+            max-width: 100%; 
         }
-        .btn-action:hover { background-color: #218838; }
+        .btn-action:hover { background-color: #218838; transform: translateY(-1px); }
         .btn-action:active { transform: translateY(1px); }
 
-        /* --- 三欄佈局 --- */
         .row-sliders {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr; 
             gap: 20px;
             align-items: stretch; 
+            margin-top: 5px;
+        }
+
+        /* 車輪模式專用設定 */
+        .car-settings-row {
+            display: none; 
+            background-color: #fdf2e9; 
+            border: 1px solid #fcead9;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 5px;
         }
 
         .slider-group {
@@ -132,7 +161,6 @@
             border-radius: 4px;
         }
 
-        /* 下拉選單 */
         .preset-select {
             font-size: 0.8em;
             padding: 2px 4px;
@@ -167,12 +195,17 @@
         }
         input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
 
+        .range-purple::-webkit-slider-thumb { background: #9b59b6 !important; }
+        .val-purple { color: #9b59b6 !important; }
+
         .row-checkbox {
             display: flex;
             justify-content: center;
             border-top: 1px solid #e9ecef;
             padding-top: 10px;
             margin-top: 0;
+            height: 30px; 
+            align-items: center;
         }
 
         .checkbox-label {
@@ -185,12 +218,7 @@
             user-select: none;
         }
         
-        input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: var(--primary-color);
-            cursor: pointer;
-        }
+        input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer; }
 
         canvas {
             background-color: #ffffff;
@@ -210,16 +238,22 @@
             flex-wrap: wrap;
             justify-content: center;
             color: #666;
+            min-height: 24px;
         }
 
         .legend-item { display: flex; align-items: center; gap: 6px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .line { width: 20px; height: 3px; display: inline-block; }
+        .line-thick { width: 20px; height: 6px; display: inline-block; }
+        
         .c-blue { background: #3498db; }
         .c-green { background: #2ecc71; }
         .c-orange { background: #e67e22; }
         .c-grey { background: transparent; border: 2px solid #bdc3c7; box-sizing: border-box; }
+        .c-red { background: #e74c3c; }
         .c-red-dash { border-bottom: 2px dashed #e74c3c; width: 20px; height: 0; display: inline-block;}
+        .c-yellow-beam { background: rgba(241, 196, 15, 0.8); }
+        .c-car { background: #8e44ad; }
 
         .learning-guide {
             width: 100%;
@@ -259,13 +293,25 @@
 <body>
 
     <div class="container">
-        <h1>波的折射、反射與全反射</h1>
+        <h1>惠更斯原理與車輪模擬器</h1>
 
         <div class="controls-compact">
+            
+            <div class="control-label">1. 選擇物理現象</div>
             <div class="row-buttons">
-                <button id="btnReflect" class="btn-mode active" onclick="setMode('reflection')">模式 A: 反射</button>
-                <button id="btnRefract" class="btn-mode" onclick="setMode('refraction')">模式 B: 折射</button>
-                <button id="btnEmit" class="btn-action" onclick="emitNewWave()">發射新波</button>
+                <button id="btnReflect" class="btn-phys active" onclick="setPhysicsMode('reflection')">模式 A: 反射 (Reflection)</button>
+                <button id="btnRefract" class="btn-phys" onclick="setPhysicsMode('refraction')">模式 B: 折射 (Refraction)</button>
+            </div>
+
+            <div class="control-label">2. 選擇呈現模型</div>
+            <div class="row-buttons">
+                <button id="btnVisWave" class="btn-vis active" onclick="setVisualMode('wave')">惠更斯波前</button>
+                <button id="btnVisRay" class="btn-vis" onclick="setVisualMode('ray')">手電筒光線</button>
+                <button id="btnVisCar" class="btn-vis" onclick="setVisualMode('car')">車輪模型 (折射專用)</button>
+            </div>
+
+            <div class="row-buttons" id="actionRow">
+                <button id="btnEmit" class="btn-action" onclick="emitNewWave()">🚀 發射新波</button>
             </div>
 
             <div class="row-sliders">
@@ -283,7 +329,7 @@
                         <span id="n1Value" class="val">1.0</span>
                     </div>
                     <select id="n1Preset" class="preset-select" onchange="applyPreset('n1', this.value)">
-                        <option value="" disabled selected>選擇材質...</option>
+                        <option value="" disabled selected>快速選擇</option>
                         <option value="1.0">空氣/真空 (1.0)</option>
                         <option value="1.33">水 (1.33)</option>
                         <option value="1.5">玻璃 (1.5)</option>
@@ -295,20 +341,30 @@
                 <div class="slider-group" id="n2-group">
                     <div class="slider-header">
                         <label>下方介質 n₂</label>
-                        <span id="n2Value" class="val">1.5</span>
+                        <span id="n2Value" class="val">1.15</span>
                     </div>
                     <select id="n2Preset" class="preset-select" onchange="applyPreset('n2', this.value)">
-                        <option value="" disabled selected>選擇材質...</option>
+                        <option value="" disabled selected>快速選擇</option>
                         <option value="1.0">空氣/真空 (1.0)</option>
                         <option value="1.33">水 (1.33)</option>
                         <option value="1.5">玻璃 (1.5)</option>
                         <option value="2.4">鑽石 (2.4)</option>
                     </select>
-                    <input type="range" id="n2Slider" min="1.0" max="2.5" step="0.01" value="1.5">
+                    <input type="range" id="n2Slider" min="1.0" max="2.5" step="0.01" value="1.15">
                 </div>
             </div>
 
-            <div class="row-checkbox">
+            <div id="carSettings" class="car-settings-row">
+                <div class="slider-group" style="background: transparent; border: none; padding: 0;">
+                    <div class="slider-header">
+                        <label style="color: #8e44ad;">車軸寬度 (兩輪間距)</label>
+                        <span id="carWidthValue" class="val val-purple">30</span>
+                    </div>
+                    <input type="range" id="carWidthSlider" class="range-purple" min="20" max="80" value="30">
+                </div>
+            </div>
+
+            <div class="row-checkbox" id="detailsCheckboxContainer">
                 <label class="checkbox-label">
                     <input type="checkbox" id="chkHuygens" onchange="toggleHuygens()">
                     <span>顯示惠更斯原理細節 (點波源與子波)</span>
@@ -318,7 +374,7 @@
         
         <canvas id="simCanvas" width="800" height="400"></canvas>
 
-        <div class="legend">
+        <div class="legend" id="waveLegend">
             <div class="legend-item"><span class="line c-blue"></span> 入射波</div>
             <div class="legend-item"><span class="line c-green"></span> 結果波前</div>
             <div class="legend-item"><span class="c-red-dash"></span> 光線示意</div>
@@ -326,22 +382,32 @@
             <div class="legend-item" id="legendWavelet" style="opacity: 0.3;"><span class="dot c-grey"></span> 子波</div>
         </div>
 
-        <div class="learning-guide">
+        <div class="legend" id="rayLegend" style="display: none;">
+            <div class="legend-item"><span class="line-thick c-yellow-beam"></span> 入射光束</div>
+            <div class="legend-item"><span class="line-thick c-yellow-beam" style="opacity: 0.6"></span> 反射/折射光束</div>
+            <div class="legend-item"><span class="c-red-dash"></span> 法線</div>
+        </div>
+
+        <div class="legend" id="carLegend" style="display: none;">
+            <div class="legend-item"><span class="dot c-car" style="border-radius: 2px; width: 20px;"></span> 車軸</div>
+            <div class="legend-item"><span class="dot" style="background:#333"></span> 車輪</div>
+            <div class="legend-item"><span class="line" style="background: transparent; border-bottom: 2px dashed rgba(142, 68, 173, 0.6); height: 0;"></span> 軌跡</div>
+        </div>
+
+        <div class="learning-guide" id="guideText">
             <h3>💡 學習引導</h3>
             <div class="guide-content">
                 <div class="guide-box">
                     <h4>觀察反射 (Reflection)</h4>
                     <ul>
-                        <li><strong>觀察重點：</strong>藍色入射波接觸介面時，橘色點產生子波，子波的切線形成反射波前。</li>
-                        <li><strong>結論：</strong>反射角 θ₂ 等於入射角 θ₁。</li>
+                        <li><strong>惠更斯波前：</strong>觀察點波源產生子波，切線形成反射波。</li>
+                        <li><strong>手電筒光線：</strong>光束如同撞球般反彈，反射角等於入射角。</li>
                     </ul>
                 </div>
                 <div class="guide-box">
                     <h4>觀察折射 (Refraction)</h4>
                     <ul>
-                        <li><strong>光從快入慢 (n₁ &lt; n₂)：</strong>光線偏向法線。</li>
-                        <li><strong>光從慢入快 (n₁ &gt; n₂)：</strong>光線偏離法線。</li>
-                        <li><strong>⚠️ 全反射：</strong>若 n₁ &gt; n₂ 且入射角超過臨界角，光線無法折射進入第二介質，全部反射回第一介質。</li>
+                        <li><strong>車輪模型原理：</strong>僅在折射模式下可用。當兩側輪子處於不同介質時，速度差導致車身轉向。本模擬中，車輪轉向過程基於差速，最終角度自動校正以符合司乃爾定律。</li>
                     </ul>
                 </div>
             </div>
@@ -353,10 +419,12 @@
         const ctx = canvas.getContext('2d');
         
         // --- 參數設定 ---
+        let visualMode = 'wave'; 
         let mode = 'reflection'; 
         let angleDeg = 45;      
         let n1 = 1.0;           
-        let n2 = 1.5;           
+        let n2 = 1.15; // 預設值 1.15
+        let carWidth = 30; 
         const c_speed = 1.2;    
         const SOURCE_COUNT = 30; 
         const INTERFACE_Y = canvas.height / 2;
@@ -367,6 +435,7 @@
         let incidentWaves = []; 
         let sources = [];               
         let wavelets = [];              
+        let cars = []; 
         let frameCount = 0; 
         let waveIdCounter = 0; 
 
@@ -385,34 +454,28 @@
             }
         }
 
+        // --- 波前模式類別 ---
         class IncidentWave {
             constructor(id) {
                 this.id = id;
                 this.spawnTime = frameCount; 
                 this.active = true;
                 const thetaRad = (angleDeg * Math.PI) / 180;
-                
-                // 入射波速度 v1
                 this.v1 = c_speed / n1; 
-                
                 this.vx = Math.sin(thetaRad) * this.v1;
                 this.vy = Math.cos(thetaRad) * this.v1;
-
                 this.centerX = sources[0].x - 120; 
                 this.centerY = INTERFACE_Y - 120 / Math.cos(thetaRad); 
-                
                 this.triggeredSources = new Set();
             }
 
             update() {
                 this.centerX += this.vx;
                 this.centerY += this.vy;
-
                 if (this.centerY > canvas.height + 300 && this.centerX > canvas.width + 300) {
                     this.active = false;
                     return;
                 }
-                
                 this.checkSourceTrigger();
             }
 
@@ -425,7 +488,6 @@
                 sources.forEach(src => {
                     if (this.triggeredSources.has(src.index)) return;
                     const sourceProjPos = normalX * src.x + normalY * src.y;
-                    
                     if (currentWavefrontPos >= sourceProjPos - 0.5) {
                         triggerWavelet(src, this.id);
                         this.triggeredSources.add(src.index);
@@ -438,15 +500,12 @@
                 const dirX = Math.cos(thetaRad);
                 const dirY = -Math.sin(thetaRad); 
                 const length = 1000; 
-
                 ctx.beginPath();
                 ctx.moveTo(this.centerX - dirX * length, this.centerY - dirY * length);
                 ctx.lineTo(this.centerX + dirX * length, this.centerY + dirY * length);
-                
                 ctx.save();
                 ctx.rect(0, 0, canvas.width, INTERFACE_Y); 
                 ctx.clip();
-                
                 ctx.strokeStyle = '#3498db'; 
                 ctx.lineWidth = 3;
                 ctx.stroke();
@@ -454,32 +513,133 @@
             }
         }
 
+        // --- 車輪模式類別 (物理+校正) ---
+        class Car {
+            constructor() {
+                this.active = true;
+                const thetaRad = (angleDeg * Math.PI) / 180;
+                const startDist = 300;
+                const normalX = canvas.width / 2;
+                
+                this.x = normalX - startDist * Math.sin(thetaRad);
+                this.y = INTERFACE_Y - startDist * Math.cos(thetaRad);
+                this.angle = thetaRad; 
+                
+                this.width = carWidth; 
+                this.history = []; 
+                this.hasReflected = false; 
+                this.corrected = false; 
+            }
+
+            update() {
+                const axleDx = Math.cos(this.angle);
+                const axleDy = -Math.sin(this.angle);
+
+                const ly = this.y - axleDy * (this.width / 2);
+                const ry = this.y + axleDy * (this.width / 2);
+
+                let isTIR = false;
+                const sinIn = Math.sin((angleDeg * Math.PI) / 180);
+                const sinOutVal = (n1 * sinIn) / n2;
+                if (Math.abs(sinOutVal) > 1.0) isTIR = true;
+
+                let vL, vR;
+
+                if (isTIR) {
+                    if (!this.hasReflected && this.y >= INTERFACE_Y) {
+                        this.angle = -this.angle; 
+                        this.hasReflected = true;
+                    }
+                    vL = c_speed / n1;
+                    vR = c_speed / n1;
+                } else {
+                    const nL = (ly < INTERFACE_Y) ? n1 : n2;
+                    const nR = (ry < INTERFACE_Y) ? n1 : n2;
+                    
+                    vL = c_speed / nL;
+                    vR = c_speed / nR;
+
+                    if (!this.corrected && ly > INTERFACE_Y && ry > INTERFACE_Y) {
+                        const idealAngle = Math.asin(sinOutVal);
+                        if (Math.abs(this.angle - idealAngle) < 0.2) {
+                            this.angle = idealAngle;
+                        }
+                        this.corrected = true;
+                        
+                        vL = c_speed / n2;
+                        vR = c_speed / n2;
+                    }
+                }
+
+                const omega = (vR - vL) / this.width; 
+                this.angle += omega;
+
+                const vAvg = (vL + vR) / 2;
+                this.x += Math.sin(this.angle) * vAvg;
+                this.y += Math.cos(this.angle) * vAvg;
+
+                if (frameCount % 2 === 0) { 
+                    this.history.push({x: this.x, y: this.y});
+                    if (this.history.length > 300) this.history.shift();
+                }
+
+                if (this.x > canvas.width + 100 || this.y > canvas.height + 100 || this.y < -100) {
+                    this.active = false;
+                }
+            }
+
+            draw() {
+                if (this.history.length > 1) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    for (let p of this.history) ctx.lineTo(p.x, p.y);
+                    ctx.strokeStyle = "rgba(142, 68, 173, 0.6)"; 
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]); 
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(-this.angle); 
+
+                ctx.fillStyle = "#8e44ad";
+                ctx.fillRect(-this.width/2, -4, this.width, 8);
+
+                ctx.fillStyle = "#333";
+                ctx.fillRect(-this.width/2 - 3, -6, 6, 12);
+                ctx.fillRect(this.width/2 - 3, -6, 6, 12);
+
+                ctx.restore();
+            }
+        }
+
         function triggerWavelet(source, waveId) {
             let actualMode = mode;
-            let speedN = n2; // 預設用 n2 決定速度
+            let speedN = n2; 
 
             if (mode === 'refraction') {
                 const sinIn = Math.sin((angleDeg * Math.PI) / 180);
                 const sinOut = (n1 * sinIn) / n2;
-                
-                // 全反射判斷
                 if (Math.abs(sinOut) > 1.0) {
-                    actualMode = 'reflection'; // 強制轉為反射模式
-                    speedN = n1; // 速度回到 n1
+                    actualMode = 'reflection'; 
+                    speedN = n1; 
                 }
             } else {
-                speedN = n1; // 反射模式下速度由 n1 決定
+                speedN = n1; 
             }
 
             wavelets.push({
                 x: source.x,
                 y: source.y,
                 spawnTime: frameCount, 
-                mode: actualMode, // 紀錄實際發生的波模式 (reflection or refraction)
+                mode: actualMode, 
                 waveId: waveId,
                 n1_at_spawn: n1, 
                 n2_at_spawn: n2,
-                speedN: speedN // 紀錄計算速度用的折射率
+                speedN: speedN 
             });
         }
 
@@ -487,79 +647,131 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawInterfaceAndLabels();
 
-            const waveletsByWaveId = {};
-
-            for (let i = wavelets.length - 1; i >= 0; i--) {
-                let w = wavelets[i];
-                // 計算速度
-                let v_expansion = c_speed / w.speedN;
-                w.r = v_expansion * (frameCount - w.spawnTime);
-
-                if (w.r > 1000) { 
-                    wavelets.splice(i, 1);
-                    continue;
-                }
-
-                if (showHuygensDetails) {
-                    ctx.beginPath();
-                    if (w.mode === 'reflection') {
-                        ctx.arc(w.x, w.y, w.r, Math.PI, 0); 
-                    } else {
-                        ctx.arc(w.x, w.y, w.r, 0, Math.PI); 
-                    }
-                    ctx.strokeStyle = 'rgba(127, 140, 141, 0.4)'; 
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                }
-
-                if (!waveletsByWaveId[w.waveId]) {
-                    waveletsByWaveId[w.waveId] = [];
-                }
-                waveletsByWaveId[w.waveId].push(w);
-            }
-
-            Object.values(waveletsByWaveId).forEach(group => {
-                drawEnvelopeForGroup(group);
-            });
-
-            for (let i = incidentWaves.length - 1; i >= 0; i--) {
-                let wave = incidentWaves[i];
-                wave.update();
-                if (!wave.active) {
-                    incidentWaves.splice(i, 1);
-                } else {
-                    wave.draw();
-                }
-            }
-
-            if (showHuygensDetails) {
-                sources.forEach(src => {
-                    ctx.beginPath();
-                    ctx.arc(src.x, src.y, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = '#e67e22';
-                    ctx.fill();
-                });
+            if (visualMode === 'wave') {
+                updateWaveMode();
+            } else if (visualMode === 'ray') {
+                drawRayMode();
+            } else if (visualMode === 'car') {
+                updateCarMode();
             }
             
             frameCount++;
             requestAnimationFrame(update);
         }
 
+        function updateWaveMode() {
+            const waveletsByWaveId = {};
+            for (let i = wavelets.length - 1; i >= 0; i--) {
+                let w = wavelets[i];
+                let v_expansion = c_speed / w.speedN;
+                w.r = v_expansion * (frameCount - w.spawnTime);
+                if (w.r > 1000) { wavelets.splice(i, 1); continue; }
+                if (showHuygensDetails) {
+                    ctx.beginPath();
+                    if (w.mode === 'reflection') ctx.arc(w.x, w.y, w.r, Math.PI, 0); 
+                    else {
+                        const sinIn = Math.sin((angleDeg * Math.PI) / 180);
+                        const sinOut = (w.n1_at_spawn * sinIn) / w.n2_at_spawn;
+                        if (Math.abs(sinOut) <= 1.0) ctx.arc(w.x, w.y, w.r, 0, Math.PI); 
+                    }
+                    ctx.strokeStyle = 'rgba(127, 140, 141, 0.4)'; ctx.lineWidth = 1; ctx.stroke();
+                }
+                if (!waveletsByWaveId[w.waveId]) waveletsByWaveId[w.waveId] = [];
+                waveletsByWaveId[w.waveId].push(w);
+            }
+            Object.values(waveletsByWaveId).forEach(group => drawEnvelopeForGroup(group));
+            for (let i = incidentWaves.length - 1; i >= 0; i--) {
+                let wave = incidentWaves[i]; wave.update();
+                if (!wave.active) incidentWaves.splice(i, 1); else wave.draw();
+            }
+            if (showHuygensDetails) {
+                sources.forEach(src => {
+                    ctx.beginPath(); ctx.arc(src.x, src.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#e67e22'; ctx.fill();
+                });
+            }
+        }
+
+        function updateCarMode() {
+            for (let i = cars.length - 1; i >= 0; i--) {
+                let car = cars[i];
+                car.update();
+                if (!car.active) {
+                    cars.splice(i, 1);
+                } else {
+                    car.draw();
+                }
+            }
+        }
+
+        function drawRayMode() {
+            const normalX = canvas.width / 2;
+            const normalY = INTERFACE_Y;
+            const angleInRad = (angleDeg * Math.PI) / 180;
+            const beamWidth = 8;
+            let isTIR = false;
+            let isGrazing = false;
+            let angleOutRad;
+            
+            if (mode === 'refraction') {
+                let sinOut = (n1 * Math.sin(angleInRad)) / n2;
+                if (Math.abs(sinOut) > 1.0) { isTIR = true; angleOutRad = Math.PI/2; }
+                else {
+                    angleOutRad = Math.asin(sinOut);
+                    if (Math.abs(sinOut - 1.0) < 0.01) isGrazing = true;
+                }
+            } else { angleOutRad = angleInRad; }
+
+            const rayLength = 350;
+            let srcX = normalX - rayLength * Math.sin(angleInRad);
+            let srcY = normalY - rayLength * Math.cos(angleInRad);
+            let dx = normalX - srcX;
+            let dy = normalY - srcY;
+            let rotation = Math.atan2(dy, dx);
+
+            ctx.save();
+            ctx.translate(srcX, srcY);
+            ctx.rotate(rotation - Math.PI / 2);
+            ctx.fillStyle = "#555"; ctx.beginPath(); ctx.rect(-10, -30, 20, 30); ctx.fill();
+            ctx.fillStyle = "#333"; ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(15, 0); ctx.lineTo(10, 10); ctx.lineTo(-10, 10); ctx.fill();
+            ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.ellipse(0, 10, 8, 3, 0, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            ctx.lineWidth = beamWidth;
+            ctx.strokeStyle = "rgba(241, 196, 15, 0.7)"; 
+            ctx.lineCap = "round";
+            ctx.shadowBlur = 10; ctx.shadowColor = "rgba(241, 196, 15, 0.8)";
+            ctx.beginPath(); ctx.moveTo(srcX + Math.cos(rotation)*10, srcY + Math.sin(rotation)*10); ctx.lineTo(normalX, normalY); ctx.stroke();
+            
+            let reflectIntensity = (mode === 'reflection' || isTIR) ? 0.7 : 0.3;
+            ctx.strokeStyle = `rgba(241, 196, 15, ${reflectIntensity})`;
+            ctx.shadowColor = `rgba(241, 196, 15, ${reflectIntensity})`;
+            
+            if (mode === 'reflection' || isTIR || mode === 'refraction') {
+                let rX = normalX + rayLength * Math.sin(angleInRad);
+                let rY = normalY - rayLength * Math.cos(angleInRad);
+                ctx.beginPath(); ctx.moveTo(normalX, normalY); ctx.lineTo(rX, rY); ctx.stroke();
+            }
+
+            if (mode === 'refraction' && !isTIR) {
+                ctx.strokeStyle = "rgba(241, 196, 15, 0.7)"; ctx.shadowColor = "rgba(241, 196, 15, 0.8)";
+                let tX, tY;
+                if (isGrazing) { tX = normalX + rayLength; tY = normalY; }
+                else { tX = normalX + rayLength * Math.sin(angleOutRad); tY = normalY + rayLength * Math.cos(angleOutRad); }
+                ctx.beginPath(); ctx.moveTo(normalX, normalY); ctx.lineTo(tX, tY); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         function drawEnvelopeForGroup(group) {
             if (group.length < 2) return;
-
             const minRadius = 0.1;
             const relevantWavelets = group.filter(w => w.r > minRadius);
-            
             if (relevantWavelets.length < 2) return;
-
             relevantWavelets.sort((a, b) => a.x - b.x);
             let firstW = relevantWavelets[0];
-            let lastW = relevantWavelets[relevantWavelets.length - 1];
-
             let envelopeAngle; 
-            
-            // 注意：這裡使用 firstW.mode 來判斷，因為全反射時 mode 會變成 'reflection'
             if (firstW.mode === 'reflection') {
                 const thetaInRad = (angleDeg * Math.PI) / 180;
                 envelopeAngle = Math.PI/2 + thetaInRad; 
@@ -568,92 +780,69 @@
                 const gn1 = firstW.n1_at_spawn;
                 const gn2 = firstW.n2_at_spawn;
                 let sinOut = (gn1 * Math.sin(thetaInRad)) / gn2;
-                
-                if (Math.abs(sinOut) > 1.0) return; // 理論上不該進到這裡，因為 mode 已經轉了
-                
+                if (Math.abs(sinOut) > 1.0) return;
                 const thetaOutRad = Math.asin(sinOut);
                 envelopeAngle = Math.PI/2 - thetaOutRad; 
             }
-
             let p1x, p1y, p2x, p2y; 
             const extend = 30; 
-
             if (firstW.mode === 'reflection') {
                 p1x = firstW.x - firstW.r * Math.cos(envelopeAngle);
                 p1y = firstW.y - firstW.r * Math.sin(envelopeAngle);
+                let lastW = relevantWavelets[relevantWavelets.length - 1];
                 p2x = lastW.x - lastW.r * Math.cos(envelopeAngle);
                 p2y = lastW.y - lastW.r * Math.sin(envelopeAngle);
             } else {
                 p1x = firstW.x + firstW.r * Math.cos(envelopeAngle);
                 p1y = firstW.y + firstW.r * Math.sin(envelopeAngle);
+                let lastW = relevantWavelets[relevantWavelets.length - 1];
                 p2x = lastW.x + lastW.r * Math.cos(envelopeAngle);
                 p2y = lastW.y + lastW.r * Math.sin(envelopeAngle);
             }
-
-            ctx.save();
-            ctx.beginPath();
-            
+            ctx.save(); ctx.beginPath();
             const lineLen = Math.sqrt((p2x-p1x)**2 + (p2y-p1y)**2);
             if (lineLen > 0) {
-                const dx = (p2x - p1x) / lineLen;
-                const dy = (p2y - p1y) / lineLen;
-                ctx.moveTo(p1x - dx * extend, p1y - dy * extend);
-                ctx.lineTo(p2x + dx * extend, p2y + dy * extend);
-            } else {
-                ctx.moveTo(p1x, p1y);
-                ctx.lineTo(p2x, p2y);
-            }
-
-            if (firstW.mode === 'reflection') {
-                ctx.rect(0, 0, canvas.width, INTERFACE_Y);
-            } else {
-                ctx.rect(0, INTERFACE_Y, canvas.width, canvas.height - INTERFACE_Y);
-            }
-            ctx.clip();
-            
-            ctx.strokeStyle = '#2ecc71'; 
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round'; 
-            ctx.stroke();
-            ctx.restore();
+                const dx = (p2x - p1x) / lineLen; const dy = (p2y - p1y) / lineLen;
+                ctx.moveTo(p1x - dx * extend, p1y - dy * extend); ctx.lineTo(p2x + dx * extend, p2y + dy * extend);
+            } else { ctx.moveTo(p1x, p1y); ctx.lineTo(p2x, p2y); }
+            if (firstW.mode === 'reflection') { ctx.rect(0, 0, canvas.width, INTERFACE_Y); }
+            else { ctx.rect(0, INTERFACE_Y, canvas.width, canvas.height - INTERFACE_Y); }
+            ctx.clip(); ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.stroke(); ctx.restore();
         }
 
         function drawInterfaceAndLabels() {
-            ctx.beginPath();
-            ctx.moveTo(0, INTERFACE_Y);
-            ctx.lineTo(canvas.width, INTERFACE_Y);
-            ctx.strokeStyle = '#95a5a6';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.font = "16px Arial";
-            ctx.fillStyle = "#7f8c8d";
+            ctx.beginPath(); ctx.moveTo(0, INTERFACE_Y); ctx.lineTo(canvas.width, INTERFACE_Y);
+            ctx.strokeStyle = '#95a5a6'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.font = "16px Arial"; ctx.fillStyle = "#7f8c8d";
             ctx.fillText(`介質 1 (n₁=${n1.toFixed(2)})`, 20, INTERFACE_Y - 20);
             ctx.fillText(`介質 2 (n₂=${n2.toFixed(2)})`, 20, INTERFACE_Y + 35);
-
             const normalX = canvas.width / 2;
-            ctx.beginPath();
-            ctx.setLineDash([5, 5]);
-            ctx.moveTo(normalX, INTERFACE_Y - 140);
-            ctx.lineTo(normalX, INTERFACE_Y + 140);
-            ctx.strokeStyle = '#bdc3c7';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            drawAngleIndicators(normalX, INTERFACE_Y);
-
-            if (mode === 'refraction') {
-                ctx.save();
-                ctx.font = "bold 16px 'Segoe UI', sans-serif";
-                ctx.fillStyle = "#2c3e50";
-                ctx.textAlign = "right";
-                ctx.fillText("司乃爾定律 (Snell's Law):", canvas.width - 20, 30);
-                
-                ctx.font = "italic 18px 'Times New Roman', serif";
-                ctx.fillStyle = "#2c3e50";
-                ctx.fillText("n₁ sin θ₁ = n₂ sin θ₂", canvas.width - 20, 55);
-                ctx.restore();
+            ctx.beginPath(); ctx.setLineDash([5, 5]); ctx.moveTo(normalX, INTERFACE_Y - 140); ctx.lineTo(normalX, INTERFACE_Y + 140);
+            ctx.strokeStyle = '#bdc3c7'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+            
+            // 車輪模式下不繪製角度與公式
+            if (visualMode !== 'car') {
+                drawAngleIndicators(normalX, INTERFACE_Y);
+                if (mode === 'refraction') {
+                    ctx.save(); ctx.font = "bold 16px 'Segoe UI', sans-serif"; ctx.fillStyle = "#2c3e50"; ctx.textAlign = "right";
+                    ctx.fillText("司乃爾定律 (Snell's Law):", canvas.width - 20, 30);
+                    // Dynamic Formula
+                    let sin1 = Math.sin(angleDeg * Math.PI / 180);
+                    let valLeft = n1 * sin1;
+                    let sin2 = valLeft / n2;
+                    let text = "";
+                    if (Math.abs(sin2) > 1.0) {
+                        text = `${n1.toFixed(2)} × sin(${angleDeg.toFixed(0)}°) > ${n2.toFixed(2)} (全反射)`;
+                        ctx.fillStyle = "#e74c3c";
+                    } else {
+                        let angle2 = Math.asin(sin2) * 180 / Math.PI;
+                        text = `${n1.toFixed(2)} × sin(${angleDeg.toFixed(0)}°) = ${n2.toFixed(2)} × sin(${angle2.toFixed(1)}°)`;
+                        ctx.fillStyle = "#27ae60"; 
+                    }
+                    ctx.font = "16px 'Segoe UI', monospace";
+                    ctx.fillText(text, canvas.width - 20, 55);
+                    ctx.restore();
+                }
             }
         }
 
@@ -667,214 +856,152 @@
             if (mode === 'refraction') {
                 let sinIn = Math.sin(angleInRad);
                 let sinOut = (n1 * sinIn) / n2;
-                if (Math.abs(sinOut) > 1.0) { 
-                    isTIR = true;
-                    angleOutRad = Math.PI / 2; 
-                } else {
+                if (Math.abs(sinOut) > 1.0) { isTIR = true; angleOutRad = Math.PI / 2; }
+                else {
                     angleOutRad = Math.asin(sinOut);
-                    // 判斷是否接近臨界角 (Grazing Angle)
                     if (Math.abs(sinOut - 1.0) < 0.01) isGrazing = true;
                 }
-            } else { 
-                angleOutRad = angleInRad; 
-            }
+            } else { angleOutRad = angleInRad; }
             
-            ctx.save();
-            ctx.strokeStyle = '#e74c3c';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([8, 6]);
-
-            // 入射光線
-            let inRayX = normalX - rayLength * Math.sin(angleInRad);
-            let inRayY = normalY - rayLength * Math.cos(angleInRad);
-            ctx.beginPath();
-            ctx.moveTo(inRayX, inRayY);
-            ctx.lineTo(normalX, normalY);
-            ctx.stroke();
-            drawArrow(ctx, inRayX, inRayY, normalX, normalY, 0.6);
-
-            // 反射光線 (全反射或反射模式時顯示)
-            if (mode === 'reflection' || isTIR) {
-                let reflectAngle = angleInRad;
-                let reflectRayX = normalX + rayLength * Math.sin(reflectAngle);
-                let reflectRayY = normalY - rayLength * Math.cos(reflectAngle);
-                ctx.beginPath();
-                ctx.moveTo(normalX, normalY);
-                ctx.lineTo(reflectRayX, reflectRayY);
-                ctx.stroke();
-                drawArrow(ctx, normalX, normalY, reflectRayX, reflectRayY, 0.6);
-            }
-
-            // 折射光線 (正常折射或臨界角時顯示)
-            if (mode === 'refraction' && !isTIR) {
-                let outRayX, outRayY;
-                if (isGrazing) {
-                    // 掠射角：沿著介面射出 (90度)
-                    outRayX = normalX + rayLength;
-                    outRayY = normalY;
-                } else {
-                    outRayX = normalX + rayLength * Math.sin(angleOutRad);
-                    outRayY = normalY + rayLength * Math.cos(angleOutRad);
+            if (visualMode === 'wave') {
+                ctx.save(); ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 6]);
+                let inRayX = normalX - rayLength * Math.sin(angleInRad);
+                let inRayY = normalY - rayLength * Math.cos(angleInRad);
+                ctx.beginPath(); ctx.moveTo(inRayX, inRayY); ctx.lineTo(normalX, normalY); ctx.stroke();
+                drawArrow(ctx, inRayX, inRayY, normalX, normalY, 0.6);
+                if (mode === 'reflection' || isTIR) {
+                    let rX = normalX + rayLength * Math.sin(angleInRad);
+                    let rY = normalY - rayLength * Math.cos(angleInRad);
+                    ctx.beginPath(); ctx.moveTo(normalX, normalY); ctx.lineTo(rX, rY); ctx.stroke();
+                    drawArrow(ctx, normalX, normalY, rX, rY, 0.6);
+                } else if (mode === 'refraction') {
+                    let tX = normalX + rayLength * Math.sin(angleOutRad);
+                    let tY = normalY + rayLength * Math.cos(angleOutRad);
+                    if (isGrazing) { tX = normalX + rayLength; tY = normalY; }
+                    ctx.beginPath(); ctx.moveTo(normalX, normalY); ctx.lineTo(tX, tY); ctx.stroke();
+                    drawArrow(ctx, normalX, normalY, tX, tY, 0.6);
                 }
-                ctx.beginPath();
-                ctx.moveTo(normalX, normalY);
-                ctx.lineTo(outRayX, outRayY);
-                ctx.stroke();
-                drawArrow(ctx, normalX, normalY, outRayX, outRayY, 0.6);
+                ctx.restore();
             }
-            
-            ctx.restore();
 
-            const arcRadius = 45;
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = '#333';
-            ctx.fillStyle = '#c0392b';
-            ctx.font = "bold 14px 'Segoe UI', Arial, sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-
-            // 入射角 θ₁
-            ctx.beginPath();
-            ctx.arc(normalX, normalY, arcRadius, -Math.PI/2, -Math.PI/2 - angleInRad, true);
-            ctx.stroke();
-            
-            let textAngle1 = -Math.PI/2 - angleInRad / 2;
-            let textR = arcRadius + 25;
+            const arcRadius = 45; ctx.lineWidth = 1.5; ctx.strokeStyle = '#333'; ctx.fillStyle = '#c0392b';
+            ctx.font = "bold 14px 'Segoe UI', Arial, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.beginPath(); ctx.arc(normalX, normalY, arcRadius, -Math.PI/2, -Math.PI/2 - angleInRad, true); ctx.stroke();
+            let textAngle1 = -Math.PI/2 - angleInRad / 2; let textR = arcRadius + 25;
             ctx.fillText('入射角 θ₁', normalX + textR * Math.cos(textAngle1), normalY + textR * Math.sin(textAngle1));
 
-            // 反射角
             if (mode === 'reflection' || isTIR) {
-                // 如果是全反射，我們也標示反射角，因為此時反射波是主角
-                ctx.beginPath();
-                ctx.arc(normalX, normalY, arcRadius, -Math.PI/2, -Math.PI/2 + angleInRad);
-                ctx.stroke();
-
+                ctx.beginPath(); ctx.arc(normalX, normalY, arcRadius, -Math.PI/2, -Math.PI/2 + angleInRad); ctx.stroke();
                 let textAngle2 = -Math.PI/2 + angleInRad / 2;
                 ctx.fillText('反射角 θ₂', normalX + textR * Math.cos(textAngle2) + 5, normalY + textR * Math.sin(textAngle2) + 10);
             }
-
-            // 折射角與全反射提示
             if (mode === 'refraction') {
                 if (isTIR) {
-                    ctx.fillStyle = '#e74c3c';
-                    ctx.font = "bold 16px 'Segoe UI', sans-serif";
-                    ctx.textAlign = "left";
-                    ctx.fillText('⚠️ 發生全反射', normalX + 60, normalY + 40);
+                    ctx.fillStyle = '#e74c3c'; ctx.font = "bold 16px 'Segoe UI', sans-serif"; ctx.textAlign = "left";
+                    ctx.fillText('⚠️ 發生全反射', normalX + 80, normalY + 40);
                 } else {
-                    ctx.beginPath();
-                    ctx.arc(normalX, normalY, arcRadius, Math.PI/2, Math.PI/2 - angleOutRad, true);
-                    ctx.stroke();
-
-                    let textAngle3 = Math.PI/2 - angleOutRad / 2;
-                    let label = '折射角 θ₂';
-                    if (isGrazing) label = '臨界角 θ₂≈90°';
-
-                    if (angleOutRad < Math.PI / 10) { 
-                        ctx.fillText(label, normalX + textR * Math.cos(textAngle3) + 15, normalY + textR * Math.sin(textAngle3) + 10);
-                    } else {
-                         ctx.fillText(label, normalX + textR * Math.cos(textAngle3), normalY + textR * Math.sin(textAngle3) + 10);
-                    }
+                    ctx.beginPath(); ctx.arc(normalX, normalY, arcRadius, Math.PI/2, Math.PI/2 - angleOutRad, true); ctx.stroke();
+                    let textAngle3 = Math.PI/2 - angleOutRad / 2; let label = '折射角 θ₂'; if (isGrazing) label = '臨界角';
+                    if (angleOutRad < Math.PI / 10) { ctx.fillText(label, normalX + textR * Math.cos(textAngle3) + 15, normalY + textR * Math.sin(textAngle3) + 10); }
+                    else { ctx.fillText(label, normalX + textR * Math.cos(textAngle3), normalY + textR * Math.sin(textAngle3) + 10); }
                 }
             }
         }
         
         function drawArrow(ctx, fromX, fromY, toX, toY, position) {
-            const headlen = 8;
-            const dx = toX - fromX;
-            const dy = toY - fromY;
-            const angle = Math.atan2(dy, dx);
-            const midX = fromX + dx * position;
-            const midY = fromY + dy * position;
-
-            ctx.beginPath();
-            ctx.moveTo(midX, midY);
+            const headlen = 8; const dx = toX - fromX; const dy = toY - fromY; const angle = Math.atan2(dy, dx);
+            const midX = fromX + dx * position; const midY = fromY + dy * position;
+            ctx.beginPath(); ctx.moveTo(midX, midY);
             ctx.lineTo(midX - headlen * Math.cos(angle - Math.PI / 6), midY - headlen * Math.sin(angle - Math.PI / 6));
             ctx.moveTo(midX, midY);
             ctx.lineTo(midX - headlen * Math.cos(angle + Math.PI / 6), midY - headlen * Math.sin(angle + Math.PI / 6));
             ctx.stroke();
         }
 
-        const angleSlider = document.getElementById('angleSlider');
-        const angleValue = document.getElementById('angleValue');
-        const n1Slider = document.getElementById('n1Slider');
-        const n2Slider = document.getElementById('n2Slider');
-        const n1Value = document.getElementById('n1Value');
-        const n2Value = document.getElementById('n2Value');
+        const angleSlider = document.getElementById('angleSlider'); const angleValue = document.getElementById('angleValue');
+        const n1Slider = document.getElementById('n1Slider'); const n2Slider = document.getElementById('n2Slider');
+        const n1Value = document.getElementById('n1Value'); const n2Value = document.getElementById('n2Value');
+        const carWidthSlider = document.getElementById('carWidthSlider'); const carWidthValue = document.getElementById('carWidthValue');
         
-        angleSlider.addEventListener('input', (e) => {
-            angleDeg = parseFloat(e.target.value);
-            angleValue.textContent = angleDeg + "°";
-            resetSimulation();
-        });
-
-        n1Slider.addEventListener('input', (e) => {
-            n1 = parseFloat(e.target.value);
-            n1Value.textContent = n1.toFixed(2);
-            document.getElementById('n1Preset').value = ""; 
-            resetSimulation();
-        });
-
-        n2Slider.addEventListener('input', (e) => {
-            n2 = parseFloat(e.target.value);
-            n2Value.textContent = n2.toFixed(2);
-            document.getElementById('n2Preset').value = "";
-            resetSimulation();
-        });
+        angleSlider.addEventListener('input', (e) => { angleDeg = parseFloat(e.target.value); angleValue.textContent = angleDeg + "°"; resetSimulation(); });
+        n1Slider.addEventListener('input', (e) => { n1 = parseFloat(e.target.value); n1Value.textContent = n1.toFixed(2); document.getElementById('n1Preset').value = ""; resetSimulation(); });
+        n2Slider.addEventListener('input', (e) => { n2 = parseFloat(e.target.value); n2Value.textContent = n2.toFixed(2); document.getElementById('n2Preset').value = ""; resetSimulation(); });
+        carWidthSlider.addEventListener('input', (e) => { carWidth = parseFloat(e.target.value); carWidthValue.textContent = carWidth; });
 
         function applyPreset(target, val) {
-            if (!val) return;
-            val = parseFloat(val);
-            if (target === 'n1') {
-                n1 = val;
-                n1Slider.value = val;
-                n1Value.textContent = val.toFixed(2);
-            } else {
-                n2 = val;
-                n2Slider.value = val;
-                n2Value.textContent = val.toFixed(2);
-            }
+            if (!val) return; val = parseFloat(val);
+            if (target === 'n1') { n1 = val; n1Slider.value = val; n1Value.textContent = val.toFixed(2); }
+            else { n2 = val; n2Slider.value = val; n2Value.textContent = val.toFixed(2); }
             resetSimulation();
         }
         
         function toggleHuygens() {
             showHuygensDetails = document.getElementById('chkHuygens').checked;
-            
             document.getElementById('legendSource').style.opacity = showHuygensDetails ? '1' : '0.3';
             document.getElementById('legendWavelet').style.opacity = showHuygensDetails ? '1' : '0.3';
-            document.getElementById('legendSource').innerHTML = showHuygensDetails ? 
-                '<span class="dot c-orange"></span> 點波源' : '<span class="dot c-orange"></span> 點波源(隱藏中)';
-            document.getElementById('legendWavelet').innerHTML = showHuygensDetails ? 
-                '<span class="dot c-grey"></span> 子波(圓形)' : '<span class="dot c-grey"></span> 子波(隱藏中)';
         }
 
-        function setMode(newMode) {
-            mode = newMode;
-            document.getElementById('btnReflect').className = mode === 'reflection' ? 'btn-mode active' : 'btn-mode';
-            document.getElementById('btnRefract').className = mode === 'refraction' ? 'btn-mode active' : 'btn-mode';
+        function setVisualMode(newMode) {
+            visualMode = newMode;
+            document.getElementById('btnVisWave').className = (newMode === 'wave') ? 'btn-vis active' : 'btn-vis';
+            document.getElementById('btnVisRay').className = (newMode === 'ray') ? 'btn-vis active' : 'btn-vis';
+            document.getElementById('btnVisCar').className = (newMode === 'car') ? 'btn-vis active' : 'btn-vis';
+
+            const emitBtn = document.getElementById('btnEmit');
+            const chkContainer = document.getElementById('detailsCheckboxContainer');
+            const carSettings = document.getElementById('carSettings');
             
+            if (newMode === 'ray') {
+                emitBtn.style.display = 'none';
+                chkContainer.style.visibility = 'hidden';
+            } else {
+                emitBtn.style.display = 'block';
+                chkContainer.style.visibility = (newMode === 'wave') ? 'visible' : 'hidden';
+                if (newMode === 'wave') emitBtn.textContent = "🚀 發射新波";
+                else if (newMode === 'car') emitBtn.textContent = "🚗 發射車輪";
+            }
+
+            carSettings.style.display = (newMode === 'car') ? 'block' : 'none';
+
+            document.getElementById('waveLegend').style.display = (newMode === 'wave') ? 'flex' : 'none';
+            document.getElementById('rayLegend').style.display = (newMode === 'ray') ? 'flex' : 'none';
+            document.getElementById('carLegend').style.display = (newMode === 'car') ? 'flex' : 'none';
+
+            resetSimulation();
+        }
+
+        function setPhysicsMode(newMode) {
+            mode = newMode;
+            document.getElementById('btnReflect').className = (mode === 'reflection') ? 'btn-phys active' : 'btn-phys';
+            document.getElementById('btnRefract').className = (mode === 'refraction') ? 'btn-phys active' : 'btn-phys';
             const n2Group = document.getElementById('n2-group');
+            const carBtn = document.getElementById('btnVisCar');
+
             if (mode === 'reflection') {
                 n2Group.style.opacity = '0.5';
+                carBtn.style.display = 'none'; 
+                if (visualMode === 'car') setVisualMode('wave'); 
             } else {
                 n2Group.style.opacity = '1';
+                carBtn.style.display = 'inline-block'; 
             }
             resetSimulation();
         }
 
         function emitNewWave() {
-            incidentWaves.push(new IncidentWave(waveIdCounter++));
+            if (visualMode === 'wave') incidentWaves.push(new IncidentWave(waveIdCounter++));
+            else if (visualMode === 'car') cars.push(new Car());
         }
 
         function resetSimulation() {
-            wavelets = [];
-            incidentWaves = [];
+            wavelets = []; incidentWaves = []; cars = [];
             sources.forEach(s => {});
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawInterfaceAndLabels();
         }
 
         initSources();
-        setMode('reflection'); 
+        setPhysicsMode('reflection'); 
         drawInterfaceAndLabels(); 
         requestAnimationFrame(update); 
 
