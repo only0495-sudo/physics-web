@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>錐動單擺 (最終乾淨版)</title>
+    <style>
+        /* 基礎設定 */
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background-color: #ffffff !important; 
+            font-family: "Times New Roman", "Microsoft JhengHei", serif; 
+        }
+        
+        /* 介面容器 */
+        #ui-layer {
+            position: absolute; top: 10px; right: 10px; z-index: 20;
+            display: flex; flex-direction: column; align-items: flex-end;
+            pointer-events: none;
+        }
+
+        /* 說明面板 */
+        #info-panel {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px; border-radius: 8px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            width: 280px; pointer-events: auto;
+            margin-bottom: 10px;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+        h1 { margin: 0 0 5px 0; font-size: 18px; color: #111; font-weight: 800; }
+        p { margin: 4px 0; font-size: 13px; color: #555; line-height: 1.4; }
+
+        /* 重整按鈕 */
+        #reset-btn {
+            background: #d32f2f; color: white; border: none;
+            padding: 8px 15px; border-radius: 5px;
+            font-size: 14px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            pointer-events: auto; font-family: "Microsoft JhengHei", sans-serif;
+            transition: background 0.2s;
+        }
+        #reset-btn:hover { background: #b71c1c; }
+        
+        /* 左側數學面板 */
+        #math-panel {
+            position: absolute; top: 20px; left: 20px; z-index: 20;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 25px; border-radius: 10px;
+            border-left: 5px solid #2e7d32;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+            font-size: 22px; color: #000;
+            pointer-events: none;
+            min-width: 220px;
+        }
+        .math-row { display: flex; align-items: center; justify-content: flex-start; margin-bottom: 8px;}
+        .math-label { font-weight: bold; margin-right: 15px; color: #333; font-family: "Microsoft JhengHei", sans-serif; font-size: 16px; }
+        .math-eq { font-style: italic; font-weight: bold; }
+        
+        /* 直式分數 CSS */
+        .fraction { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 5px; font-size: 0.9em; }
+        .numerator { border-bottom: 2px solid #000; padding: 0 3px; display: block; }
+        .denominator { padding: 0 3px; display: block; }
+        
+        /* 3D 標籤 */
+        .force-label {
+            background: rgba(255, 255, 255, 0.95); border: 1px solid #333; 
+            color: #000; padding: 2px 6px; border-radius: 4px;
+            font-size: 13px; font-weight: bold; font-family: sans-serif;
+            pointer-events: none; white-space: nowrap; margin-top: -5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+        .angle-label {
+            color: #ff8f00; font-weight: bold; font-size: 18px; 
+            font-family: "Times New Roman", serif;
+            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff; 
+            pointer-events: none;
+        }
+
+        /* Loading */
+        #loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; color: #333; display: flex;
+            justify-content: center; align-items: center; z-index: 1000;
+            font-size: 16px; letter-spacing: 1px; font-family: sans-serif;
+        }
+
+        /* GUI */
+        .lil-gui { font-size: 13px !important; --width: 260px; z-index: 30 !important; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.umd.min.js"></script>
+</head>
+<body>
+
+    <div id="loader">● 實驗室準備中...</div>
+    
+    <div id="math-panel">
+        <div id="forces-eq">
+            <div class="math-row">
+                <span class="math-label">水平合力:</span> 
+                <span class="math-eq">
+                    T sin&theta; = m <div class="fraction"><span class="numerator">v²</span><span class="denominator">r</span></div>
+                </span>
+            </div>
+            <div class="math-row">
+                <span class="math-label">垂直平衡:</span> 
+                <span class="math-eq">T cos&theta; = mg</span>
+            </div>
+        </div>
+        <div id="L-eq" style="display:none;">
+            <div class="math-row">
+                <span class="math-label" style="color:#00bcd4;">角動量:</span>
+                <span class="math-eq" style="color:#00bcd4;">L = r × p</span>
+            </div>
+            <div class="math-row" style="font-size:16px; color:#555; margin-top:5px;">
+                相對於 <span id="ref-text" style="font-weight:bold;">圓心</span> 的角動量
+            </div>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="info-panel">
+            <h1 id="mode-title">1. 錐動單擺</h1>
+            <p id="mode-desc">
+                重力與繩張力合成向心力。<br>
+                球體順時針旋轉。
+            </p>
+        </div>
+        <button id="reset-btn" onclick="location.reload()">🔄 重置實驗</button>
+    </div>
+
+    <script>
+        // --- 全局變數 ---
+        let scene, camera, renderer, labelRenderer, controls, gui;
+        let mainGroup;
+        
+        // 物件參照
+        let objects = {
+            bob: null, string: null, pole: null, 
+            topPlate: null, ghostPath: null, 
+            angleLine: null
+        };
+        let arrows = {};
+        let labels = {};
+        
+        // 物理參數
+        const g = 9.8;
+        let time = 0;
+        
+        const params = {
+            velocity: 12,
+            camHeight: 60,
+            showForces: true,  
+            showL: false,      
+            refPoint: 'center', 
+            paused: false
+        };
+
+        const POLE_HEIGHT = 40;
+        const STRING_LEN = 30;
+
+        window.onload = init;
+
+        function init() {
+            // 1. 場景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+            scene.fog = new THREE.Fog(0xffffff, 50, 300);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, params.camHeight, 90);
+
+            // 2. 渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            labelRenderer = new THREE.CSS2DRenderer();
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            document.body.appendChild(labelRenderer.domElement);
+
+            // 3. 控制器
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.set(0, 20, 0); 
+
+            // 4. 燈光
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(50, 100, 50);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+            const grid = new THREE.GridHelper(300, 60, 0x888888, 0xeeeeee);
+            scene.add(grid);
+
+            // 5. 建立物件
+            mainGroup = new THREE.Group();
+            scene.add(mainGroup);
+            createSceneObjects();
+
+            // 6. GUI
+            initGUI();
+            updatePanel();
+
+            document.getElementById('loader').style.display = 'none';
+            animate();
+            
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function initGUI() {
+            gui = new lil.GUI({ title: '控制面板' });
+            gui.domElement.style.top = '10px';
+            gui.domElement.style.right = '10px';
+
+            gui.add(params, 'velocity', 0, 25).name('速率 v (m/s)');
+            gui.add(params, 'camHeight', 10, 80).name('👀 視角高度').onChange(val => {
+                camera.position.y = val;
+                controls.target.set(0, val - 30, 0); 
+            });
+            
+            const folderL = gui.addFolder('顯示選項');
+            folderL.add(params, 'showL').name('顯示角動量 (L)').onChange(updatePanel);
+            folderL.add(params, 'refPoint', { '圓心 (Center)': 'center', '支點 (Pivot)': 'pivot' })
+                   .name('L 參考點')
+                   .onChange(updatePanel);
+            folderL.open();
+
+            gui.add(params, 'paused').name('暫停');
+        }
+
+        function updatePanel() {
+            const eqForces = document.getElementById('forces-eq');
+            const eqL = document.getElementById('L-eq');
+            const refText = document.getElementById('ref-text');
+
+            if (params.showL) {
+                // 角動量模式
+                eqForces.style.display = 'none';
+                eqL.style.display = 'block';
+                params.showForces = false; 
+                refText.innerText = params.refPoint === 'center' ? "圓心" : "支點";
+            } else {
+                // 力學模式
+                eqForces.style.display = 'block';
+                eqL.style.display = 'none';
+                params.showForces = true;
+            }
+        }
+
+        function createSceneObjects() {
+            // 支架
+            const poleGeo = new THREE.CylinderGeometry(0.8, 0.8, POLE_HEIGHT, 16);
+            const poleMat = new THREE.MeshStandardMaterial({color: 0x888888});
+            objects.pole = new THREE.Mesh(poleGeo, poleMat);
+            objects.pole.position.y = POLE_HEIGHT / 2;
+            objects.pole.castShadow = true;
+            mainGroup.add(objects.pole);
+
+            // 頂板
+            const topGeo = new THREE.CylinderGeometry(2, 2, 1, 32);
+            const topMat = new THREE.MeshStandardMaterial({color: 0x333333});
+            objects.topPlate = new THREE.Mesh(topGeo, topMat);
+            objects.topPlate.position.y = POLE_HEIGHT;
+            mainGroup.add(objects.topPlate);
+
+            // 擺錘
+            const bobGeo = new THREE.SphereGeometry(1.5, 32, 32);
+            const bobMat = new THREE.MeshStandardMaterial({color: 0x1976d2});
+            objects.bob = new THREE.Mesh(bobGeo, bobMat);
+            objects.bob.castShadow = true;
+            mainGroup.add(objects.bob);
+
+            // 繩子
+            const stringMat = new THREE.LineBasicMaterial({color: 0x333333, linewidth: 2});
+            const stringGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, POLE_HEIGHT, 0), new THREE.Vector3(0, 10, 0)]);
+            objects.string = new THREE.Line(stringGeo, stringMat);
+            mainGroup.add(objects.string);
+
+            // 角度弧線 (Line Loop)
+            const arcMat = new THREE.LineBasicMaterial({ color: 0xffaa00, linewidth: 3 });
+            const arcGeo = new THREE.BufferGeometry();
+            objects.angleLine = new THREE.Line(arcGeo, arcMat);
+            mainGroup.add(objects.angleLine);
+
+            // 角度標籤
+            const divAngle = document.createElement('div');
+            divAngle.className = 'angle-label'; divAngle.innerText = "θ";
+            labels.theta = new THREE.CSS2DObject(divAngle);
+            scene.add(labels.theta);
+
+            // 虛線軌跡
+            const ghostMat = new THREE.LineDashedMaterial({ color: 0xaaaaaa, dashSize: 1, gapSize: 0.5 });
+            const ghostGeo = new THREE.BufferGeometry();
+            objects.ghostPath = new THREE.Line(ghostGeo, ghostMat);
+            mainGroup.add(objects.ghostPath);
+
+            // 箭頭
+            createArrow('mg', 0x9c27b0, 'mg'); // 紫
+            createArrow('T', 0xd32f2f, 'T');   // 紅
+            createArrow('Fc', 0x2e7d32, 'Fc'); // 綠
+            createArrow('L', 0x00bcd4, 'L');   // 青
+            createArrow('r', 0xffc107, 'r');   // 黃 (位置向量)
+            createArrow('v', 0xe040fb, 'v');   // 洋紅 (速度向量)
+        }
+
+        function createArrow(name, color, text) {
+            const headW = name.includes('L') ? 0.8 : 0.5;
+            const headL = name.includes('L') ? 1.5 : 1.0;
+            const arrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(), 5, color, headL, headW);
+            mainGroup.add(arrow);
+            arrows[name] = arrow;
+
+            const div = document.createElement('div');
+            div.className = 'force-label'; div.innerText = text;
+            div.style.borderColor = '#' + color.toString(16).padStart(6,'0');
+            div.style.color = '#' + color.toString(16).padStart(6,'0');
+            const label = new THREE.CSS2DObject(div);
+            scene.add(label);
+            labels[name] = label;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!params.paused) {
+                updatePhysics();
+            }
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+
+        function updatePhysics() {
+            const dt = 0.016;
+            const v = params.velocity;
+            
+            // theta 隨 v 增加
+            let theta = (v / 25) * 1.4; if(theta > 1.4) theta = 1.4; 
+            const r = STRING_LEN * Math.sin(theta);
+            const radius = Math.max(0.1, r);
+            
+            // 順時針旋轉
+            time -= (v / radius) * dt;
+
+            const h = STRING_LEN * Math.cos(theta);
+            const x = r * Math.cos(time);
+            const z = r * Math.sin(time);
+            const y = POLE_HEIGHT - h;
+
+            objects.bob.position.set(x, y, z);
+
+            const posAttr = objects.string.geometry.attributes.position;
+            posAttr.setXYZ(0, 0, POLE_HEIGHT, 0); 
+            posAttr.setXYZ(1, x, y, z);
+            posAttr.needsUpdate = true;
+
+            updateAngleVisuals(x, z, theta);
+            updateGhostCircle(radius, y);
+            updateVectors(x, y, z, theta, v, radius);
+        }
+
+        function updateAngleVisuals(x, z, theta) {
+            const arcR = 8;
+            const stringVec = new THREE.Vector3(x, objects.bob.position.y - POLE_HEIGHT, z).normalize();
+            const downVec = new THREE.Vector3(0, -1, 0);
+
+            const points = [];
+            const segments = 20;
+            for(let i=0; i<=segments; i++) {
+                const t = i/segments;
+                const v = new THREE.Vector3().copy(downVec).lerp(stringVec, t).normalize().multiplyScalar(arcR);
+                points.push(new THREE.Vector3(0, POLE_HEIGHT, 0).add(v));
+            }
+            objects.angleLine.geometry.setFromPoints(points);
+
+            const midVec = new THREE.Vector3().copy(downVec).lerp(stringVec, 0.5).normalize().multiplyScalar(arcR + 4);
+            labels.theta.position.copy(new THREE.Vector3(0, POLE_HEIGHT, 0).add(midVec));
+        }
+
+        function updateGhostCircle(r, y) {
+            if(objects.ghostPath) {
+                mainGroup.remove(objects.ghostPath); objects.ghostPath.geometry.dispose();
+                const curve = new THREE.EllipseCurve(0, 0, r, r, 0, 2*Math.PI, false, 0);
+                const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(64));
+                const mat = new THREE.LineDashedMaterial({ color: 0xaaaaaa, dashSize: 1, gapSize: 0.5, transparent:true, opacity:0.6 });
+                objects.ghostPath = new THREE.Line(geo, mat);
+                objects.ghostPath.rotation.x = -Math.PI/2;
+                objects.ghostPath.position.y = y;
+                objects.ghostPath.computeLineDistances();
+                mainGroup.add(objects.ghostPath);
+            }
+        }
+
+        function updateVectors(x, y, z, theta, v, r) {
+            const p = objects.bob.position;
+            
+            const vec_mg = new THREE.Vector3(0, -1, 0);
+            const vec_T  = new THREE.Vector3(-x, POLE_HEIGHT - y, -z).normalize();
+            const vec_Fc = new THREE.Vector3(-x, 0, -z).normalize();
+            
+            let originPos = new THREE.Vector3();
+            if (params.refPoint === 'pivot') originPos.set(0, POLE_HEIGHT, 0);
+            else originPos.set(0, y, 0);
+            
+            const r_vec = new THREE.Vector3().subVectors(p, originPos);
+            const v_vec = new THREE.Vector3(z, 0, -x).normalize().multiplyScalar(v); 
+            const vec_L = new THREE.Vector3().crossVectors(r_vec, v_vec).normalize();
+            const lenL = (r * v) * 0.05;
+
+            // --- 狀態 A: 力學模式 ---
+            if (!params.showL) {
+                setArrow('mg', p, vec_mg, 10, true);
+                setArrow('T', p, vec_T, 10 / Math.cos(theta), true);
+                setArrow('Fc', p, vec_Fc, 10 * Math.tan(theta), true);
+                setArrow('L', p, vec_L, 0, false);
+                setArrow('r', p, r_vec, 0, false);
+                setArrow('v', p, v_vec, 0, false);
+            } 
+            // --- 狀態 B: 角動量模式 ---
+            else {
+                setArrow('mg', p, vec_mg, 0, false);
+                setArrow('T', p, vec_T, 0, false);
+                setArrow('Fc', p, vec_Fc, 0, false);
+                
+                // 顯示 r 和 v
+                setArrow('r', originPos, r_vec.clone().normalize(), r_vec.length(), true);
+                setArrow('v', p, v_vec.clone().normalize(), 8, true);
+                
+                setMainArrowL(p, vec_L, Math.max(3, lenL), true);
+            }
+        }
+
+        function setArrow(name, origin, dir, len, isVisible) {
+            const arrow = arrows[name];
+            const label = labels[name];
+            if(!arrow) return;
+            arrow.visible = isVisible;
+            label.visible = isVisible;
+            if (isVisible) {
+                arrow.position.copy(origin);
+                arrow.setDirection(dir);
+                arrow.setLength(Math.max(0.1, len));
+                const tip = dir.clone().multiplyScalar(len + 2).add(origin);
+                label.position.copy(tip);
+            }
+        }
+
+        function setMainArrowL(origin, dir, len, isVisible) {
+            const arrow = arrows['L'];
+            const label = labels['L'];
+            arrow.visible = isVisible;
+            label.visible = isVisible;
+            if(isVisible) {
+                arrow.position.copy(origin);
+                arrow.setDirection(dir);
+                arrow.setLength(len, 3, 2); 
+                const tip = dir.clone().multiplyScalar(len + 3).add(origin);
+                label.position.copy(tip);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
