@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>環形電流磁場</title>
+    <style>
+        /* --- 基礎設定 --- */
+        body { margin: 0; overflow: hidden; font-family: 'Times New Roman', serif; background-color: #f5f5f5; }
+        #canvas-container { width: 100vw; height: 100vh; }
+
+        /* 介面字體 */
+        .ui-font { font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif; }
+
+        /* --- 控制面板樣式 --- */
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 360px;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 0 25px; /* Padding 調整，上下由內部元素控制以配合收合動畫 */
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0,0,0,0.1);
+
+            /* 收合動畫關鍵 CSS */
+            max-height: 95vh; /* 展開時的最大高度 */
+            overflow: hidden; /* 收合時隱藏溢出內容 */
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 收合狀態 */
+        #controls.collapsed {
+            max-height: 60px; /* 收合時的高度 (只夠顯示標題) */
+            opacity: 0.8;
+            overflow: hidden;
+        }
+
+        /* 標題區域 (Flexbox 排版) */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #ffaa00;
+            margin-bottom: 0; /* Margin 改由 content-wrapper 控制 */
+            min-height: 35px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: #111;
+            font-family: 'Microsoft JhengHei', sans-serif;
+        }
+
+        /* 收合按鈕樣式 */
+        #toggle-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #555;
+            padding: 0 5px;
+            line-height: 1;
+            transition: color 0.2s, transform 0.2s;
+        }
+        #toggle-btn:hover { color: #0055ff; transform: scale(1.1); }
+        #toggle-btn:focus { outline: none; }
+
+        /* 內容包裝層 (用於動畫與間距) */
+        #panel-content {
+            padding-top: 20px;
+            padding-bottom: 25px;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        /* 當父層收合時，內容淡出 */
+        #controls.collapsed #panel-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .control-group { margin-bottom: 18px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; color: #333; font-size: 1rem; font-family: 'Microsoft JhengHei', sans-serif;}
+
+        select { width: 100%; padding: 8px; font-size: 1rem; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; }
+        input[type=range] { width: 100%; cursor: pointer; height: 6px; background: #ddd; border-radius: 5px; appearance: none;}
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #0055ff; border-radius: 50%; cursor: pointer; }
+
+        .value-display { float: right; color: #0044cc; font-weight: bold; font-family: monospace; }
+
+        /* 數據顯示區 */
+        #readout {
+            background: #eef4ff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            color: #222;
+            border-left: 5px solid #0055ff;
+            line-height: 1.6;
+        }
+
+        /* 數學符號樣式 */
+        .math { font-family: 'Times New Roman', serif; font-style: italic; font-weight: bold; }
+
+        /* 圖例 */
+        .legend { margin-top: 20px; font-size: 0.9rem; border-top: 1px solid #eee; padding-top: 15px; font-family: 'Microsoft JhengHei', sans-serif;}
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; }
+        .color-box { width: 18px; height: 18px; display: inline-block; margin-right: 12px; border-radius: 3px; }
+
+        /* 3D 場景標籤 */
+        .label-3d {
+            color: #000;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            font-weight: bold;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 4px;
+            font-size: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            pointer-events: none;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .label-roman { font-style: normal; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div id="controls">
+    <div class="panel-header">
+        <h2>空間感救星：畢歐-沙伐定律</h2>
+        <button id="toggle-btn" title="收合選單">&#8722;</button> </div>
+
+    <div id="panel-content">
+        <div id="readout">
+            <div><span class="math">r</span> (距離) : <span id="val-r" class="value-display">0.00</span></div>
+            <div>|<span class="math">&Delta;B</span>| (強度) : <span id="val-dB" class="value-display">0.00</span></div>
+            <div><span class="math">B<sub>total</sub></span> (總場) : <span id="val-Bz" class="value-display">0.00</span></div>
+        </div>
+
+        <div class="control-group">
+            <label for="directionSelect">電流方向 (Direction)</label>
+            <select id="directionSelect">
+                <option value="ccw">逆時針 (Counter-Clockwise)</option>
+                <option value="cw">順時針 (Clockwise)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>電流大小 <span class="math">I</span> <span id="disp-I" class="value-display">2.0</span></label>
+            <input type="range" id="sliderI" min="0.5" max="5.0" step="0.1" value="2.0">
+        </div>
+
+        <div class="control-group">
+            <label>線圈半徑 <span class="math">R</span> <span id="disp-R" class="value-display">3.0</span></label>
+            <input type="range" id="sliderR" min="1.0" max="5.0" step="0.1" value="3.0">
+        </div>
+
+        <div class="control-group">
+            <label>觀測點高度 <span class="math">a</span> <span id="disp-a" class="value-display">4.0</span></label>
+            <input type="range" id="sliderA" min="0.1" max="8.0" step="0.1" value="4.0">
+        </div>
+
+        <div class="control-group">
+            <label>選取電流元位置 <span class="math">&theta;</span></label>
+            <input type="range" id="sliderAngle" min="0" max="6.28" step="0.01" value="0.78">
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="color-box" style="background:#ff9900"></span> <span class="math">I</span> (環形電流)</div>
+            <div class="legend-item"><span class="color-box" style="background:#cc0000"></span> <span class="math">I&Delta;&#8467;</span> (電流元向量)</div>
+            <div class="legend-item"><span class="color-box" style="background:#333333"></span> <span class="math">r</span> (距離向量)</div>
+            <div class="legend-item"><span class="color-box" style="background:#00aa00"></span> <span class="math">&Delta;B</span> (微小磁場)</div>
+            <div class="legend-item"><span class="color-box" style="background:#0044ff"></span> <span class="math">B<sub>total</sub></span> (總磁場)</div>
+        </div>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+    // --- UI 收合邏輯 ---
+    const toggleBtn = document.getElementById('toggle-btn');
+    const controlsPanel = document.getElementById('controls');
+
+    toggleBtn.addEventListener('click', () => {
+        controlsPanel.classList.toggle('collapsed');
+        if (controlsPanel.classList.contains('collapsed')) {
+            toggleBtn.innerHTML = '&#43;'; // Plus sign
+            toggleBtn.title = "展開選單";
+        } else {
+            toggleBtn.innerHTML = '&#8722;'; // Minus sign
+            toggleBtn.title = "收合選單";
+        }
+    });
+
+    // --- 以下為物理模擬程式碼 ---
+
+    // --- 全域變數 ---
+    let ringRadius = 3.0;
+    let heightA = 4.0;
+    let currentI = 2.0;
+    let isCCW = true;
+
+    // 視覺比例常數
+    const SCALE_dB = 18.0;
+    const SCALE_Btot = 12.0;
+
+    // --- 初始化場景 ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf8f8f8);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(12, 9, 12);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.getElementById('canvas-container').appendChild(labelRenderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // --- 燈光 ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 5);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // --- 3D 物件 ---
+    const gridHelper = new THREE.GridHelper(30, 30, 0xcccccc, 0xebebeb);
+    scene.add(gridHelper);
+
+    // 1. 電流環
+    let ringMesh;
+    const ringMaterial = new THREE.MeshStandardMaterial({ color: 0xff9900, roughness: 0.2, metalness: 0.3 });
+    const ringArrowsGroup = new THREE.Group();
+    scene.add(ringArrowsGroup);
+
+    // 2. P 點
+    const pointP = new THREE.Mesh(new THREE.SphereGeometry(0.18), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
+    scene.add(pointP);
+    const pLabel = createMathLabel('P', 'red');
+    pointP.add(pLabel);
+    pLabel.position.set(0, 0.35, 0);
+
+    // 3. 軸線
+    const axisMaterial = new THREE.LineDashedMaterial({ color: 0x666666, dashSize: 0.4, gapSize: 0.3, linewidth: 2 });
+    const axisLine = new THREE.Line(new THREE.BufferGeometry(), axisMaterial);
+    scene.add(axisLine);
+    const aLabel = createMathLabel('a', 'black');
+    scene.add(aLabel);
+
+    // 4. 向量與電流元
+    const currentElem = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.25, 1.0, 16),
+        new THREE.MeshStandardMaterial({ color: 0xcc0000 })
+    );
+    scene.add(currentElem);
+
+    // 向量 r (虛線 + 箭頭)
+    const lineR = new THREE.Line(new THREE.BufferGeometry(),
+        new THREE.LineDashedMaterial({ color: 0x333333, dashSize: 0.3, gapSize: 0.2 })
+    );
+    scene.add(lineR);
+
+    const rArrowHeadGeo = new THREE.ConeGeometry(0.12, 0.4, 12);
+    rArrowHeadGeo.translate(0, -0.2, 0); // 修正中心點
+    const rArrowHead = new THREE.Mesh(rArrowHeadGeo, new THREE.MeshBasicMaterial({ color: 0x333333 }));
+    scene.add(rArrowHead);
+
+    const rLabel = createMathLabel('r', 'black');
+    scene.add(rLabel);
+
+    // 向量 I dl
+    const arrowIdl = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 2, 0xcc0000, 0.6, 0.3);
+    scene.add(arrowIdl);
+    const idlLabel = createMathLabel('I&Delta;&#8467;', '#cc0000');
+    arrowIdl.add(idlLabel);
+
+    // 向量 Delta B
+    const arrowdB = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(), 2, 0x00aa00, 0.6, 0.3);
+    scene.add(arrowdB);
+    const dbLabel = createMathLabel('&Delta;B', '#008800');
+    arrowdB.add(dbLabel);
+
+    // 向量 B_total
+    const arrowBTotal = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(), 2, 0x0044ff, 0.8, 0.5);
+    scene.add(arrowBTotal);
+    const bTotalLabel = createMathLabel('B<sub class="label-roman">total</sub>', '#0044ff');
+    arrowBTotal.add(bTotalLabel);
+
+    // 半徑 R 線
+    const radiusLine = new THREE.Line(new THREE.BufferGeometry(), axisMaterial);
+    scene.add(radiusLine);
+    const rBigLabel = createMathLabel('R', 'black');
+    scene.add(rBigLabel);
+
+
+    // --- 輔助函式 ---
+    function createMathLabel(htmlContent, color) {
+        const div = document.createElement('div');
+        div.className = 'label-3d';
+        div.innerHTML = htmlContent;
+        div.style.color = color;
+        return new CSS2DObject(div);
+    }
+
+    function updateRingGeometry() {
+        if(ringMesh) scene.remove(ringMesh);
+        const geometry = new THREE.TorusGeometry(ringRadius, 0.15, 30, 100);
+        ringMesh = new THREE.Mesh(geometry, ringMaterial);
+        ringMesh.rotation.x = Math.PI / 2;
+        ringMesh.receiveShadow = true;
+        scene.add(ringMesh);
+
+        ringArrowsGroup.clear();
+        const count = 10;
+        for(let i=0; i<count; i++) {
+            const th = (i/count) * Math.PI * 2;
+            const x = ringRadius * Math.cos(th);
+            const z = ringRadius * Math.sin(th);
+
+            const geometricTangent = new THREE.Vector3(-Math.sin(th), 0, Math.cos(th));
+            const currentDir = isCCW ? geometricTangent.clone().negate() : geometricTangent;
+
+            const arrow = new THREE.ArrowHelper(currentDir, new THREE.Vector3(x,0,z), 0.8, 0xcc5500, 0.3, 0.2);
+            ringArrowsGroup.add(arrow);
+        }
+    }
+
+    // --- 物理更新核心 ---
+    const elDir = document.getElementById('directionSelect');
+    const elI = document.getElementById('sliderI');
+    const elR = document.getElementById('sliderR');
+    const elA = document.getElementById('sliderA');
+    const elAng = document.getElementById('sliderAngle');
+
+    const txtI = document.getElementById('disp-I');
+    const txtR = document.getElementById('disp-R');
+    const txtA = document.getElementById('disp-a');
+
+    const valR = document.getElementById('val-r');
+    const valdB = document.getElementById('val-dB');
+    const valBz = document.getElementById('val-Bz');
+
+    function updatePhysics() {
+        // 1. 讀取數值
+        const newR = parseFloat(elR.value);
+        const rChanged = (newR !== ringRadius);
+        const newIsCCW = (elDir.value === 'ccw');
+        const dirChanged = (newIsCCW !== isCCW);
+
+        ringRadius = newR;
+        heightA = parseFloat(elA.value);
+        currentI = parseFloat(elI.value);
+        isCCW = newIsCCW;
+        const theta = parseFloat(elAng.value);
+
+        txtI.textContent = currentI.toFixed(1);
+        txtR.textContent = ringRadius.toFixed(1);
+        txtA.textContent = heightA.toFixed(1);
+
+        if (rChanged || dirChanged) {
+            updateRingGeometry();
+        }
+
+        // 2. 位置計算
+        const Sx = ringRadius * Math.cos(theta);
+        const Sz = ringRadius * Math.sin(theta);
+        const S = new THREE.Vector3(Sx, 0, Sz);
+
+        const P = new THREE.Vector3(0, heightA, 0);
+        pointP.position.copy(P);
+
+        // 3. 向量計算
+        const vec_r = new THREE.Vector3().subVectors(P, S);
+        const dist_r = vec_r.length();
+        const dir_r = vec_r.clone().normalize();
+
+        const geometricTangent = new THREE.Vector3(-Math.sin(theta), 0, Math.cos(theta)).normalize();
+        const vec_Idl_dir = isCCW ? geometricTangent.clone().negate() : geometricTangent;
+
+        const vec_dB_dir = new THREE.Vector3().crossVectors(vec_Idl_dir, vec_r).normalize();
+
+        // 4. 定量大小
+        const mag_dB = currentI / (dist_r * dist_r);
+        const mag_Btot = (currentI * ringRadius) / Math.pow(dist_r, 3);
+
+        // 顯示數據
+        valR.textContent = dist_r.toFixed(2);
+        valdB.textContent = mag_dB.toFixed(3);
+        const bDirSign = isCCW ? 1 : -1;
+        valBz.textContent = (mag_Btot * bDirSign).toFixed(3);
+
+        // 5. 更新畫面物件
+
+        // 軸線
+        aLabel.position.set(-0.4, heightA/2, 0);
+        const axisPoints = [new THREE.Vector3(0,0,0), P];
+        axisLine.geometry.setFromPoints(axisPoints);
+        axisLine.computeLineDistances();
+
+        // 半徑 R
+        rBigLabel.position.set(Sx/2, 0, Sz/2);
+        radiusLine.geometry.setFromPoints([new THREE.Vector3(0,0,0), S]);
+        radiusLine.computeLineDistances();
+
+        // 向量 r (線段 + 箭頭)
+        lineR.geometry.setFromPoints([S, P]);
+        lineR.computeLineDistances();
+        rArrowHead.position.copy(P);
+        rArrowHead.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir_r);
+        rLabel.position.copy(S).lerp(P, 0.5);
+
+        // 電流元 Idl
+        currentElem.position.copy(S);
+        currentElem.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec_Idl_dir);
+
+        arrowIdl.position.copy(S);
+        arrowIdl.setDirection(vec_Idl_dir);
+        arrowIdl.setLength(1.5 + currentI * 0.2);
+        idlLabel.position.set(0, 2.0, 0);
+
+        // 微小磁場 Delta B
+        const len_dB = Math.min(Math.max(mag_dB * SCALE_dB, 1.0), 8.0);
+        arrowdB.position.copy(P);
+        arrowdB.setDirection(vec_dB_dir);
+        arrowdB.setLength(len_dB, 0.25*len_dB, 0.15*len_dB);
+        dbLabel.position.set(0, len_dB + 0.3, 0);
+
+        // 總磁場 B_total
+        const vec_Btot_dir = new THREE.Vector3(0, isCCW ? 1 : -1, 0);
+        const len_Btot = Math.min(Math.max(mag_Btot * SCALE_Btot * 3.0, 1.0), 10.0);
+
+        arrowBTotal.position.copy(P);
+        arrowBTotal.setDirection(vec_Btot_dir);
+        arrowBTotal.setLength(len_Btot, 0.25*len_Btot, 0.15*len_Btot);
+        bTotalLabel.position.set(0, len_Btot + 0.5, 0);
+    }
+
+    // 事件監聽
+    elDir.addEventListener('change', updatePhysics);
+    elI.addEventListener('input', updatePhysics);
+    elR.addEventListener('input', updatePhysics);
+    elA.addEventListener('input', updatePhysics);
+    elAng.addEventListener('input', updatePhysics);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    updatePhysics();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+        labelRenderer.render(scene, camera);
+    }
+    animate();
+
+</script>
+</body>
+</html>
