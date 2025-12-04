@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波前物理教學 - 互動引導版</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --accent-color: #e67e22;
+            --highlight-color: #f1c40f;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: '微軟正黑體', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+
+        /* --- 主容器配置 --- */
+        .main-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .simulation-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- 畫布樣式 --- */
+        #canvasContainer {
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background-color: #fff;
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        canvas { display: block; }
+        #viewLabel {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: var(--accent-color);
+            pointer-events: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* --- 控制區樣式 --- */
+        .controls-wrapper {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        input[type=range] { flex-grow: 1; cursor: pointer; }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 18px;
+            font-size: 15px;
+            cursor: pointer;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        button:hover { filter: brightness(1.1); }
+        button#btnSwitchView { background-color: var(--accent-color); }
+        button#btnClear { background-color: #e74c3c; }
+
+        /* --- 學習引導面板 (右側/下方) --- */
+        .guide-panel {
+            width: 300px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border-top: 5px solid var(--primary-color);
+            align-self: flex-start;
+        }
+        .guide-header {
+            background: #ecf0f1;
+            padding: 15px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .guide-content {
+            padding: 20px;
+            min-height: 120px;
+        }
+        .guide-step-text {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .guide-controls {
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        .step-indicator {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            align-self: center;
+        }
+        .nav-btn {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+        .nav-btn:hover { background: #f0f8ff; }
+
+        /* --- 高亮動畫效果 --- */
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); transform: scale(1); }
+            70% { box-shadow: 0 0 0 10px rgba(241, 196, 15, 0); transform: scale(1.05); }
+            100% { box-shadow: 0 0 0 0 rgba(241, 196, 15, 0); transform: scale(1); }
+        }
+        .highlight-pulse {
+            animation: pulse-border 1.5s infinite;
+            border: 2px solid var(--highlight-color) !important;
+            z-index: 10;
+            position: relative;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🌊 什麼是波前？互動教學</h1>
+
+    <div class="main-container">
+        <div class="simulation-area">
+            <div id="canvasContainer">
+                <canvas id="waterCanvas" width="550" height="350"></canvas>
+                <div id="viewLabel">俯視圖 (Top View)</div>
+            </div>
+
+            <div class="controls-wrapper">
+                <div class="speed-control" id="ctrl-speed">
+                    <label>⏱️ 播放速度:</label>
+                    <input type="range" id="speedRange" min="0.1" max="1.0" step="0.1" value="1.0">
+                    <span id="speedDisplay">1.0x</span>
+                </div>
+
+                <div class="button-group">
+                    <button id="btnDropStone">🖐️ 丟石頭</button>
+                    <button id="btnSwitchView">🔄 切換視角 (俯視)</button>
+                    <button id="btnToggleRain">☔ 下雨模式</button>
+                    <button id="btnClear">❌ 清除</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="guide-panel">
+            <div class="guide-header">
+                <span>🤖 學習引導</span>
+            </div>
+            <div class="guide-content">
+                <div id="guideText" class="guide-step-text">
+                    歡迎來到波前實驗室！請點擊「下一步」開始學習。
+                </div>
+                <div class="guide-controls">
+                    <button class="nav-btn" id="prevStep" disabled>上一步</button>
+                    <span class="step-indicator" id="stepIndicator">1 / 5</span>
+                    <button class="nav-btn" id="nextStep">下一步 ➜</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 變數與 DOM ---
+        const canvas = document.getElementById('waterCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Controls
+        const btnDropStone = document.getElementById('btnDropStone');
+        const btnSwitchView = document.getElementById('btnSwitchView');
+        const btnToggleRain = document.getElementById('btnToggleRain');
+        const btnClear = document.getElementById('btnClear');
+        const speedRange = document.getElementById('speedRange');
+        const speedDisplay = document.getElementById('speedDisplay');
+        const viewLabel = document.getElementById('viewLabel');
+
+        // Guide Elements
+        const guideText = document.getElementById('guideText');
+        const prevStepBtn = document.getElementById('prevStep');
+        const nextStepBtn = document.getElementById('nextStep');
+        const stepIndicator = document.getElementById('stepIndicator');
+
+        // Physics Params
+        const wavelength = 50;
+        const waveSpeedConstant = 2.5;
+        const amplitude = 30;
+        
+        // State
+        let waves = []; 
+        let simulationTime = 0; 
+        let timeSpeed = 1.0;    
+        let isRaining = false;
+        let lastRainTime = 0;
+        let viewMode = 'top'; 
+        let currentStep = 0; // 0-indexed
+
+        // --- 學習引導資料 ---
+        const steps = [
+            {
+                text: "👋 歡迎！<br>先試試看在水面上點擊，或者按<b>「丟石頭」</b>。<br>那些向外擴散的<span style='color:#3498db; font-weight:bold;'>藍色圓圈</span>，我們稱之為「波前」。",
+                highlight: "btnDropStone",
+                action: () => setView('top')
+            },
+            {
+                text: "🤔 <b>思考時間：</b><br>為什麼波前要畫成一條線？<br>這條線代表水面的什麼位置？是最高點？還是最低點？<br>讓我們換個角度來看看。",
+                highlight: null
+            },
+            {
+                text: "🔄 <b>切換視角：</b><br>請按下<b>「切換視角」</b>按鈕。<br>現在我們從側面看水波的剖面。<br>注意看藍色的點在哪裡？",
+                highlight: "btnSwitchView",
+                action: () => setView('side') // 自動切換，或者讓用戶自己切
+            },
+            {
+                text: "🐌 <b>慢動作觀察：</b><br>波跑太快看不清楚？<br>請將<b>「速度拉桿」</b>往左拉到底 (0.1x)。<br>你會發現藍色標記永遠跟著<b>波峰 (最高點)</b> 移動！",
+                highlight: "ctrl-speed",
+                action: () => {}
+            },
+            {
+                text: "🎉 <b>結論：</b><br>沒錯！<b>「波前」就是所有波峰連起來的線。</b><br>現在你可以試試「下雨模式」，觀察複雜波前的疊加！",
+                highlight: "btnToggleRain",
+                action: () => { timeSpeed = 1.0; speedRange.value = 1.0; speedDisplay.textContent = "1.0x"; }
+            }
+        ];
+
+        // --- 系統初始化 ---
+        function init() {
+            updateGuideUI();
+            update();
+            // 初始丟一顆
+            setTimeout(() => addWave(300, 175), 500);
+        }
+
+        // --- 學習引導邏輯 ---
+        function updateGuideUI() {
+            const step = steps[currentStep];
+            guideText.innerHTML = step.text;
+            stepIndicator.textContent = `${currentStep + 1} / ${steps.length}`;
+
+            // 按鈕狀態
+            prevStepBtn.disabled = currentStep === 0;
+            nextStepBtn.textContent = currentStep === steps.length - 1 ? "完成" : "下一步 ➜";
+
+            // 清除舊的高亮
+            document.querySelectorAll('.highlight-pulse').forEach(el => el.classList.remove('highlight-pulse'));
+
+            // 設定新的高亮
+            if (step.highlight) {
+                const el = document.getElementById(step.highlight);
+                if (el) el.classList.add('highlight-pulse');
+            }
+            
+            // 執行該步驟的預設動作 (例如強制切換視角，方便教學)
+            // 註解掉下一行如果希望學生自己手動按
+            // if (step.action) step.action(); 
+        }
+
+        nextStepBtn.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                updateGuideUI();
+            }
+        });
+
+        prevStepBtn.addEventListener('click', () => {
+            if (currentStep > 0) {
+                currentStep--;
+                updateGuideUI();
+            }
+        });
+
+        // --- 視角切換輔助 ---
+        function setView(mode) {
+            viewMode = mode;
+            updateViewUI();
+        }
+
+        function updateViewUI() {
+            if (viewMode === 'top') {
+                btnSwitchView.textContent = "🔄 切換視角 (俯視)";
+                viewLabel.textContent = "俯視圖 (Top View)";
+                viewLabel.style.color = "var(--accent-color)";
+            } else {
+                btnSwitchView.textContent = "🔄 切換視角 (側面)";
+                viewLabel.textContent = "側視圖 (Side View)";
+                viewLabel.style.color = "var(--primary-color)";
+            }
+        }
+
+        // --- 事件監聽 ---
+        speedRange.addEventListener('input', (e) => {
+            timeSpeed = parseFloat(e.target.value);
+            speedDisplay.textContent = timeSpeed.toFixed(1) + 'x';
+        });
+        
+        canvas.addEventListener('mousedown', (e) => {
+            if (viewMode === 'top') {
+                const rect = canvas.getBoundingClientRect();
+                addWave(e.clientX - rect.left, e.clientY - rect.top);
+            }
+        });
+
+        btnDropStone.addEventListener('click', () => {
+            const yPos = viewMode === 'side' ? canvas.height / 2 : Math.random() * canvas.height;
+            addWave(Math.random() * canvas.width * 0.8 + canvas.width * 0.1, yPos);
+        });
+
+        btnToggleRain.addEventListener('click', () => {
+            isRaining = !isRaining;
+            btnToggleRain.textContent = isRaining ? '🛑 停止下雨' : '☔ 下雨模式';
+        });
+
+        btnSwitchView.addEventListener('click', () => {
+            viewMode = viewMode === 'top' ? 'side' : 'top';
+            updateViewUI();
+        });
+
+        btnClear.addEventListener('click', () => {
+            waves = [];
+        });
+
+        // --- 核心物理與繪圖 ---
+        function addWave(x, y) {
+            waves.push({
+                x: x,
+                y: y,
+                startTime: simulationTime
+            });
+            if (waves.length > 50) waves.shift();
+        }
+
+        function getWaveHeight(wave, targetX, targetY, currTime) {
+            const elapsed = currTime - wave.startTime; 
+            const dx = targetX - wave.x;
+            const dy = targetY - wave.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const distanceTraveled = elapsed * waveSpeedConstant;
+            
+            if (dist > distanceTraveled) return 0;
+            
+            let decay = Math.max(0, 1 - dist / 400); 
+            decay *= Math.max(0, 1 - elapsed / 300);
+
+            const phase = (dist - distanceTraveled) / wavelength * 2 * Math.PI;
+            return Math.cos(phase) * amplitude * decay;
+        }
+
+        function drawTopView() {
+            // 切面線
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.strokeStyle = '#eee';
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            waves.forEach(wave => {
+                const elapsed = simulationTime - wave.startTime;
+                const currentRadius = elapsed * waveSpeedConstant;
+
+                for (let i = 0; i < 5; i++) {
+                    const r = currentRadius - (i * wavelength);
+                    if (r <= 0) continue;
+
+                    let alpha = 1.0 - (r / 500);
+                    if (alpha < 0) alpha = 0;
+
+                    ctx.beginPath();
+                    ctx.arc(wave.x, wave.y, r, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(52, 152, 219, ${alpha})`; // 藍色波前
+                    ctx.lineWidth = 2.5; 
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawSideView() {
+            const centerY = canvas.height / 2;
+            
+            // 基準線
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.strokeStyle = '#ccc';
+            ctx.stroke();
+
+            // 波形
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+
+            for (let x = 0; x < canvas.width; x += 2) {
+                let totalHeight = 0;
+                waves.forEach(wave => {
+                    totalHeight += getWaveHeight(wave, x, centerY, simulationTime);
+                });
+                ctx.lineTo(x, centerY - totalHeight);
+            }
+            
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.2)';
+            ctx.fill();
+
+            // 波前標記 (藍點)
+            let prevH = -999, currentH = -999;
+            for (let x = 0; x < canvas.width; x += 3) {
+                let h = 0;
+                waves.forEach(wave => { h += getWaveHeight(wave, x, centerY, simulationTime); });
+                
+                if (currentH > prevH && currentH > h && currentH > 5) {
+                    const peakX = x - 3;
+                    const peakY = centerY - currentH;
+
+                    ctx.beginPath();
+                    ctx.arc(peakX, peakY, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#3498db'; // 鮮豔藍
+                    ctx.fill();
+
+                    // 虛線
+                    ctx.beginPath();
+                    ctx.moveTo(peakX, peakY);
+                    ctx.lineTo(peakX, centerY);
+                    ctx.strokeStyle = 'rgba(52, 152, 219, 0.5)';
+                    ctx.setLineDash([2, 2]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                prevH = currentH;
+                currentH = h;
+            }
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            simulationTime += timeSpeed;
+
+            if (isRaining && simulationTime - lastRainTime > 15) {
+                let rainY = viewMode === 'side' ? (canvas.height/2 + (Math.random()*40 - 20)) : Math.random() * canvas.height;
+                addWave(Math.random() * canvas.width, rainY);
+                lastRainTime = simulationTime;
+            } else if (!isRaining) {
+                lastRainTime = simulationTime;
+            }
+
+            if (viewMode === 'top') drawTopView();
+            else drawSideView();
+
+            waves = waves.filter(w => (simulationTime - w.startTime) * waveSpeedConstant < 1000);
+            requestAnimationFrame(update);
+        }
+
+        init(); // 啟動
+
+    </script>
+</body>
+</html>
