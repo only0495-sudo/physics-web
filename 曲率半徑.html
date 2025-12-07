@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>曲率半徑</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222; color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; height: 100vh;
+            touch-action: none; 
+        }
+        
+        #controls-container {
+            padding: 10px; background-color: #333;
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 10;
+        }
+        .control-group {
+            display: flex; align-items: center; gap: 5px;
+            padding: 5px 10px; background: rgba(0,0,0,0.3); border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px; font-size: 15px; cursor: pointer;
+            background-color: #444; color: white; border: 1px solid #555; border-radius: 5px;
+            user-select: none; white-space: nowrap;
+        }
+        button:active { background-color: #007bff; border-color: #007bff; }
+        
+        canvas { 
+            display: block; width: 100%; height: 100%; touch-action: none; 
+            cursor: grab; 
+        }
+        canvas:active { cursor: grabbing; }
+
+        #canvas-container {
+            flex-grow: 1; position: relative; width: 100%; height: 100%; overflow: hidden;
+        }
+
+        #info-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0, 0, 0, 0.75); padding: 15px; border-radius: 8px;
+            pointer-events: none;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+        }
+        #info-panel div { margin-bottom: 6px; font-size: 16px; }
+        .highlight { color: #ffcc00; font-weight: bold; font-family: monospace; font-size: 1.1em;}
+        /* 增加向量圖例顏色說明 */
+        .legend-v { color: #ff4444; font-weight: bold; }
+        .legend-an { color: #d000ff; font-weight: bold; }
+
+        #zoom-indicator {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px;
+            font-size: 14px; color: #aaa; pointer-events: none;
+        }
+        
+        #recenter-btn {
+            position: absolute; bottom: 60px; right: 20px;
+            background-color: rgba(0, 100, 200, 0.8);
+            border: none; padding: 10px; border-radius: 50%;
+            width: 50px; height: 50px; font-size: 24px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls-container">
+        <div class="control-group">
+            <button onpointerdown="applyTurn('left')" onpointerup="stopTurn()" onpointerleave="stopTurn()">⬅️ 左轉</button>
+            <button onpointerdown="applyTurn('right')" onpointerup="stopTurn()" onpointerleave="stopTurn()">➡️ 右轉</button>
+        </div>
+        
+        <div class="control-group">
+            <label style="font-size: 14px;">a<sub>n</sub>:</label>
+            <input type="range" id="an-slider" min="50" max="500" value="150" step="10" style="width:100px;">
+            <span id="slider-val-display" class="highlight" style="font-size:14px; width:35px; display:inline-block;">150</span>
+        </div>
+
+        <button onclick="resetSimulation()" style="background-color: #d9534f; font-size: 14px;">🔁 重置</button>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        
+        <div id="info-panel">
+            <div><span class="legend-v">⮕ 速度 v</span>: <span class="highlight">200</span> px/s</div>
+            <div><span class="legend-an">⮕ 加速度 a<sub>n</sub></span>: <span id="an-display" class="highlight">0</span> px/s²</div>
+            <div style="border-top: 1px solid #555; margin-top:5px; padding-top:5px;">
+                R = v² / a<sub>n</sub>: <span id="radius-display" class="highlight">∞</span> px
+            </div>
+            <div style="font-size: 12px; color: #aaa; margin-top: 5px;">* 紫色箭頭指向圓心</div>
+        </div>
+
+        <div id="zoom-indicator">縮放: 1.00x</div>
+        <button id="recenter-btn" onclick="recenterCamera()" title="鏡頭回正">🎯</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const zoomDisplay = document.getElementById('zoom-indicator');
+
+        // --- 參數設定 ---
+        const CONSTANT_SPEED = 200; 
+        let currentTurnAcceleration = 150; 
+        let dt = 0; 
+        let lastTimestamp = 0;
+
+        // --- 視圖控制 ---
+        let cameraScale = 1.0;
+        const MIN_ZOOM = 0.2;
+        const MAX_ZOOM = 5.0;
+        let panOffset = { x: 0, y: 0 };
+        let isDragging = false;
+        let lastDragPos = { x: 0, y: 0 };
+
+        // --- 系統狀態 ---
+        let worldState = {
+            posX: 0, posY: 0,
+            angle: -Math.PI / 2, 
+            turningDirection: 0 
+        };
+        let baseCameraOffset = { x: 0, y: 0 };
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            baseCameraOffset.x = canvas.width / 2;
+            baseCameraOffset.y = canvas.height * 0.75; 
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- 輸入事件處理 ---
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSensitivity = 0.001;
+            let newScale = cameraScale - (e.deltaY * zoomSensitivity * cameraScale);
+            cameraScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+            updateZoomDisplay();
+        }, { passive: false });
+
+        function getPointerPos(e) {
+            if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            isDragging = true;
+            const pos = getPointerPos(e);
+            lastDragPos = { x: pos.x, y: pos.y };
+            canvas.setPointerCapture(e.pointerId);
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            const pos = getPointerPos(e);
+            panOffset.x += (pos.x - lastDragPos.x);
+            panOffset.y += (pos.y - lastDragPos.y);
+            lastDragPos = { x: pos.x, y: pos.y };
+        });
+
+        canvas.addEventListener('pointerup', () => { isDragging = false; });
+        canvas.addEventListener('pointercancel', () => { isDragging = false; });
+
+        let initialPinchDist = null;
+        let initialScale = 1.0;
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                isDragging = false;
+                initialPinchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                initialScale = cameraScale;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && initialPinchDist) {
+                e.preventDefault();
+                const currentDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+                let newScale = initialScale * (currentDist / initialPinchDist);
+                cameraScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+                updateZoomDisplay();
+            }
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => { initialPinchDist = null; });
+
+
+        // --- UI 功能 ---
+        function updateZoomDisplay() { zoomDisplay.textContent = `縮放: ${cameraScale.toFixed(2)}x`; }
+        function recenterCamera() { panOffset = { x: 0, y: 0 }; cameraScale = 1.0; updateZoomDisplay(); }
+
+        const anSlider = document.getElementById('an-slider');
+        const sliderValDisplay = document.getElementById('slider-val-display');
+        anSlider.addEventListener('input', function(e) {
+            currentTurnAcceleration = parseInt(e.target.value);
+            sliderValDisplay.textContent = currentTurnAcceleration;
+            if (worldState.turningDirection !== 0) updateInfoPanel(currentTurnAcceleration);
+        });
+
+        // --- 物理更新 ---
+        function updatePhysics(deltaSeconds) {
+            const v = CONSTANT_SPEED;
+            const an = worldState.turningDirection !== 0 ? currentTurnAcceleration : 0;
+            if (worldState.turningDirection !== 0) {
+                const omega = an / v; 
+                worldState.angle += omega * deltaSeconds * worldState.turningDirection;
+            }
+            worldState.posX += v * Math.cos(worldState.angle) * deltaSeconds;
+            worldState.posY += v * Math.sin(worldState.angle) * deltaSeconds;
+            updateInfoPanel(an);
+        }
+
+        function updateInfoPanel(currentAn) {
+            document.getElementById('an-display').textContent = currentAn.toFixed(0);
+            if (currentAn > 0) {
+                const R = (CONSTANT_SPEED * CONSTANT_SPEED) / currentAn;
+                document.getElementById('radius-display').textContent = R.toFixed(0);
+            } else {
+                document.getElementById('radius-display').textContent = "∞";
+            }
+        }
+
+        // --- 繪圖邏輯 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(baseCameraOffset.x + panOffset.x, baseCameraOffset.y + panOffset.y);
+            ctx.scale(cameraScale, cameraScale);
+            ctx.translate(-worldState.posX, -worldState.posY);
+
+            drawWorldGrid(); 
+            drawParticleAndVectors(); 
+            ctx.restore();
+        }
+
+        function drawWorldGrid() {
+            const gridSize = 100;
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1 / cameraScale; 
+            const viewportWidth = canvas.width / cameraScale;
+            const viewportHeight = canvas.height / cameraScale;
+            const range = Math.max(viewportWidth, viewportHeight) * 2;
+            const startX = Math.floor((worldState.posX - range) / gridSize) * gridSize;
+            const endX = Math.floor((worldState.posX + range) / gridSize) * gridSize;
+            const startY = Math.floor((worldState.posY - range) / gridSize) * gridSize;
+            const endY = Math.floor((worldState.posY + range) / gridSize) * gridSize;
+            for (let x = startX; x <= endX; x += gridSize) { ctx.moveTo(x, startY); ctx.lineTo(x, endY); }
+            for (let y = startY; y <= endY; y += gridSize) { ctx.moveTo(startX, y); ctx.lineTo(endX, y); }
+            ctx.stroke();
+        }
+
+        function drawParticleAndVectors() {
+            const px = worldState.posX;
+            const py = worldState.posY;
+            const angle = worldState.angle;
+            const v = CONSTANT_SPEED;
+            const an = worldState.turningDirection !== 0 ? currentTurnAcceleration : 0;
+            const scale = 1 / cameraScale;
+
+            if (an > 0) {
+                const R = (v * v) / an;
+                const normalAngle = angle + (Math.PI / 2 * worldState.turningDirection);
+                const centerX = px + R * Math.cos(normalAngle);
+                const centerY = py + R * Math.sin(normalAngle);
+
+                // 1. 曲率圓
+                ctx.beginPath();
+                ctx.setLineDash([15, 10]); 
+                ctx.strokeStyle = 'rgba(50, 255, 255, 0.5)';
+                ctx.lineWidth = 3 * scale;
+                ctx.arc(centerX, centerY, R, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]); 
+
+                // 2. 半徑線
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(px, py);
+                ctx.strokeStyle = 'rgba(50, 255, 255, 0.4)';
+                ctx.lineWidth = 2 * scale;
+                ctx.stroke();
+                
+                // 3. 圓心
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(50, 255, 255, 0.9)';
+                ctx.arc(centerX, centerY, 6 * scale, 0, Math.PI*2);
+                ctx.fill();
+
+                // 4. [新增] 法向加速度向量箭頭 (紫色)
+                const anPixelLength = an * 0.4; // 調整比例係數
+                const anEndX = px + anPixelLength * Math.cos(normalAngle);
+                const anEndY = py + anPixelLength * Math.sin(normalAngle);
+                drawArrow(px, py, anEndX, anEndY, '#d000ff', 6 * scale); // 紫色，稍微粗一點
+            }
+
+            // 5. 質點
+            ctx.beginPath();
+            ctx.fillStyle = '#ffcc00';
+            ctx.arc(px, py, 12, 0, Math.PI * 2); 
+            ctx.fill();
+
+            // 6. 速度向量箭頭 (紅色)
+            const vecLength = 100;
+            const endX = px + vecLength * Math.cos(angle);
+            const endY = py + vecLength * Math.sin(angle);
+            drawArrow(px, py, endX, endY, '#ff4444', 4 * scale);
+        }
+
+        function drawArrow(fromX, fromY, toX, toY, color, width) {
+            const headLength = width * 4; 
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+            ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.closePath(); ctx.fill();
+        }
+
+        function applyTurn(direction) { worldState.turningDirection = direction === 'left' ? -1 : 1; }
+        function stopTurn() { worldState.turningDirection = 0; }
+        function resetSimulation() { worldState = { posX: 0, posY: 0, angle: -Math.PI / 2, turningDirection: 0 }; recenterCamera(); }
+
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            if (dt > 0.1) dt = 0.1;
+            updatePhysics(dt);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        resizeCanvas();
+        requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>
