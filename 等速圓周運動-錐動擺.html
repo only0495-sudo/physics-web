@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>錐動單擺 (最終完美版)</title>
+    <title>錐動單擺 (最終完美優化版)</title>
     <style>
         /* --- 基礎設定 --- */
         html, body { 
@@ -12,7 +12,7 @@
             font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; 
         }
 
-        /* --- 左上角：數學公式 (直式分數) --- */
+        /* --- 左上角：數學公式 --- */
         #math-panel {
             position: absolute; top: 20px; left: 20px; z-index: 10;
             background: rgba(255, 255, 255, 0.95);
@@ -49,7 +49,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             width: 320px; 
-            height: 390px; /* 稍微加高以容納註記 */
+            height: 390px;
             overflow: hidden;
             border: 1px solid #ccc;
         }
@@ -58,17 +58,11 @@
             padding: 10px; font-size: 16px; font-weight: bold;
             text-align: center; border-bottom: 1px solid #bbdefb;
         }
-        /* 新增：FBD 註記樣式 */
         .fbd-note {
-            background-color: #fff8e1; /* 淡黃色背景 */
-            color: #ef6c00;            /* 深橘色文字 */
-            font-size: 12px;
-            padding: 6px 10px;
-            text-align: center;
-            border-bottom: 1px solid #ffe0b2;
-            line-height: 1.4;
+            background-color: #fff8e1; color: #ef6c00; font-size: 12px;
+            padding: 6px 10px; text-align: center;
+            border-bottom: 1px solid #ffe0b2; line-height: 1.4;
         }
-
         #fbd-canvas { display: block; background: #fff; margin: 0 auto; }
 
         /* --- 右側：控制面板 --- */
@@ -137,13 +131,23 @@
         }
         .color-box { width: 12px; height: 12px; border-radius: 2px; margin-right: 8px; }
 
-        /* 3D 標籤 */
+        /* --- 3D 標籤樣式 --- */
         .force-label {
             background: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; 
             color: #000; padding: 2px 5px; border-radius: 3px;
             font-size: 12px; font-weight: bold; pointer-events: none;
         }
         .angle-label { color: #ff8f00; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 0 #fff; }
+        
+        .geo-label {
+            color: #444;
+            font-family: "Times New Roman", serif;
+            font-style: italic;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+            pointer-events: none;
+        }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -153,6 +157,10 @@
 <body>
 
     <div id="math-panel">
+        <div class="math-row">
+            <span>旋轉半徑:</span> 
+            <span class="math-eq">r = L sin&theta;</span>
+        </div>
         <div class="math-row">
             <span>水平合力:</span> 
             <span class="math-eq">
@@ -213,6 +221,8 @@
                 <div class="legend-item"><div class="color-box" style="background:#d32f2f;"></div> Fc (向心力 / 合力)</div>
                 <div class="legend-item"><div class="color-box" style="background:#1565c0;"></div> T (繩張力)</div>
                 <div class="legend-item"><div class="color-box" style="background:#2e7d32;"></div> mg (重力)</div>
+                <div class="legend-item" style="margin-top:8px; border-top:1px solid #eee; padding-top:5px;"><span style="color:#888; font-size: 12px;">--- 灰色虛線: 旋轉軌跡</span></div>
+                <div class="legend-item"><span style="color:#ff5722; font-size: 12px;">--- 橘色虛線: 旋轉半徑 (L sinθ)</span></div>
             </div>
         </div>
     </div>
@@ -251,7 +261,7 @@
             scene.fog = new THREE.Fog(0xf0f2f5, 50, 300);
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 40, 90);
+            camera.position.set(0, 40, 100); 
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -292,7 +302,7 @@
             mainGroup = new THREE.Group();
             scene.add(mainGroup);
 
-            // 虛線軸
+            // 虛線中軸
             const dashGeo = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(0, POLE_HEIGHT, 0),
                 new THREE.Vector3(0, 0, 0)
@@ -303,16 +313,12 @@
             mainGroup.add(objects.axisLine);
 
             // 頂板
-            const topGeo = new THREE.CylinderGeometry(2, 2, 0.5, 32);
-            objects.topPlate = new THREE.Mesh(topGeo, new THREE.MeshStandardMaterial({color: 0x333}));
+            objects.topPlate = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.5, 32), new THREE.MeshStandardMaterial({color: 0x333}));
             objects.topPlate.position.y = POLE_HEIGHT;
             mainGroup.add(objects.topPlate);
 
             // 擺錘
-            objects.bob = new THREE.Mesh(
-                new THREE.SphereGeometry(1.5, 32, 32),
-                new THREE.MeshStandardMaterial({color: 0xffaa00}) 
-            );
+            objects.bob = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshStandardMaterial({color: 0xffaa00}));
             objects.bob.castShadow = true;
             mainGroup.add(objects.bob);
 
@@ -321,15 +327,40 @@
             objects.string = new THREE.Line(stringGeo, new THREE.LineBasicMaterial({color: 0x222, linewidth: 2}));
             mainGroup.add(objects.string);
 
-            // 角度弧線 (Arc)
+            // 虛線旋轉半徑 (L sinθ)
+            const radiusLineGeo = new THREE.BufferGeometry();
+            const radiusLineMat = new THREE.LineDashedMaterial({ color: 0xff5722, dashSize: 1, gapSize: 0.5 }); 
+            objects.radiusLine = new THREE.Line(radiusLineGeo, radiusLineMat);
+            mainGroup.add(objects.radiusLine);
+
+            // 虛線圓形軌跡
+            const pathCircleGeo = new THREE.BufferGeometry();
+            const pathCircleMat = new THREE.LineDashedMaterial({ color: 0xaaaaaa, dashSize: 1, gapSize: 1 }); 
+            objects.pathCircle = new THREE.Line(pathCircleGeo, pathCircleMat);
+            objects.pathCircle.rotation.x = Math.PI / 2;
+            mainGroup.add(objects.pathCircle);
+
+
+            // 角度弧線
             objects.arcLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff8f00, linewidth: 2 }));
             mainGroup.add(objects.arcLine);
 
-            // 角度標籤
+            // --- 標籤 ---
             const divAngle = document.createElement('div');
             divAngle.className = 'angle-label'; divAngle.innerText = "θ";
             labels.theta = new THREE.CSS2DObject(divAngle);
             scene.add(labels.theta);
+
+            const divL = document.createElement('div');
+            divL.className = 'geo-label'; divL.innerText = "L";
+            labels.stringL = new THREE.CSS2DObject(divL);
+            scene.add(labels.stringL);
+
+            const divR = document.createElement('div');
+            divR.className = 'geo-label'; divR.innerHTML = "L sin&theta;";
+            labels.radiusLsin = new THREE.CSS2DObject(divR);
+            scene.add(labels.radiusLsin);
+
 
             // 3D 箭頭
             createArrow('mg', 0x2e7d32, 'mg'); 
@@ -379,29 +410,58 @@
             const z = radius * Math.sin(params.time);
             const y = POLE_HEIGHT - h;
 
-            // 3D 物件更新
-            objects.bob.position.set(x, y, z);
+            const bobPos = new THREE.Vector3(x, y, z);
+            const pivotPos = new THREE.Vector3(0, POLE_HEIGHT, 0);
+            const centerPos = new THREE.Vector3(0, y, 0); 
+
+            // 1. 更新物體與幾何
+            objects.bob.position.copy(bobPos);
             objects.string.geometry.attributes.position.setXYZ(1, x, y, z);
             objects.string.geometry.attributes.position.needsUpdate = true;
             updateAngleVisuals(theta, x, z);
 
-            // 3D 箭頭更新
-            const bobPos = objects.bob.position;
-            const pivotPos = new THREE.Vector3(0, POLE_HEIGHT, 0);
+            objects.radiusLine.geometry.setFromPoints([centerPos, bobPos]);
+            objects.radiusLine.computeLineDistances(); 
+
+            const circleCurve = new THREE.EllipseCurve(0, 0, radius, radius, 0, 2 * Math.PI);
+            objects.pathCircle.geometry.setFromPoints(circleCurve.getPoints(64));
+            objects.pathCircle.position.y = y;
+            objects.pathCircle.computeLineDistances();
+
+            // 2. 更新幾何標籤位置
+            labels.stringL.position.copy(pivotPos).lerp(bobPos, 0.5).add(new THREE.Vector3(1, 1, 0));
+            labels.radiusLsin.position.copy(centerPos).lerp(bobPos, 0.5).add(new THREE.Vector3(0, 1, 0));
+            labels.radiusLsin.visible = (radius > 3);
+
+
+            // 3. 更新箭頭 (特製 Fc 的更新方式)
             updateArrow('mg', bobPos, new THREE.Vector3(0, -1, 0), 8);
             const dirT = new THREE.Vector3().subVectors(pivotPos, bobPos).normalize();
             updateArrow('T', bobPos, dirT, 8 / Math.cos(theta)); 
-            const dirFc = new THREE.Vector3().subVectors(new THREE.Vector3(0, y, 0), bobPos).normalize();
-            updateArrow('Fc', bobPos, dirFc, 8 * Math.tan(theta));
 
-            // 面板數據更新
+            // [修改] Fc 的特殊更新：標籤放在箭頭中點下方
+            const dirFc = new THREE.Vector3().subVectors(centerPos, bobPos).normalize();
+            const lenFc = 8 * Math.tan(theta);
+            const arrFc = arrows['Fc'];
+            const lblFc = labels['Fc'];
+            if(arrFc) {
+                arrFc.position.copy(bobPos);
+                arrFc.setDirection(dirFc);
+                arrFc.setLength(Math.max(1, lenFc));
+                // 計算中點並往下偏移
+                const midPoint = dirFc.clone().multiplyScalar(lenFc / 2).add(bobPos);
+                lblFc.position.copy(midPoint).add(new THREE.Vector3(0, -3, 0));
+            }
+
+
+            // 4. 面板數據
             const tensionVal = (MASS * 9.8) / Math.cos(theta);
             const fcVal = tensionVal * Math.sin(theta);
             dispTheta.innerText = (theta * 180 / Math.PI).toFixed(1) + "°";
             dispTension.innerText = tensionVal.toFixed(0) + " N";
             dispFc.innerText = fcVal.toFixed(0) + " N";
 
-            // 繪製 FBD (連動)
+            // 5. FBD
             drawDynamicFBD(theta);
         }
 
@@ -424,10 +484,11 @@
             labels.theta.position.copy(pivot.clone().add(midVec));
         }
 
+        // 通用箭頭更新 (適用於 mg 和 T)
         function updateArrow(name, pos, dir, len) {
             const arr = arrows[name];
             const lbl = labels[name];
-            if(arr) {
+            if(arr && name !== 'Fc') { // Fc 改為在 updatePhysics 中單獨處理
                 arr.position.copy(pos);
                 arr.setDirection(dir);
                 arr.setLength(Math.max(1, len));
@@ -445,12 +506,10 @@
 
             ctx.clearRect(0, 0, W, H);
 
-            // 1. 計算理論像素長度
             const baseLenMG = 80; 
             let lenT = baseLenMG / Math.cos(theta);
             let lenFc = baseLenMG * Math.tan(theta);
 
-            // 2. 計算邊界限制 (Smart Scaling Logic)
             const maxRadius = Math.min(W, H) / 2 - 20; 
             const maxVectorLen = Math.max(baseLenMG, lenT, lenFc);
             
@@ -463,7 +522,6 @@
             const drawLenT = lenT * scale;
             const drawLenFc = lenFc * scale;
 
-            // 3. 繪製座標軸
             ctx.beginPath();
             ctx.strokeStyle = '#e0e0e0';
             ctx.setLineDash([5, 5]);
@@ -472,7 +530,6 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // 4. 繪製物體
             const boxSize = 24;
             ctx.fillStyle = '#ffaa00';
             ctx.fillRect(CX - boxSize/2, CY - boxSize/2, boxSize, boxSize);
@@ -480,16 +537,12 @@
             ctx.lineWidth = 1;
             ctx.strokeRect(CX - boxSize/2, CY - boxSize/2, boxSize, boxSize);
 
-            // 5. 繪製向量
             drawVector(ctx, CX, CY, 0, drawLenMG, '#2e7d32', 'mg');
-            
             const tx = -Math.sin(theta) * drawLenT;
             const ty = -Math.cos(theta) * drawLenT;
             drawVector(ctx, CX, CY, tx, ty, '#1565c0', 'T');
-            
             drawVector(ctx, CX, CY, -drawLenFc, 0, '#d32f2f', 'Fc');
 
-            // 6. 繪製角度
             const rArc = 40 * scale; 
             const actualRArc = Math.max(25, Math.min(rArc, 50)); 
             ctx.beginPath();
