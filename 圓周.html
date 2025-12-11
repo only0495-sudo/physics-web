@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>等速圓周運動-常見例子</title>
+    <title>物理圓周運動實驗室 V18 (UI優化-右側收折)</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background-color: #eef1f3; color: #333; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
@@ -21,7 +21,9 @@
             display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;
         }
         h2 { margin: 0; font-size: 1.2em; color: #1565c0; }
-        #btn-toggle-panel { background: white; border: 1px solid #90caf9; cursor: pointer; padding: 2px 8px; border-radius: 4px; color: #1565c0;}
+        
+        /* 通用收折按鈕樣式 */
+        .btn-toggle { background: white; border: 1px solid #90caf9; cursor: pointer; padding: 2px 8px; border-radius: 4px; color: #1565c0; font-size: 0.9em;}
 
         .panel-content { padding: 15px 20px; overflow-y: auto; flex-grow: 1; }
         .hidden { display: none; } 
@@ -36,11 +38,16 @@
             border: 1px solid #ddd; overflow: hidden;
             z-index: 10;
             display: flex; flex-direction: column;
+            /* 讓收折時高度自動適應 */
+            height: auto; 
+            max-height: 95vh;
         }
         .eqn-title { 
             background: #1565c0; color: white; padding: 10px 15px; font-weight: bold; 
-            font-size: 1.1em; display: flex; justify-content: space-between; flex-shrink: 0;
+            font-size: 1.1em; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
         }
+        #btn-toggle-eqn { border: 1px solid white; color: #1565c0; background: white; }
+
         #vector-canvas { background: #fff; display: block; margin: 0 auto; border-bottom: 1px solid #eee; flex-shrink: 0; }
         #eqn-content { padding: 15px; overflow-y: auto; flex-grow: 1; }
 
@@ -106,7 +113,7 @@
     <div id="ui-panel">
         <div class="panel-header">
             <h2>參數設定</h2>
-            <button id="btn-toggle-panel">收起 ▲</button>
+            <button id="btn-toggle-panel" class="btn-toggle">收起 ▲</button>
         </div>
         
         <div class="panel-content" id="panel-content">
@@ -199,9 +206,14 @@
     </div>
 
     <div id="eqn-panel">
-        <div class="eqn-title">受力分析 (FBD)</div>
-        <canvas id="vector-canvas" width="340" height="260"></canvas>
-        <div id="eqn-content"></div>
+        <div class="eqn-title">
+            受力分析 (FBD)
+            <button id="btn-toggle-eqn" class="btn-toggle">收起 ▲</button>
+        </div>
+        <div id="eqn-wrapper">
+            <canvas id="vector-canvas" width="340" height="260"></canvas>
+            <div id="eqn-content"></div>
+        </div>
     </div>
 
     <div id="canvas-container"></div>
@@ -299,7 +311,10 @@
 
     // --- 2D 向量繪圖 ---
     function drawVectorDiagram() {
+        // 如果被隱藏了就不繪圖
         const cvs = document.getElementById('vector-canvas');
+        if(cvs.offsetParent === null) return;
+
         const ctx = cvs.getContext('2d');
         const w = cvs.width, h = cvs.height;
         const cx = w/2, cy = h/2 + 20;
@@ -409,7 +424,6 @@
     function updateTrackGeometry() {
         while(trackGroup.children.length > 0) trackGroup.remove(trackGroup.children[0]);
         
-        // 根據模式調整材質透明度
         const isBanked = params.mode === 'banked';
         const matRoad = new THREE.MeshPhongMaterial({ 
             color: 0x555555, 
@@ -780,6 +794,15 @@
     btnTog.addEventListener('click', ()=>{
         panelC.classList.toggle('hidden'); btnTog.innerText = panelC.classList.contains('hidden') ? "展開 ▼" : "收起 ▲";
     });
+
+    // 右側面板收折邏輯
+    const btnTogEqn = document.getElementById('btn-toggle-eqn');
+    const wrapEqn = document.getElementById('eqn-wrapper');
+    btnTogEqn.addEventListener('click', ()=>{
+        wrapEqn.classList.toggle('hidden');
+        btnTogEqn.innerText = wrapEqn.classList.contains('hidden') ? "展開 ▼" : "收起 ▲";
+    });
+
     function showAlert(msg, type){
         const box=document.getElementById('alert-box'); box.innerText=msg; box.style.display='block';
         box.className='alert '+(type==='fail'?'alert-fail':type==='alert-ok'?'alert-ok':'alert-warn');
