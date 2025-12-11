@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>波耳氫原子模型</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --accent-color: #4a90e2;
+            --btn-absorb: #ff6b6b; /* 紅色系 */
+            --btn-emit: #4ecdc4;   /* 藍綠色系 */
+            --panel-bg: #f8f9fa;
+        }
+
+        body {
+            font-family: -apple-system, "微軟正黑體", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            height: 100%;
+            flex-direction: row;
+        }
+
+        /* 左側：畫布區 */
+        .canvas-area {
+            flex: 2;
+            position: relative;
+            background-color: #fafafa;
+            overflow: hidden;
+            border-right: 1px solid #eee;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 縮放控制項 */
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 5;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid #ddd;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            transition: 0.2s;
+        }
+        .zoom-btn:hover { background: #eee; }
+
+        /* 模式切換 (粒子/駐波) */
+        .mode-switch-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            z-index: 5;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* 右側：控制區 */
+        .controls-area {
+            flex: 1;
+            background-color: #fff;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.02);
+            z-index: 10;
+            min-width: 300px;
+        }
+
+        h1 { margin: 0 0 15px 0; font-size: 1.6rem; color: #2c3e50; text-align: center;}
+
+        /* 數據顯示面板 */
+        .info-card {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--accent-color);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        .info-label { color: #7f8c8d; }
+        .info-value { font-weight: bold; color: #2c3e50; font-family: monospace; font-size: 1.1rem; }
+        
+        .main-status {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #333;
+            min-height: 1.5em;
+        }
+
+        .button-group { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
+
+        button.action-btn {
+            padding: 18px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button.action-btn:active { transform: scale(0.98); }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .btn-absorb { background: linear-gradient(135deg, #ff9f43, #ff6b6b); box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3); }
+        .btn-emit { background: linear-gradient(135deg, #4ecdc4, #22a6b3); box-shadow: 0 4px 10px rgba(34, 166, 179, 0.3); }
+
+        /* RWD: 手機直立模式 */
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; }
+            .canvas-area { flex: 1.5; border-right: none; border-bottom: 1px solid #eee; }
+            .controls-area { flex: 1; padding: 15px; border-radius: 20px 20px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+            .button-group { flex-direction: row; }
+            button.action-btn { flex: 1; padding: 12px; font-size: 1rem; }
+            h1 { font-size: 1.3rem; margin-bottom: 10px; }
+            .info-card { padding: 12px; margin-bottom: 10px; }
+            .mode-switch-container { top: 10px; right: 10px; padding: 5px 10px; transform: scale(0.9); transform-origin: right top; }
+            .zoom-controls { bottom: 10px; left: 10px; transform: scale(0.9); transform-origin: left bottom; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="canvas-area" id="canvasContainer">
+        <div class="mode-switch-container">
+            <span>粒子模型</span>
+            <label class="switch">
+                <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+                <span class="slider"></span>
+            </label>
+            <span style="color: var(--accent-color)">真實(駐波)</span>
+        </div>
+
+        <canvas id="atomCanvas"></canvas>
+
+        <div class="zoom-controls">
+            <div class="zoom-btn" onclick="adjustZoom(-0.1)">-</div>
+            <div class="zoom-btn" onclick="adjustZoom(0.1)">+</div>
+        </div>
+    </div>
+
+    <div class="controls-area">
+        <h1>波耳氫原子模型</h1>
+        
+        <div class="main-status" id="statusMessage">
+            電子位於 n = 1 (基態)
+        </div>
+
+        <div class="info-card">
+            <div class="info-row">
+                <span class="info-label">能階變化</span>
+                <span class="info-value" id="dispDeltaN">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">能量變化 (ΔE)</span>
+                <span class="info-value" id="dispEnergy">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">光子波長 (λ)</span>
+                <span class="info-value" id="dispWavelength">-</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="action-btn btn-emit" id="btnEmit" onclick="releaseEnergy()" disabled>
+                <span>▼</span> 釋放能量 (隨機躍遷)
+            </button>
+            <button class="action-btn btn-absorb" id="btnAbsorb" onclick="absorbEnergy()">
+                <span>▲</span> 給予能量 (+1)
+            </button>
+        </div>
+        
+        <p style="text-align: center; color: #aaa; font-size: 0.8rem; margin-top: 15px;">
+            滑鼠滾輪可縮放 | r ∝ n² | E = -13.6/n² eV
+        </p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('atomCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    
+    // ===== 物理常數與參數 =====
+    let currentN = 1;
+    let targetN = 1;
+    const maxN = 5;
+    
+    // 顯示與動畫狀態
+    let scaleFactor = 1.0; // 縮放倍率
+    let transitionProgress = 0;
+    let isTransitioning = false;
+    let electronAngle = 0;
+    let wavePhase = 0; // 駐波的相位動畫用
+    let showWaveMode = false; // 是否顯示為駐波
+    let photon = null; // 光子物件
+
+    // ===== 初始化與視窗處理 =====
+    function resizeCanvas() {
+        const rect = container.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 滾輪縮放監聽
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        adjustZoom(delta);
+    });
+
+    function adjustZoom(delta) {
+        scaleFactor += delta;
+        // 限制縮放範圍，避免太大或太小
+        scaleFactor = Math.max(0.4, Math.min(scaleFactor, 2.5));
+    }
+
+    function toggleMode() {
+        showWaveMode = document.getElementById('modeToggle').checked;
+    }
+
+    // ===== 核心邏輯 =====
+
+    // 取得畫布中心
+    function getCenter() {
+        return { x: canvas.width / 2, y: canvas.height / 2 };
+    }
+
+    // 計算基底半徑 (確保 n=5 在預設縮放下能顯示)
+    function getBaseRadius() {
+        const minDim = Math.min(canvas.width, canvas.height);
+        // n=5時 r=25*baseR，預留空間，除以縮放因子讓縮放以中心為基準
+        return (minDim / 2 * 0.85) / 25 * scaleFactor;
+    }
+
+    // 計算能階能量 (eV)
+    function getEnergy(n) {
+        return -13.6 / (n * n);
+    }
+
+    // 更新數據面板
+    function updateInfoPanel(nOld, nNew) {
+        if (nOld === nNew) {
+            document.getElementById('dispDeltaN').innerText = "-";
+            document.getElementById('dispEnergy').innerText = "-";
+            document.getElementById('dispWavelength').innerText = "-";
+            return;
+        }
+
+        const deltaN = Math.abs(nNew - nOld);
+        const eOld = getEnergy(nOld);
+        const eNew = getEnergy(nNew);
+        const deltaE = Math.abs(eNew - eOld); // eV
+        
+        // 能量 = 1240 / 波長(nm) => 波長 = 1240 / 能量
+        const wavelength = 1240 / deltaE;
+
+        // 更新 UI
+        document.getElementById('dispDeltaN').innerText = `${nOld} ➝ ${nNew}`;
+        document.getElementById('dispEnergy').innerText = `${deltaE.toFixed(2)} eV`;
+        
+        // 判斷光區
+        let waveText = `${Math.round(wavelength)} nm`;
+        let rangeText = "";
+        if (wavelength < 400) rangeText = "(紫外光)";
+        else if (wavelength > 700) rangeText = "(紅外光)";
+        else rangeText = "(可見光)";
+
+        document.getElementById('dispWavelength').innerText = `${waveText} ${rangeText}`;
+        document.getElementById('dispWavelength').style.color = getPhotonColor(wavelength);
+    }
+
+    // 根據波長取得顏色
+    function getPhotonColor(lambda) {
+        if (lambda < 400) return '#9b59b6'; // 紫 (UV)
+        if (lambda > 700) return '#e74c3c'; // 紅 (IR)
+        // 簡單的可見光譜映射
+        if (lambda >= 400 && lambda < 450) return '#8e44ad'; // 紫
+        if (lambda >= 450 && lambda < 490) return '#2980b9'; // 藍
+        if (lambda >= 490 && lambda < 560) return '#27ae60'; // 綠
+        if (lambda >= 560 && lambda < 590) return '#f1c40f'; // 黃
+        if (lambda >= 590 && lambda < 635) return '#e67e22'; // 橘
+        return '#c0392b'; // 紅
+    }
+
+    // ===== 操作邏輯 =====
+
+    // 給予能量 (吸收)
+    function absorbEnergy() {
+        if (isTransitioning || currentN >= maxN) return;
+        
+        const next = currentN + 1;
+        startTransition(currentN, next);
+        
+        // 狀態文字
+        const status = document.getElementById('statusMessage');
+        status.innerHTML = `吸收能量... <span style="color:var(--btn-absorb)">▲</span>`;
+        
+        updateInfoPanel(currentN, next);
+    }
+
+    // 釋放能量 (發射) - 隨機機制
+    function releaseEnergy() {
+        if (isTransitioning || currentN <= 1) return;
+
+        // 隨機選擇一個比現在低的能階
+        // 例如 currentN=4, 可選 1, 2, 3
+        // Math.random() * (4-1) -> 0~2.99 -> floor -> 0,1,2 -> +1 -> 1,2,3
+        const possibleTargets = currentN - 1;
+        const randomDelta = Math.floor(Math.random() * possibleTargets); 
+        const next = (currentN - 1) - randomDelta; // 確保一定比 current 小
+
+        startTransition(currentN, next);
+
+        const eDiff = Math.abs(getEnergy(next) - getEnergy(currentN));
+        const lambda = 1240 / eDiff;
+        const color = getPhotonColor(lambda);
+
+        // 狀態文字
+        const status = document.getElementById('statusMessage');
+        status.innerHTML = `釋放能量! <span style="color:${color}">▼ ${Math.round(lambda)}nm</span>`;
+
+        updateInfoPanel(currentN, next);
+    }
+
+    function startTransition(start, end) {
+        currentN = start;
+        targetN = end;
+        isTransitioning = true;
+        transitionProgress = 0;
+        updateButtons();
+    }
+
+    function updateButtons() {
+        // 躍遷中鎖定按鈕
+        const lock = isTransitioning;
+        document.getElementById('btnAbsorb').disabled = lock || (targetN >= maxN);
+        document.getElementById('btnEmit').disabled = lock || (targetN <= 1);
+        
+        // 如果躍遷結束，更新狀態文字
+        if (!lock) {
+            const status = document.getElementById('statusMessage');
+            status.innerText = `電子位於 n = ${currentN} ` + (currentN===1?"(基態)":"(受激態)");
+        }
+    }
+
+    // ===== 繪圖迴圈 =====
+    function draw() {
+        const { x: cx, y: cy } = getCenter();
+        const baseR = getBaseRadius();
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 畫原子核
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8 * scaleFactor, 0, Math.PI * 2); // 核也隨縮放微調
+        ctx.fillStyle = '#ff4757';
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.font = `${12 * scaleFactor}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', cx, cy);
+
+        // 2. 畫軌道
+        for (let n = 1; n <= maxN; n++) {
+            const r = baseR * n * n;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.strokeStyle = (n === currentN && !isTransitioning) ? '#4a90e2' : '#ddd';
+            ctx.lineWidth = 1.5;
+            
+            // 虛線標示
+            if (n > 1) ctx.setLineDash([5, 5]);
+            else ctx.setLineDash([]);
+            
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 標示 n 值 (畫在軌道下方)
+            ctx.fillStyle = '#aaa';
+            ctx.font = `${10 * scaleFactor}px Arial`;
+            ctx.fillText(`n=${n}`, cx, cy + r + (12 * scaleFactor));
+        }
+
+        // 3. 計算電子/駐波半徑
+        let rCurrent = baseR * currentN * currentN;
+        
+        if (isTransitioning) {
+            const rTarget = baseR * targetN * targetN;
+            // 緩動函數 ease-in-out
+            const t = transitionProgress;
+            const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            rCurrent = rCurrent + (rTarget - rCurrent) * ease;
+            
+            transitionProgress += 0.03;
+            
+            if (transitionProgress >= 1) {
+                isTransitioning = false;
+                
+                // 發射光子邏輯
+                if (currentN > targetN) {
+                    const eDiff = Math.abs(getEnergy(targetN) - getEnergy(currentN));
+                    const lambda = 1240 / eDiff;
+                    // 從電子當前角度發射
+                    emitPhoton(cx + Math.cos(electronAngle)*rCurrent, cy + Math.sin(electronAngle)*rCurrent, electronAngle, getPhotonColor(lambda));
+                }
+                
+                currentN = targetN;
+                updateButtons();
+            }
+        }
+
+        // 4. 繪製電子或駐波
+        const angularSpeed = 0.02 / (isTransitioning ? (currentN+targetN)/2 : currentN);
+        electronAngle += angularSpeed;
+        wavePhase += 0.1; // 駐波的波動速度
+
+        if (showWaveMode) {
+            // === 真實模型：駐波 ===
+            // 2*pi*r = n*lambda. 我們需要在圓周上畫出 n 個波
+            // r(theta) = rBase + Amplitude * sin(n * theta + phase)
+            
+            ctx.beginPath();
+            const waveAmp = 10 * scaleFactor; // 波幅
+            
+            // 由於是要畫封閉曲線，theta 繞一圈
+            // 使用較細的 step 讓波平滑
+            for (let theta = 0; theta <= Math.PI * 2; theta += 0.01) {
+                // 有效 n (躍遷時取混合態)
+                const effN = isTransitioning ? (currentN + (targetN-currentN)*transitionProgress) : currentN;
+                
+                // 駐波半徑變化
+                const rWave = rCurrent + waveAmp * Math.sin(effN * theta + wavePhase);
+                
+                const wx = cx + rWave * Math.cos(theta);
+                const wy = cy + rWave * Math.sin(theta);
+                
+                if (theta === 0) ctx.moveTo(wx, wy);
+                else ctx.lineTo(wx, wy);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = '#2ed573';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#2ed573';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+        } else {
+            // === 粒子模型：點 ===
+            const ex = cx + Math.cos(electronAngle) * rCurrent;
+            const ey = cy + Math.sin(electronAngle) * rCurrent;
+
+            ctx.beginPath();
+            ctx.arc(ex, ey, 6 * scaleFactor, 0, Math.PI * 2);
+            ctx.fillStyle = '#2ed573';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#2ed573';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        // 5. 繪製光子
+        drawPhoton();
+
+        requestAnimationFrame(draw);
+    }
+
+    function emitPhoton(x, y, angle, color) {
+        photon = {
+            x: x,
+            y: y,
+            angle: angle, // 沿徑向射出
+            dist: 0,
+            color: color,
+            active: true
+        };
+    }
+
+    function drawPhoton() {
+        if (!photon || !photon.active) return;
+
+        photon.dist += 5 * scaleFactor; // 速度隨縮放調整視覺
+        
+        const px = photon.x + Math.cos(photon.angle) * photon.dist;
+        const py = photon.y + Math.sin(photon.angle) * photon.dist;
+
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(photon.angle);
+
+        ctx.beginPath();
+        ctx.strokeStyle = photon.color;
+        ctx.lineWidth = 3;
+        
+        const waveLen = 15 * scaleFactor;
+        const amp = 6 * scaleFactor;
+        const len = 60 * scaleFactor;
+
+        // 畫一段正弦波代表光子
+        for (let i = 0; i < len; i+=2) {
+            ctx.lineTo(i - len/2, Math.sin(i / waveLen * Math.PI * 2) * amp);
+        }
+        ctx.stroke();
+        
+        // 畫箭頭
+        ctx.beginPath();
+        ctx.fillStyle = photon.color;
+        ctx.moveTo(len/2 + 5, 0);
+        ctx.lineTo(len/2 - 5, -5);
+        ctx.lineTo(len/2 - 5, 5);
+        ctx.fill();
+
+        ctx.restore();
+
+        // 邊界檢查
+        if (photon.dist > Math.max(canvas.width, canvas.height) / scaleFactor * 1.5) {
+            photon.active = false;
+        }
+    }
+
+    // 啟動繪圖
+    draw();
+    updateButtons();
+
+</script>
+</body>
+</html>

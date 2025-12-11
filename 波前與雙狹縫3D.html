@@ -3,140 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高中物理：波動實驗室 (手機橫向優化版)</title>
+    <title>高中物理：波動實驗室 (完美雙曲線版)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #1a1a1a; font-family: 'Segoe UI', sans-serif; }
         
-        /* === 1. 直向使用時的阻擋遮罩 === */
+        /* === 直向警告 === */
         #orientation-warning {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(26, 26, 26, 0.95);
-            z-index: 9999;
-            display: none; /* 預設隱藏 */
-            flex-direction: column; justify-content: center; align-items: center;
-            color: white; text-align: center;
-            backdrop-filter: blur(10px);
+            background: rgba(26, 26, 26, 0.95); z-index: 9999;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            color: white; text-align: center; backdrop-filter: blur(10px);
         }
-        #orientation-warning .icon { font-size: 3rem; margin-bottom: 20px; animation: rotatePhone 2s infinite; }
-        #orientation-warning h2 { color: #fff; border: none; margin-bottom: 10px; }
-        
-        @keyframes rotatePhone {
-            0% { transform: rotate(0deg); }
-            50% { transform: rotate(-90deg); }
-            100% { transform: rotate(-90deg); }
-        }
-
-        /* CSS Media Query: 偵測直向 (Portrait) */
         @media screen and (orientation: portrait) {
-            #orientation-warning { display: flex; } /* 顯示警告 */
-            #ui-left, #ui-right, #labels-container { display: none !important; } /* 隱藏介面 */
+            #orientation-warning { display: flex; }
+            #ui-left, #ui-right { display: none !important; }
         }
 
-        /* === 2. 介面面板樣式 === */
+        /* === 介面面板 === */
         .ui-panel {
             position: absolute; top: 15px; 
-            background: rgba(255, 255, 255, 0.96);
+            background: rgba(255, 255, 255, 0.98);
             border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             display: flex; flex-direction: column; overflow: hidden;
-            transition: all 0.3s ease;
-            z-index: 10;
+            transition: all 0.3s ease; z-index: 10;
         }
-
-        /* 左側控制面板 */
         #ui-left { left: 15px; width: 300px; max-height: 90vh; }
-        
-        /* 右側資訊面板 */
-        #ui-right { right: 15px; width: 340px; max-height: 90vh; }
+        #ui-right { right: 15px; width: 350px; max-height: 90vh; }
 
-        /* 手機橫向優化：如果螢幕高度小於 500px (通常是手機橫放) */
         @media screen and (max-height: 500px) {
-            .ui-panel { max-height: 85vh; } /* 避免太滿 */
-            #ui-left, #ui-right { width: 260px; } /* 寬度縮小一點 */
-            .header { height: 40px; padding: 0 10px; }
-            h2 { font-size: 1rem; }
-            button { padding: 6px; font-size: 0.85rem; }
-            .ui-content { padding: 10px; }
-            /* 如果螢幕真的很窄，確保面板不會重疊，設最大寬度 */
-            #ui-left, #ui-right { max-width: 45vw; }
+            .ui-panel { max-height: 85vh; }
+            #ui-left, #ui-right { width: 260px; max-width: 45vw; }
         }
 
-        /* 收起狀態 */
-        .ui-panel.collapsed { height: 40px !important; overflow: hidden; } /* 手機版標題變矮 */
+        .ui-panel.collapsed { height: 45px !important; }
         .ui-panel.collapsed .ui-content { display: none; }
 
-        /* 標題列 */
         .header {
             padding: 0 15px; background: #f8f9fa; border-bottom: 3px solid #0056b3;
             display: flex; justify-content: space-between; align-items: center;
-            height: 50px; box-sizing: border-box; flex-shrink: 0;
+            height: 45px; flex-shrink: 0;
         }
         h2 { margin: 0; color: #0056b3; font-size: 1.1rem; font-weight: 700; }
         
-        /* 收起按鈕 (完美貼合版) */
         .toggle-collapse-btn {
             background: none; border: none; padding: 4px; color: #666;
-            cursor: pointer; font-size: 0.9rem; width: auto; white-space: nowrap;
+            cursor: pointer; font-size: 0.9rem; white-space: nowrap;
         }
         .toggle-collapse-btn:hover { color: #0056b3; text-decoration: underline; }
 
-        /* 內容區 */
         .ui-content { padding: 15px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         
         .section-title { 
             font-size: 0.9rem; font-weight: bold; color: #444; 
-            margin: 10px 0 8px 0; text-transform: uppercase; letter-spacing: 1px; 
+            margin: 12px 0 6px 0; text-transform: uppercase; letter-spacing: 1px; 
             border-bottom: 1px solid #eee; padding-bottom: 4px;
         }
 
-        /* 按鈕群組 */
         .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
         button {
-            flex: 1; padding: 10px; border: none; border-radius: 6px;
+            flex: 1; padding: 8px; border: none; border-radius: 6px;
             background: #e9ecef; color: #333; cursor: pointer; font-weight: 600; font-size: 0.9rem;
-            transition: 0.2s; touch-action: manipulation; /* 優化觸控 */
+            transition: 0.2s;
         }
         button:hover { background: #dbe2e8; }
         button.active { background: #007bff; color: white; }
         button.warning { background: #ffc107; color: #333; }
-        button.purple { background: #6f42c1; color: white; }
         
-        /* 功能開關 */
-        .toggle-btn { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; margin-bottom: 5px;}
+        .toggle-btn { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; margin-bottom: 5px; padding: 8px;}
         .toggle-btn span.status { font-size: 0.8rem; background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 4px; }
         .toggle-btn.on { background: #28a745; color: white; }
         .toggle-btn.on span.status { background: rgba(255,255,255,0.3); }
-        .toggle-btn.measure.on { background: #6f42c1; }
+        .toggle-btn.measure.on { background: #6f42c1; color: white;}
 
         .control-box { background: #fff9db; padding: 12px; border-radius: 8px; margin-top: 8px; border: 1px solid #ffe066; }
         .slider-row { margin-bottom: 10px; }
         .slider-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; font-weight: 600; color: #444; }
         input[type=range] { width: 100%; cursor: pointer; }
 
-        /* 折疊公式 */
-        details { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; margin-bottom: 10px; }
-        summary { padding: 10px; cursor: pointer; font-weight: bold; color: #495057; outline: none; }
-        .formula-content { padding: 10px; border-top: 1px solid #eee; }
-        .formula-line { font-family: 'Times New Roman', serif; font-size: 1.05rem; margin-bottom: 8px; color: #222; }
-        .formula-desc { font-size: 0.85rem; color: #666; font-family: sans-serif; margin-left: 5px; }
+        details { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; margin-bottom: 8px; }
+        summary { padding: 8px 12px; cursor: pointer; font-weight: bold; color: #495057; outline: none; display: flex; justify-content: space-between; }
+        summary::after { content: '▼'; font-size: 0.8rem; transition: transform 0.2s; }
+        details[open] summary::after { transform: rotate(180deg); }
+        
+        .formula-content { padding: 10px 12px; border-top: 1px solid #eee; background: white; }
+        .formula-row { 
+            font-family: 'Times New Roman', serif; font-size: 1.1rem; 
+            margin-bottom: 8px; color: #333; line-height: 1.5;
+        }
+        .formula-sub { font-size: 0.85rem; color: #666; font-family: sans-serif; margin-left: 5px; }
+        .calc-step { display: block; font-size: 1rem; color: #555; margin-left: 10px; border-left: 3px solid #eee; padding-left: 8px; margin-top: 4px; }
+        .calc-val { color: #0056b3; font-weight: bold; font-family: monospace; } 
 
-        /* 數據表格 */
         .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-        .data-table td { padding: 5px 0; border-bottom: 1px dashed #eee; font-size: 0.9rem; }
-        .data-val { font-weight: bold; color: #0056b3; font-family: monospace; font-size: 1.1rem; float: right;}
+        .data-table td { padding: 4px 0; border-bottom: 1px dashed #eee; font-size: 0.9rem; }
+        .data-val { font-weight: bold; color: #0056b3; font-family: monospace; font-size: 1.05rem; float: right;}
 
-        /* 波程差結果 */
-        #path-diff-result { margin-top: 15px; padding: 10px; border-radius: 8px; background: #f3e5f5; border: 1px solid #e1bee7; display: none; }
-        .result-tag { display: block; text-align: center; font-weight: bold; color: white; padding: 5px; border-radius: 4px; margin-top: 5px; }
-        .tag-constructive { background: #d9534f; }
-        .tag-destructive { background: #f0ad4e; }
+        #path-diff-result { margin-top: 15px; padding: 12px; border-radius: 8px; background: #e8eaf6; border: 1px solid #c5cae9; display: none; }
+        .result-tag { display: block; text-align: center; font-weight: bold; color: white; padding: 6px; border-radius: 4px; margin-top: 8px; font-size: 0.95rem; }
+        .tag-constructive { background: #d9534f; } 
+        .tag-destructive { background: #f0ad4e; } 
         .tag-normal { background: #6c757d; }
 
-        /* 浮動標籤 */
         .label-marker {
             position: absolute; background: rgba(255,255,255,0.9); padding: 2px 6px;
             border-radius: 4px; border: 1px solid #ccc; font-size: 0.8rem; font-weight: bold;
             color: #333; pointer-events: none; transform: translate(-50%, -50%); z-index: 5;
-            white-space: nowrap;
+            white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .guide-box { background: #e7f5ff; padding: 15px; border-radius: 8px; font-size: 0.95rem; line-height: 1.6; color: #004085; border-left: 5px solid #007bff; }
@@ -147,9 +119,8 @@
 <body>
 
     <div id="orientation-warning">
-        <div class="icon">📱</div>
-        <h2>請橫向使用裝置</h2>
-        <p>為了獲得最佳的實驗操作體驗，<br>請將您的手機或平板旋轉至橫向。</p>
+        <div style="font-size:3rem; margin-bottom:20px;">📱</div>
+        <h2 style="color:white;">請橫向使用裝置</h2>
     </div>
 
     <div id="labels-container"></div>
@@ -192,10 +163,10 @@
 
                 <div style="margin-top:10px;">
                     <button id="btn-path-diff" class="toggle-btn measure" onclick="togglePathDiffMode()">
-                        <span>📏 測量波程差</span><span class="status">關閉</span>
+                        <span>📏 測量波程差 (點擊水面)</span><span class="status">關閉</span>
                     </button>
                     <button id="btn-wavefront-int" class="toggle-btn" onclick="toggleWavefronts()">
-                        <span>⭕ 顯示波前 (純幾何)</span><span class="status">關閉</span>
+                        <span>⭕ 顯示波前 (隱藏水面)</span><span class="status">關閉</span>
                     </button>
                     <button id="btn-analysis" class="toggle-btn" onclick="toggleAnalysis()">
                         <span>📊 顯示節線與腹線</span><span class="status">關閉</span>
@@ -227,16 +198,15 @@
     <script>
         // --- 物理參數 ---
         const CONFIG = {
-            gridSize: 70,
+            gridSize: 100,
             planeSize: 60,
             waveSpeed: 3.0,
             waveFreq: 1.0,
             amplitude: 1.5,
             sourceSpacing: 12
         };
-        let WAVELENGTH = CONFIG.waveSpeed / CONFIG.waveFreq;
+        let WAVELENGTH = CONFIG.waveSpeed / CONFIG.waveFreq; // = 3.0
 
-        // --- 全域變數 ---
         let scene, camera, renderer, controls;
         let waterMesh, waterGeo;
         let clock = new THREE.Clock();
@@ -276,12 +246,12 @@
             sun.castShadow = true;
             sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
             sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
-            sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
+            sun.shadow.mapSize.width = 2048; 
             scene.add(sun);
 
             waterGeo = new THREE.PlaneGeometry(CONFIG.planeSize, CONFIG.planeSize, CONFIG.gridSize, CONFIG.gridSize);
             const waterMat = new THREE.MeshPhongMaterial({ 
-                color: 0x0077be, shininess: 100, specular: 0x111111,
+                color: 0x0077be, shininess: 120, specular: 0x222222,
                 side: THREE.DoubleSide, flatShading: false, transparent: true, opacity: 0.9
             });
             waterMesh = new THREE.Mesh(waterGeo, waterMat);
@@ -296,7 +266,7 @@
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.maxPolarAngle = Math.PI / 2 - 0.1;
+            controls.maxPolarAngle = Math.PI / 2; 
 
             window.addEventListener('resize', onResize);
             renderer.domElement.addEventListener('pointerdown', onWaterClick);
@@ -340,36 +310,64 @@
                     <div class="section-title">📘 學習引導</div>
                     <div class="guide-box">
                         <p><b>實驗目標：</b><br>觀察波的傳遞與「波前」的定義。</p>
-                        <div style="border-top:1px dashed #aaddff; margin:10px 0;"></div>
-                        <p><b>波前 (Wavefront)</b><br>
-                        開啟「顯示波前」後，畫面將切換為幾何模式。<br>
-                        白色圓圈代表<b>波峰</b>的連線。</p>
+                        <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
+                        <p><b>波前 (Wavefront)：</b><br>
+                        開啟「顯示波前」功能，您會看到白色的幾何圓圈。<br>
+                        這些圓圈代表所有<b>相位相同</b>（例如波峰）的點連起來的線。</p>
                     </div>
                 `;
             } else {
                 contentDiv.innerHTML = `
-                    <details open>
-                        <summary>1. 波程差公式</summary>
-                        <div class="formula-content">
-                            <div class="formula-line">PS<sub>1</sub> - PS<sub>2</sub> = nλ <span class="formula-desc">(腹線)</span></div>
-                            <div class="formula-line">PS<sub>1</sub> - PS<sub>2</sub> = (n - 0.5)λ <span class="formula-desc">(節線)</span></div>
-                        </div>
-                    </details>
-                    <details>
-                        <summary>2. 節線數量公式</summary>
-                        <div class="formula-content">
-                            <div class="formula-line">N = 2n <span class="formula-desc">(總數)</span></div>
-                            <div class="formula-line" style="font-size:0.9rem;">推導： n ≤ d/λ + 1/2</div>
-                        </div>
-                    </details>
-                    <div class="section-title">3. 實驗數據</div>
+                    <div class="section-title">1. 環境參數</div>
                     <table class="data-table">
                         <tr><td>波長 (λ)</td><td><span class="data-val">${WAVELENGTH.toFixed(1)}</span></td></tr>
                         <tr><td>波源距離 (d)</td><td><span class="data-val" id="val-d">${CONFIG.sourceSpacing.toFixed(1)}</span></td></tr>
                         <tr style="background:#fff9c4;"><td><strong>比值 (d / λ)</strong></td><td><span class="data-val" id="val-ratio">--</span></td></tr>
                     </table>
+
+                    <div style="height:10px;"></div>
+
+                    <details open>
+                        <summary>2. 波程差公式 (ΔL)</summary>
+                        <div class="formula-content">
+                            <div class="formula-row">
+                                ΔL = nλ <span class="formula-sub">(腹線)</span>
+                            </div>
+                            <div class="formula-row">
+                                ΔL = (n - 0.5)λ <span class="formula-sub">(節線)</span>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details open>
+                        <summary>3. 節線數驗證 (N)</summary>
+                        <div class="formula-content">
+                            <div class="formula-row">
+                                N = 2n <span class="formula-sub">(總數)</span>
+                            </div>
+                            <div class="formula-row">
+                                <span style="font-size:0.95rem;">推導條件： n ≤ d/λ + 0.5</span>
+                            </div>
+                            <div class="formula-row">
+                                <span class="calc-step">
+                                    n ≤ <span id="calc-d" class="calc-val">--</span> / 
+                                    <span id="calc-lambda" class="calc-val">--</span> + 0.5
+                                </span>
+                                <span class="calc-step">
+                                    n ≤ <span id="calc-result" class="calc-val">--</span>
+                                </span>
+                            </div>
+                            <div class="formula-row" style="margin-top:5px; border-top:1px dashed #eee; padding-top:5px;">
+                                ∴ 最大整數 n = <span id="calc-n-max" class="calc-val">--</span>
+                            </div>
+                            <div class="formula-row">
+                                總節線數 N = 2 × <span id="calc-n-max-2" class="calc-val">--</span> = <span id="val-node-count" style="font-weight:bold; color:#d9534f; font-size:1.2rem;">--</span>
+                            </div>
+                        </div>
+                    </details>
+
                     <div id="path-diff-result">
-                        <div style="font-weight:bold; color:#6f42c1; margin-bottom:5px;">📍 波程差測量</div>
+                        <div style="font-weight:bold; color:#6f42c1; margin-bottom:8px; border-bottom:1px solid #ccc; padding-bottom:5px;">📍 測量結果</div>
                         <table class="data-table">
                             <tr><td>PS<sub>1</sub></td><td><span class="data-val" id="res-ps1">--</span></td></tr>
                             <tr><td>PS<sub>2</sub></td><td><span class="data-val" id="res-ps2">--</span></td></tr>
@@ -387,10 +385,24 @@
             const d = CONFIG.sourceSpacing;
             const lambda = WAVELENGTH;
             const ratio = d / lambda;
+            const limit_val = ratio + 0.5;
+            
             const elRatio = document.getElementById('val-ratio');
             if(elRatio) {
                 document.getElementById('val-d').innerText = d.toFixed(1);
                 elRatio.innerText = ratio.toFixed(2);
+
+                document.getElementById('calc-d').innerText = d.toFixed(1);
+                document.getElementById('calc-lambda').innerText = lambda.toFixed(1);
+                document.getElementById('calc-result').innerText = limit_val.toFixed(2);
+                
+                // floor(limit_val) 就是最大整數 n
+                // 例如 d=12, lambda=3 => ratio=4 => limit=4.5 => max_n=4
+                // 節線為 0.5, 1.5, 2.5, 3.5 (共4條 * 2 = 8)
+                const max_n = Math.floor(limit_val);
+                document.getElementById('calc-n-max').innerText = max_n;
+                document.getElementById('calc-n-max-2').innerText = max_n;
+                document.getElementById('val-node-count').innerText = max_n * 2;
             }
         }
 
@@ -452,13 +464,110 @@
                 markersGroup.children[0].position.y = 2.5 + Math.sin(state.virtualTime * 5) * 0.5;
                 markersGroup.children[1].position.y = 2.5 + Math.sin(state.virtualTime * 5 + state.phaseOffset) * 0.5;
             }
+
+            // 純幾何模式下隱藏水面
             waterMesh.visible = !state.showWavefronts;
             markersGroup.visible = !state.showWavefronts;
+
             updateLabelsPosition();
             controls.update();
             renderer.render(scene, camera);
         }
 
+        function updateWaterPhysics() {
+            const pos = waterGeo.attributes.position; 
+            const k = CONFIG.waveFreq; 
+            const w = CONFIG.waveSpeed * k;
+            
+            // === 關鍵：干涉模式移除衰減，實現完美節線 ===
+            const isInterference = (state.mode === 'interference');
+            const decayFactor = isInterference ? 0.0 : 0.025; 
+
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i); let y = pos.getY(i); let z = 0;
+                for (let src of sources) {
+                    const dist = Math.sqrt((x - src.x)**2 + (y - src.y)**2);
+                    const t = state.virtualTime - src.start;
+                    if (t > 0) {
+                        let phase = dist * k - t * w;
+                        if (isInterference && src.id === 2) phase += state.phaseOffset;
+                        
+                        let damping = Math.exp(-decayFactor * dist);
+                        
+                        if (src.type === 'pulse') {
+                            let center = t * CONFIG.waveSpeed; let pulse = Math.exp(-Math.pow(dist - center, 2) / 15);
+                            z += Math.sin(phase) * CONFIG.amplitude * pulse;
+                        } else {
+                            if (dist < 3) damping *= (dist/3); 
+                            z += Math.sin(phase) * CONFIG.amplitude * damping;
+                        }
+                    }
+                }
+                pos.setZ(i, z);
+            }
+            pos.needsUpdate = true; waterGeo.computeVertexNormals();
+        }
+
+        // --- 繪圖邏輯 (雙曲線數學法：平滑且精確) ---
+        function drawAnalysisLines() {
+            while(analysisGroup.children.length > 0) {
+                const child = analysisGroup.children[0];
+                if(child.geometry) child.geometry.dispose();
+                analysisGroup.remove(child);
+            }
+
+            if (!state.showAnalysis || state.mode === 'single' || sources.length < 2) return;
+
+            const d = CONFIG.sourceSpacing;
+            const lambda = WAVELENGTH;
+            const phaseDist = (state.phaseOffset / (2 * Math.PI)) * lambda;
+
+            // 繪製雙曲線函式 (Hyperbola Parametric)
+            const drawHyperbola = (targetDelta, color) => {
+                const effectiveDelta = targetDelta + phaseDist;
+                // 物理限制：三角形不等式 |d1 - d2| < d
+                if (Math.abs(effectiveDelta) >= d * 0.999) return;
+
+                const a = effectiveDelta / 2; // 頂點距離
+                const c = d / 2;              // 焦點距離
+                const b = Math.sqrt(c * c - a * a);
+
+                const points = [];
+                const segments = 150; // 線條解析度
+                const yLimit = CONFIG.planeSize / 1.5;
+
+                for (let i = 0; i <= segments; i++) {
+                    const y = -yLimit + (i * 2 * yLimit) / segments;
+                    // x^2/a^2 - y^2/b^2 = 1 => x = +/- a * sqrt(1 + y^2/b^2)
+                    // a 帶有正負號 (決定左右支)
+                    const term = Math.sqrt(1 + (y * y) / (b * b));
+                    const x = a * term; 
+
+                    if (Math.abs(x) < CONFIG.planeSize / 1.9) {
+                        points.push(new THREE.Vector3(x, 0.03, -y)); // y=0.03 貼地
+                    }
+                }
+
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2, transparent: true, opacity: 0.9 });
+                const line = new THREE.Line(geometry, material);
+                analysisGroup.add(line);
+            };
+
+            const maxOrder = Math.ceil(d / lambda) + 1;
+
+            // 1. 腹線 (n * lambda)
+            for (let n = -maxOrder; n <= maxOrder; n++) {
+                drawHyperbola(n * lambda, 0xff3333);
+            }
+
+            // 2. 節線 ((n - 0.5) * lambda)
+            for (let n = -maxOrder; n <= maxOrder; n++) {
+                drawHyperbola((n - 0.5) * lambda, 0xffdd00);
+            }
+        }
+
+        // --- 繪圖邏輯 (波前) ---
         function updateWavefronts() {
             while(wavefrontGroup.children.length > 0) {
                 const child = wavefrontGroup.children[0];
@@ -479,43 +588,10 @@
                     const geo = new THREE.BufferGeometry().setFromPoints(pts);
                     const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
                     const line = new THREE.Line(geo, mat);
-                    line.rotation.x = -Math.PI/2; line.position.set(src.x, 0.5, -src.y); 
+                    line.rotation.x = -Math.PI/2; line.position.set(src.x, 0, -src.y); 
                     wavefrontGroup.add(line);
                 }
             });
-        }
-
-        function drawAnalysisLines() {
-            while(analysisGroup.children.length > 0) {
-                const child = analysisGroup.children[0];
-                if(child.geometry) child.geometry.dispose();
-                analysisGroup.remove(child);
-            }
-            if (!state.showAnalysis || state.mode === 'single' || sources.length < 2) return;
-            const s1 = sources[0]; const s2 = sources[1];
-            const pointsNode = []; const pointsAnti = [];
-            const distCorrection = (state.phaseOffset / (2*Math.PI)) * WAVELENGTH;
-            for (let x = -30; x <= 30; x += 0.3) {
-                for (let y = -30; y <= 30; y += 0.3) {
-                    const d1 = Math.sqrt((x - s1.x)**2 + (y - s1.y)**2);
-                    const d2 = Math.sqrt((x - s2.x)**2 + (y - s2.y)**2);
-                    let pathDiff = (d1 - d2) - distCorrection;
-                    let rem = Math.abs(pathDiff % WAVELENGTH);
-                    if (rem < 0.2 || Math.abs(rem - WAVELENGTH) < 0.2) pointsAnti.push(x, 0.8, -y);
-                    let ratio = Math.abs(pathDiff / WAVELENGTH);
-                    let decimal = ratio - Math.floor(ratio);
-                    if (Math.abs(decimal - 0.5) < 0.08) pointsNode.push(x, 0.8, -y);
-                }
-            }
-            createPoints(pointsAnti, 0xff3333, analysisGroup); createPoints(pointsNode, 0xffdd00, analysisGroup);
-        }
-
-        function createPoints(coords, color, group) {
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
-            const mat = new THREE.PointsMaterial({ color: color, size: 0.25, sizeAttenuation: true });
-            const pts = new THREE.Points(geo, mat);
-            group.add(pts);
         }
 
         function performMeasurement(point) {
@@ -538,8 +614,8 @@
             const effectiveDiff = deltaL - distCorrection;
             const rem = Math.abs(effectiveDiff % WAVELENGTH);
             const tag = document.getElementById('res-tag');
-            if (rem < 0.2 || Math.abs(rem - WAVELENGTH) < 0.2) { tag.innerText = "建設性干涉 (腹點)"; tag.className = "result-tag tag-constructive"; } 
-            else if (Math.abs(rem - 0.5 * WAVELENGTH) < 0.2) { tag.innerText = "破壞性干涉 (節點)"; tag.className = "result-tag tag-destructive"; } 
+            if (rem < 0.2 || Math.abs(rem - WAVELENGTH) < 0.2) { tag.innerText = "建設性干涉 (腹點) - 亮紋"; tag.className = "result-tag tag-constructive"; } 
+            else if (Math.abs(rem - 0.5 * WAVELENGTH) < 0.2) { tag.innerText = "破壞性干涉 (節點) - 暗紋"; tag.className = "result-tag tag-destructive"; } 
             else { tag.innerText = "一般干涉點"; tag.className = "result-tag tag-normal"; }
             createLabel((s1.x + point.x)/2, -(s1.y + point.y)/2, ps1.toFixed(1));
             createLabel((s2.x + point.x)/2, -(s2.y + point.y)/2, ps2.toFixed(1));
@@ -563,27 +639,6 @@
                 const px = (vector.x * .5 + .5) * window.innerWidth; const py = (-(vector.y * .5) + .5) * window.innerHeight;
                 if (vector.z > 1) label.style.display = 'none'; else { label.style.display = 'block'; label.style.left = `${px}px`; label.style.top = `${py}px`; }
             });
-        }
-        function updateWaterPhysics() {
-            const pos = waterGeo.attributes.position; const k = CONFIG.waveFreq; const w = CONFIG.waveSpeed * k;
-            for (let i = 0; i < pos.count; i++) {
-                let x = pos.getX(i); let y = pos.getY(i); let z = 0;
-                for (let src of sources) {
-                    const dist = Math.sqrt((x - src.x)**2 + (y - src.y)**2);
-                    const t = state.virtualTime - src.start;
-                    if (t > 0) {
-                        let phase = dist * k - t * w;
-                        if (state.mode === 'interference' && src.id === 2) phase += state.phaseOffset;
-                        let damping = Math.exp(-0.02 * dist);
-                        if (src.type === 'pulse') {
-                            let center = t * CONFIG.waveSpeed; let pulse = Math.exp(-Math.pow(dist - center, 2) / 15);
-                            z += Math.sin(phase) * CONFIG.amplitude * pulse;
-                        } else { if (dist < 3) damping *= (dist/3); z += Math.sin(phase) * CONFIG.amplitude * damping; }
-                    }
-                }
-                pos.setZ(i, z);
-            }
-            pos.needsUpdate = true; waterGeo.computeVertexNormals();
         }
         function resetSim() {
             sources = []; state.virtualTime = 0; 

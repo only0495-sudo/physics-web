@@ -1,29 +1,32 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>錐動單擺 (最終完美優化版)</title>
+    <title>錐動單擺 (質量調整最終版)</title>
     <style>
         /* --- 基礎設定 --- */
         html, body { 
             margin: 0; padding: 0; width: 100%; height: 100%; 
             overflow: hidden; background-color: #f0f2f5; 
             font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; 
+            overscroll-behavior: none;
         }
 
         /* --- 左上角：數學公式 --- */
         #math-panel {
             position: absolute; top: 20px; left: 20px; z-index: 10;
             background: rgba(255, 255, 255, 0.95);
-            padding: 15px 25px; border-radius: 8px;
+            padding: 10px 20px; border-radius: 8px;
             border-left: 5px solid #2e7d32;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             pointer-events: none;
+            transform-origin: top left; 
+            transition: all 0.3s ease;
         }
         .math-row { 
-            display: flex; align-items: center; margin-bottom: 12px; 
-            font-size: 18px; color: #333; 
+            display: flex; align-items: center; margin-bottom: 8px; 
+            font-size: 16px; color: #333; 
         }
         .math-eq { 
             font-family: "Times New Roman", serif; font-style: italic; font-weight: bold; 
@@ -42,26 +45,36 @@
             text-align: center; width: 100%;
         }
 
-        /* --- 左下角：FBD 受力分析圖 --- */
+        /* --- FBD 受力分析圖 --- */
         #fbd-container {
             position: absolute; bottom: 20px; left: 20px; z-index: 10;
             background: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            width: 320px; 
-            height: 390px;
+            width: 300px; 
+            height: 250px;
             overflow: hidden;
             border: 1px solid #ccc;
+            transition: all 0.3s ease;
+            transform-origin: bottom left;
         }
         #fbd-header {
             background: #e3f2fd; color: #1565c0;
-            padding: 10px; font-size: 16px; font-weight: bold;
+            padding: 8px 10px; font-size: 15px; font-weight: bold;
             text-align: center; border-bottom: 1px solid #bbdefb;
+            cursor: pointer; 
+            display: flex; justify-content: space-between; align-items: center;
         }
+        #fbd-toggle-icon { font-size: 12px; }
         .fbd-note {
-            background-color: #fff8e1; color: #ef6c00; font-size: 12px;
-            padding: 6px 10px; text-align: center;
-            border-bottom: 1px solid #ffe0b2; line-height: 1.4;
+            background-color: #fff8e1; color: #ef6c00; font-size: 11px;
+            padding: 4px 8px; text-align: center;
+            border-bottom: 1px solid #ffe0b2; line-height: 1.3;
+        }
+        #fbd-content-wrapper {
+            transition: height 0.3s ease;
+            overflow: hidden;
+            height: 100%; 
         }
         #fbd-canvas { display: block; background: #fff; margin: 0 auto; }
 
@@ -73,8 +86,9 @@
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             display: flex; flex-direction: column;
-            overflow: hidden;
             font-family: "Microsoft JhengHei", sans-serif;
+            transition: all 0.3s ease;
+            max-height: 90vh;
         }
 
         .panel-header {
@@ -83,13 +97,21 @@
             font-size: 18px; font-weight: bold;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid #bbdefb;
+            cursor: pointer; 
         }
 
-        .panel-content { padding: 15px; }
+        .panel-content { 
+            padding: 15px; 
+            overflow-y: auto; 
+            transition: max-height 0.3s ease;
+        }
+        .collapsed .panel-content { display: none; }
+        .collapsed #fbd-content-wrapper { display: none; }
+        #fbd-container.collapsed { height: auto; }
 
         .btn {
             width: 100%; border: none; border-radius: 6px;
-            padding: 10px; font-size: 16px; font-weight: bold;
+            padding: 12px; font-size: 16px; font-weight: bold;
             cursor: pointer; margin-bottom: 10px; color: #fff;
             transition: opacity 0.2s;
         }
@@ -104,13 +126,13 @@
             margin-bottom: 8px; display: flex; justify-content: space-between;
         }
         input[type=range] {
-            width: 100%; cursor: pointer; height: 6px; background: #ddd;
-            border-radius: 3px; outline: none; -webkit-appearance: none;
+            width: 100%; cursor: pointer; height: 8px; background: #ddd;
+            border-radius: 4px; outline: none; -webkit-appearance: none;
         }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 18px; height: 18px;
+            -webkit-appearance: none; width: 24px; height: 24px;
             border-radius: 50%; background: #1976d2; cursor: pointer;
-            border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
         .data-display {
@@ -131,22 +153,46 @@
         }
         .color-box { width: 12px; height: 12px; border-radius: 2px; margin-right: 8px; }
 
-        /* --- 3D 標籤樣式 --- */
+        /* 3D 標籤樣式 */
         .force-label {
             background: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; 
             color: #000; padding: 2px 5px; border-radius: 3px;
             font-size: 12px; font-weight: bold; pointer-events: none;
         }
         .angle-label { color: #ff8f00; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 0 #fff; }
-        
         .geo-label {
-            color: #444;
-            font-family: "Times New Roman", serif;
-            font-style: italic;
-            font-size: 16px;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+            color: #444; font-family: "Times New Roman", serif; font-style: italic;
+            font-size: 16px; font-weight: bold; text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
             pointer-events: none;
+        }
+
+        /* RWD: 手機版樣式 */
+        @media (max-width: 850px) {
+            #ui-panel {
+                top: auto; bottom: 0; left: 0; right: 0;
+                width: 100%; 
+                border-radius: 20px 20px 0 0; 
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+                max-height: 60vh; 
+            }
+            .panel-header { padding: 15px; justify-content: center; }
+            .panel-header::before {
+                content: ""; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+                width: 40px; height: 4px; background: #bbdefb; border-radius: 2px;
+            }
+            .panel-content { padding-bottom: 30px; }
+
+            #fbd-container {
+                left: auto; right: 10px; 
+                bottom: auto; top: 70px; 
+                width: 300px; 
+                transform: scale(0.65); 
+                transform-origin: top right; 
+            }
+            #math-panel {
+                top: 10px; left: 10px;
+                transform: scale(0.75);
+            }
         }
     </style>
 
@@ -178,17 +224,22 @@
     </div>
 
     <div id="fbd-container">
-        <div id="fbd-header">受力分析 (FBD)</div>
-        <div class="fbd-note">
-            ⚠️ 為了向量的可視性，<br>原本不變的 mg 會有所伸縮為正常現象
+        <div id="fbd-header" onclick="toggleFBD()">
+            受力分析 (FBD)
+            <span id="fbd-toggle-icon">▼</span>
         </div>
-        <canvas id="fbd-canvas" width="320" height="320"></canvas>
+        <div id="fbd-content-wrapper">
+            <div class="fbd-note">
+                ⚠️ 向量縮放顯示以適應畫面
+            </div>
+            <canvas id="fbd-canvas" width="300" height="180"></canvas>
+        </div>
     </div>
 
     <div id="ui-panel">
-        <div class="panel-header">
+        <div class="panel-header" onclick="togglePanel()">
             參數設定
-            <span style="font-size: 12px; cursor: pointer;">收起 ▲</span>
+            <span id="panel-toggle-icon" style="font-size: 12px; margin-left: 10px;">▼</span>
         </div>
         <div class="panel-content">
             <button class="btn btn-reset" onclick="resetSim()">重置 (Reset)</button>
@@ -200,6 +251,14 @@
                     <span id="val-velocity">10.0</span>
                 </div>
                 <input type="range" id="input-velocity" min="0" max="22" step="0.1" value="10">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    擺錘質量 m (kg)
+                    <span id="val-mass">10</span>
+                </div>
+                <input type="range" id="input-mass" min="1" max="50" step="1" value="10">
             </div>
 
             <div class="data-display">
@@ -228,17 +287,17 @@
     </div>
 
     <script>
-        // --- 1. 全局變數 ---
         let scene, camera, renderer, labelRenderer, controls;
         let mainGroup, arrows = {}, labels = {};
         let objects = {};
         
         const POLE_HEIGHT = 40;
         const STRING_LEN = 30;
-        const MASS = 10; 
+        // MASS 改為動態變數 params.mass
 
         let params = {
             velocity: 10.0,
+            mass: 10.0, // 新增質量參數
             paused: false,
             theta: 0,
             time: 0
@@ -246,14 +305,19 @@
 
         const uiVelocity = document.getElementById('input-velocity');
         const uiValVelocity = document.getElementById('val-velocity');
+        const uiMass = document.getElementById('input-mass');
+        const uiValMass = document.getElementById('val-mass');
+
         const dispTheta = document.getElementById('disp-theta');
         const dispTension = document.getElementById('disp-tension');
         const dispFc = document.getElementById('disp-fc');
         const fbdCanvas = document.getElementById('fbd-canvas');
         const fbdCtx = fbdCanvas.getContext('2d');
-
-        // --- 2. 初始化 ---
-        window.onload = init;
+        
+        window.onload = function() {
+            init();
+            if(window.innerWidth < 850) { }
+        };
 
         function init() {
             scene = new THREE.Scene();
@@ -288,21 +352,45 @@
 
             createSceneObjects();
 
+            // 速度監聽
             uiVelocity.addEventListener('input', (e) => {
                 params.velocity = parseFloat(e.target.value);
                 uiValVelocity.innerText = params.velocity.toFixed(1);
+            });
+
+            // [新增] 質量監聽
+            uiMass.addEventListener('input', (e) => {
+                params.mass = parseFloat(e.target.value);
+                uiValMass.innerText = params.mass.toFixed(0);
+                
+                // 調整球體大小 (視覺回饋)
+                // 10kg 是基礎大小 1.5，最大 50kg -> 縮放
+                const newScale = 1 + (params.mass - 10) / 40 * 0.5; // 稍微變大一點
+                objects.bob.scale.set(newScale, newScale, newScale);
             });
 
             animate();
             window.addEventListener('resize', onWindowResize);
         }
 
-        // --- 3. 建立物件 ---
+        function togglePanel() {
+            const panel = document.getElementById('ui-panel');
+            const icon = document.getElementById('panel-toggle-icon');
+            panel.classList.toggle('collapsed');
+            icon.innerText = panel.classList.contains('collapsed') ? '▲' : '▼';
+        }
+
+        function toggleFBD() {
+            const container = document.getElementById('fbd-container');
+            const icon = document.getElementById('fbd-toggle-icon');
+            container.classList.toggle('collapsed');
+            icon.innerText = container.classList.contains('collapsed') ? '▲' : '▼';
+        }
+
         function createSceneObjects() {
             mainGroup = new THREE.Group();
             scene.add(mainGroup);
 
-            // 虛線中軸
             const dashGeo = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(0, POLE_HEIGHT, 0),
                 new THREE.Vector3(0, 0, 0)
@@ -312,40 +400,32 @@
             objects.axisLine.computeLineDistances();
             mainGroup.add(objects.axisLine);
 
-            // 頂板
             objects.topPlate = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.5, 32), new THREE.MeshStandardMaterial({color: 0x333}));
             objects.topPlate.position.y = POLE_HEIGHT;
             mainGroup.add(objects.topPlate);
 
-            // 擺錘
             objects.bob = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), new THREE.MeshStandardMaterial({color: 0xffaa00}));
             objects.bob.castShadow = true;
             mainGroup.add(objects.bob);
 
-            // 繩子
             const stringGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, POLE_HEIGHT, 0), new THREE.Vector3(0,0,0)]);
             objects.string = new THREE.Line(stringGeo, new THREE.LineBasicMaterial({color: 0x222, linewidth: 2}));
             mainGroup.add(objects.string);
 
-            // 虛線旋轉半徑 (L sinθ)
             const radiusLineGeo = new THREE.BufferGeometry();
             const radiusLineMat = new THREE.LineDashedMaterial({ color: 0xff5722, dashSize: 1, gapSize: 0.5 }); 
             objects.radiusLine = new THREE.Line(radiusLineGeo, radiusLineMat);
             mainGroup.add(objects.radiusLine);
 
-            // 虛線圓形軌跡
             const pathCircleGeo = new THREE.BufferGeometry();
             const pathCircleMat = new THREE.LineDashedMaterial({ color: 0xaaaaaa, dashSize: 1, gapSize: 1 }); 
             objects.pathCircle = new THREE.Line(pathCircleGeo, pathCircleMat);
             objects.pathCircle.rotation.x = Math.PI / 2;
             mainGroup.add(objects.pathCircle);
 
-
-            // 角度弧線
             objects.arcLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff8f00, linewidth: 2 }));
             mainGroup.add(objects.arcLine);
 
-            // --- 標籤 ---
             const divAngle = document.createElement('div');
             divAngle.className = 'angle-label'; divAngle.innerText = "θ";
             labels.theta = new THREE.CSS2DObject(divAngle);
@@ -361,8 +441,6 @@
             labels.radiusLsin = new THREE.CSS2DObject(divR);
             scene.add(labels.radiusLsin);
 
-
-            // 3D 箭頭
             createArrow('mg', 0x2e7d32, 'mg'); 
             createArrow('T', 0x1565c0, 'T');   
             createArrow('Fc', 0xd32f2f, 'Fc'); 
@@ -381,7 +459,6 @@
             scene.add(labels[name]);
         }
 
-        // --- 4. 動畫核心 ---
         function animate() {
             requestAnimationFrame(animate);
             if (!params.paused) {
@@ -395,8 +472,9 @@
         function updatePhysics() {
             const dt = 0.016;
             const v = params.velocity;
+            const m = params.mass; // 取得目前質量
             
-            // 物理模擬角度 (近似)
+            // 角度只跟速度有關 (tan = v^2/rg)，跟質量無關
             let theta = (v / 20) * 1.4; 
             if(theta > 1.45) theta = 1.45;
             params.theta = theta;
@@ -414,7 +492,6 @@
             const pivotPos = new THREE.Vector3(0, POLE_HEIGHT, 0);
             const centerPos = new THREE.Vector3(0, y, 0); 
 
-            // 1. 更新物體與幾何
             objects.bob.position.copy(bobPos);
             objects.string.geometry.attributes.position.setXYZ(1, x, y, z);
             objects.string.geometry.attributes.position.needsUpdate = true;
@@ -428,41 +505,41 @@
             objects.pathCircle.position.y = y;
             objects.pathCircle.computeLineDistances();
 
-            // 2. 更新幾何標籤位置
             labels.stringL.position.copy(pivotPos).lerp(bobPos, 0.5).add(new THREE.Vector3(1, 1, 0));
             labels.radiusLsin.position.copy(centerPos).lerp(bobPos, 0.5).add(new THREE.Vector3(0, 1, 0));
             labels.radiusLsin.visible = (radius > 3);
 
+            // 計算受力大小 (N)
+            const tensionVal = (m * 9.8) / Math.cos(theta);
+            const fcVal = tensionVal * Math.sin(theta);
 
-            // 3. 更新箭頭 (特製 Fc 的更新方式)
-            updateArrow('mg', bobPos, new THREE.Vector3(0, -1, 0), 8);
+            // 更新 3D 箭頭 (長度與質量掛勾)
+            // 基礎長度 factor: mass/10。如果 mass=50，長度 x5
+            // 注意: 這裡還是要避免長度太誇張，可以稍微用 log 或 sqrt 縮放，或者直接線性
+            // 但因為有自動縮放，線性是可以的
+            const visualScale = (m / 10); 
+
+            updateArrow('mg', bobPos, new THREE.Vector3(0, -1, 0), 8 * visualScale);
             const dirT = new THREE.Vector3().subVectors(pivotPos, bobPos).normalize();
-            updateArrow('T', bobPos, dirT, 8 / Math.cos(theta)); 
+            updateArrow('T', bobPos, dirT, (8 / Math.cos(theta)) * visualScale); 
 
-            // [修改] Fc 的特殊更新：標籤放在箭頭中點下方
             const dirFc = new THREE.Vector3().subVectors(centerPos, bobPos).normalize();
-            const lenFc = 8 * Math.tan(theta);
+            const lenFc = 8 * Math.tan(theta) * visualScale;
             const arrFc = arrows['Fc'];
             const lblFc = labels['Fc'];
             if(arrFc) {
                 arrFc.position.copy(bobPos);
                 arrFc.setDirection(dirFc);
                 arrFc.setLength(Math.max(1, lenFc));
-                // 計算中點並往下偏移
                 const midPoint = dirFc.clone().multiplyScalar(lenFc / 2).add(bobPos);
                 lblFc.position.copy(midPoint).add(new THREE.Vector3(0, -3, 0));
             }
 
-
-            // 4. 面板數據
-            const tensionVal = (MASS * 9.8) / Math.cos(theta);
-            const fcVal = tensionVal * Math.sin(theta);
             dispTheta.innerText = (theta * 180 / Math.PI).toFixed(1) + "°";
             dispTension.innerText = tensionVal.toFixed(0) + " N";
             dispFc.innerText = fcVal.toFixed(0) + " N";
 
-            // 5. FBD
-            drawDynamicFBD(theta);
+            drawDynamicFBD(theta, m);
         }
 
         function updateAngleVisuals(theta, bobX, bobZ) {
@@ -484,11 +561,10 @@
             labels.theta.position.copy(pivot.clone().add(midVec));
         }
 
-        // 通用箭頭更新 (適用於 mg 和 T)
         function updateArrow(name, pos, dir, len) {
             const arr = arrows[name];
             const lbl = labels[name];
-            if(arr && name !== 'Fc') { // Fc 改為在 updatePhysics 中單獨處理
+            if(arr && name !== 'Fc') { 
                 arr.position.copy(pos);
                 arr.setDirection(dir);
                 arr.setLength(Math.max(1, len));
@@ -496,21 +572,25 @@
             }
         }
 
-        // --- 5. FBD 繪圖 (智慧縮放版) ---
-        function drawDynamicFBD(theta) {
+        // --- FBD 繪圖 ---
+        function drawDynamicFBD(theta, mass) {
             const ctx = fbdCtx;
             const W = fbdCanvas.width;
             const H = fbdCanvas.height;
             const CX = W / 2;
-            const CY = H / 2 + 30; 
+            const CY = H / 2 + 20; 
 
             ctx.clearRect(0, 0, W, H);
 
-            const baseLenMG = 80; 
+            // [修改] 基礎長度隨質量變化
+            // 質量 10kg => 60px
+            // 質量 50kg => 300px (會觸發自動縮放)
+            const baseLenMG = 6 * mass; 
+
             let lenT = baseLenMG / Math.cos(theta);
             let lenFc = baseLenMG * Math.tan(theta);
 
-            const maxRadius = Math.min(W, H) / 2 - 20; 
+            const maxRadius = Math.min(W, H) / 2 - 15; 
             const maxVectorLen = Math.max(baseLenMG, lenT, lenFc);
             
             let scale = 1;
@@ -530,7 +610,8 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            const boxSize = 24;
+            // 球體大小也隨質量微調
+            const boxSize = 24 + (mass - 10)/2;
             ctx.fillStyle = '#ffaa00';
             ctx.fillRect(CX - boxSize/2, CY - boxSize/2, boxSize, boxSize);
             ctx.strokeStyle = '#333';
@@ -543,8 +624,8 @@
             drawVector(ctx, CX, CY, tx, ty, '#1565c0', 'T');
             drawVector(ctx, CX, CY, -drawLenFc, 0, '#d32f2f', 'Fc');
 
-            const rArc = 40 * scale; 
-            const actualRArc = Math.max(25, Math.min(rArc, 50)); 
+            const rArc = 30 * scale; 
+            const actualRArc = Math.max(20, Math.min(rArc, 40)); 
             ctx.beginPath();
             ctx.strokeStyle = '#ff8f00';
             ctx.lineWidth = 2;
@@ -578,8 +659,13 @@
             let textX = x + dx;
             let textY = y + dy;
             
-            if (dx > 0) textX += 8; else textX -= 25;
-            if (dy > 0) textY += 20; else textY -= 8;
+            if (label === 'mg') {
+                textX += 12; 
+                textY += 5;  
+            } else {
+                if (dx > 0) textX += 8; else textX -= 25;
+                if (dy > 0) textY += 20; else textY -= 8;
+            }
             
             ctx.fillText(label, textX, textY);
         }
@@ -600,6 +686,13 @@
             params.velocity = 10.0;
             uiVelocity.value = 10.0;
             uiValVelocity.innerText = "10.0";
+            
+            // [新增] 重置質量
+            params.mass = 10.0;
+            uiMass.value = 10.0;
+            document.getElementById('val-mass').innerText = "10";
+            objects.bob.scale.set(1, 1, 1);
+
             params.theta = 0;
             params.time = 0;
             if(params.paused) togglePause();
