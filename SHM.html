@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>高中物理 - 簡諧運動實驗室 (v6.0 真實振幅版)</title>
+<title>高中物理 - 簡諧運動實驗室 (v7.2 暫停功能版)</title>
 <style>
   :root {
     --primary: #6c5ce7;
@@ -12,10 +12,9 @@
     --color-x: #0984e3;
     --color-v: #00b894;
     --color-a: #d63031;
-    --color-force-g: #27ae60;
-    --color-force-s: #8e44ad;
-    --color-force-net: #e17055;
+    --color-ucm-light: #74b9ff;
     --color-natural: #e67e22;
+    --color-pause: #f1c40f; /* 暫停按鈕顏色 */
   }
 
   body {
@@ -69,7 +68,12 @@
     transition: transform 0.2s; white-space: nowrap;
   }
   .action-btn:hover { transform: translateY(-2px); }
+  
   .reset-btn { background: linear-gradient(135deg, #d63031, #ff7675); }
+  
+  /* 暫停按鈕樣式 */
+  .pause-btn { background: linear-gradient(135deg, #f39c12, #f1c40f); color: white; min-width: 80px; }
+  .pause-btn.paused { background: linear-gradient(135deg, #27ae60, #2ecc71); } /* 暫停時變綠色(提示可以繼續) */
 
   .unit-toggle-group { display: flex; gap: 0; background: #eee; padding: 2px; border-radius: 20px; border: 1px solid #ddd; }
   .unit-btn { padding: 4px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; font-weight: bold; border: none; background: transparent; color: #666; }
@@ -89,16 +93,16 @@
 <body>
 
 <div class="nav-bar">
-  <button class="nav-btn active" onclick="switchMode('vector')">模式一：原理</button>
-  <button class="nav-btn" onclick="switchMode('horiz')">模式二：水平彈簧實驗</button>
-  <button class="nav-btn" onclick="switchMode('vert')">模式三：鉛直彈簧實驗</button>
+  <button class="nav-btn active" onclick="switchMode('vector')">模式一：投影原理</button>
+  <button class="nav-btn" onclick="switchMode('horiz')">模式二：水平彈簧</button>
+  <button class="nav-btn" onclick="switchMode('vert')">模式三：鉛直彈簧</button>
 </div>
 
 <div class="main-container">
 
   <div id="mode-vector" class="mode-section active">
-    <h1>SHM 原理：參考圓與函數對照</h1>
-    <div class="subtitle">旋轉視角觀察圓周運動投影，右側為 0~360° (2π) 週期圖</div>
+    <h1>SHM 原理：圓周運動投影分析</h1>
+    <div class="subtitle">觀察 <span style="color:var(--color-ucm-light)">淺色箭頭(圓周運動)</span> 如何投影至 <span style="color:var(--color-x)">深色箭頭(簡諧運動)</span></div>
 
     <canvas id="vectorCanvas"></canvas>
 
@@ -106,6 +110,8 @@
       <div class="control-row">
           <button class="action-btn" id="rotateBtn" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">旋轉視角 (3D)</button>
           
+          <button class="action-btn pause-btn" id="btnPauseVec" onclick="togglePause('vector')">暫停</button>
+
           <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
             <label class="cb-item" style="color: var(--primary);">
               <input type="checkbox" id="slowMoCheck"> 慢動作
@@ -153,7 +159,12 @@
     </div>
     <canvas id="horizCanvas"></canvas>
     <div class="status-text" id="horizStatus">請拖曳木塊離開平衡點...</div>
-    <div class="controls"><button class="action-btn reset-btn" id="resetHorizBtn">重置實驗</button></div>
+    <div class="controls">
+      <div class="control-row">
+        <button class="action-btn pause-btn" id="btnPauseHoriz" onclick="togglePause('horiz')">暫停</button>
+        <button class="action-btn reset-btn" id="resetHorizBtn">重置實驗</button>
+      </div>
+    </div>
   </div>
 
   <div id="mode-vert" class="mode-section">
@@ -182,7 +193,12 @@
     </div>
     <canvas id="vertCanvas"></canvas>
     <div class="status-text" id="vertStatus">請拖曳木塊離開平衡點...</div>
-    <div class="controls"><button class="action-btn reset-btn" id="resetVertBtn">重置實驗</button></div>
+    <div class="controls">
+       <div class="control-row">
+        <button class="action-btn pause-btn" id="btnPauseVert" onclick="togglePause('vert')">暫停</button>
+        <button class="action-btn reset-btn" id="resetVertBtn">重置實驗</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -191,9 +207,12 @@
   let currentMode = 'vector';
   let vectorAnimId, horizAnimId, vertAnimId;
   let axisUnit = 'deg';
+  const MAX_PHYS_DISPLACEMENT = 200; 
 
-  // 定義物理與顯示的最大範圍，用於圖表比例
-  const MAX_PHYS_DISPLACEMENT = 200; // 物理位移最大值 (px)
+  // 暫停狀態管理
+  let isPausedVec = false;
+  let isPausedHoriz = false;
+  let isPausedVert = false;
 
   function isMobile() { return window.innerWidth < 900; }
   function resizeCanvas() {
@@ -209,6 +228,30 @@
   function forceRender() {
     if(currentMode === 'horiz' && !horizIsAnimating) renderHorizFrame();
     if(currentMode === 'vert' && !vertIsAnimating) renderVertFrame();
+  }
+
+  function togglePause(mode) {
+      if(mode === 'vector') {
+          isPausedVec = !isPausedVec;
+          updatePauseBtn('btnPauseVec', isPausedVec);
+      } else if(mode === 'horiz') {
+          isPausedHoriz = !isPausedHoriz;
+          updatePauseBtn('btnPauseHoriz', isPausedHoriz);
+      } else if(mode === 'vert') {
+          isPausedVert = !isPausedVert;
+          updatePauseBtn('btnPauseVert', isPausedVert);
+      }
+  }
+
+  function updatePauseBtn(id, isPaused) {
+      const btn = document.getElementById(id);
+      if(isPaused) {
+          btn.textContent = "繼續";
+          btn.classList.add('paused');
+      } else {
+          btn.textContent = "暫停";
+          btn.classList.remove('paused');
+      }
   }
 
   function switchMode(mode) {
@@ -248,17 +291,27 @@
     const toX = fromX + vecX; const toY = fromY + vecY;
     const len = Math.sqrt(vecX*vecX + vecY*vecY);
     if (len < 1 && style!=='ghost') return {x: toX, y: toY};
+    
     ctx.save();
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lineWidth;
-    if (style === 'ghost') { ctx.globalAlpha = 0.4; ctx.setLineDash([5, 3]); } 
-    else { ctx.globalAlpha = 1.0; ctx.setLineDash([]); }
+    
+    if (style === 'ghost') { 
+        ctx.globalAlpha = 0.5; 
+    } else if (style === 'dashed') { 
+        ctx.setLineDash([5, 3]); ctx.globalAlpha = 0.6; 
+    } else { 
+        ctx.globalAlpha = 1.0; ctx.setLineDash([]); 
+    }
+    
     ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+    
     const angle = Math.atan2(vecY, vecX); const headLen = 8 + lineWidth;
     ctx.beginPath(); ctx.moveTo(toX, toY);
     ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI/6), toY - headLen * Math.sin(angle - Math.PI/6));
     ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI/6), toY - headLen * Math.sin(angle + Math.PI/6));
     ctx.closePath(); ctx.fill();
-    if (label && style !== 'ghost') {
+    
+    if (label && style !== 'ghost' && style !== 'dashed') {
       ctx.font = "bold 15px Arial";
       let textY = toY - 10; if (vecY > 0) textY = toY + 20; 
       const w = ctx.measureText(label).width; ctx.fillText(label, toX - w/2, textY);
@@ -266,10 +319,13 @@
     ctx.restore(); return {x: toX, y: toY};
   }
 
-  /**
-   * 圖表繪製函式 - 修正版
-   * @param overrideScale: 強制指定波形的最大高度 (px)，若不指定則自動使用圖表高度的 40% (舊模式)
-   */
+  function drawDashedLine(ctx, x1, y1, x2, y2, color="#999") {
+    ctx.save();
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
+  }
+
   function drawCycleGraph(ctx, currentPhase, x, y, w, h, config, overrideScale) {
       const mid = y + h/2; const graphW = w - 50; const startX = x + 40; 
       ctx.save();
@@ -297,34 +353,24 @@
           ctx.fillText(txt, px, mid + 15);
       }
 
-      // 波形高度設定
-      // 模式一使用固定比例 (h*0.4)
-      // 模式二、三使用傳入的 scale (對應真實物理位移)
       let scale = (overrideScale !== undefined) ? overrideScale : h*0.4;
       
-      // 繪製背景參考線 (虛線) - 顯示"最大可能振幅" 或 "當前振幅路徑"
-      // 這裡我們讓虛線顯示"如果拉到滿(MAX_PHYS_DISPLACEMENT)"會有多高，作為參考座標
-      // 計算最大可能的 scale
       const maxPossibleScale = (h*0.45); 
-      // 若是模式一，我們不畫這個參考框。若是模式二三，畫出範圍框
       if(overrideScale !== undefined) {
           ctx.beginPath(); ctx.strokeStyle = "#eee"; ctx.lineWidth = 1;
           ctx.rect(startX, mid - maxPossibleScale, graphW, maxPossibleScale*2);
           ctx.stroke();
       } else {
-          // 模式一：舊行為，畫完整波形虛線
            ctx.beginPath(); ctx.strokeStyle = "#eee"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
            drawCurvePoints(ctx, startX, mid, graphW, config, 100, 2*Math.PI, scale);
            ctx.stroke(); ctx.setLineDash([]); 
       }
 
-      // 實線波形 (根據 scale 決定高低)
       if (Math.abs(scale) > 0.5) {
         ctx.beginPath(); ctx.strokeStyle = config.color; ctx.lineWidth = 2;
         drawCurvePoints(ctx, startX, mid, graphW, config, 100, currentPhase, scale);
         ctx.stroke();
       } else {
-        // scale 太小 (位移為0)，畫直線
         ctx.beginPath(); ctx.strokeStyle = config.color; ctx.lineWidth = 2;
         ctx.moveTo(startX, mid); ctx.lineTo(startX + (currentPhase / (Math.PI*2)) * graphW, mid);
         ctx.stroke();
@@ -381,7 +427,7 @@
   const vCanvas = document.getElementById('vectorCanvas');
   const vCtx = vCanvas.getContext('2d');
   const vR = 100; const vBaseOmega = 0.02; 
-  let vTime = 0; let vViewAngle = 0; let vTargetAngle = 0; let vIsPaused = false;
+  let vTime = 0; let vViewAngle = 0; let vTargetAngle = 0; let vIsSpecifyAngle = false;
 
   const btnRotate = document.getElementById('rotateBtn');
   const chkPause = document.getElementById('pauseCheck');
@@ -396,10 +442,17 @@
     e.target.textContent = (vTargetAngle === 1) ? "回到側面視角" : "旋轉視角 (3D)";
   });
   chkPause.addEventListener('change', () => {
-    vIsPaused = chkPause.checked; inpAngle.disabled = !vIsPaused;
-    if(vIsPaused) {
+    vIsSpecifyAngle = chkPause.checked; inpAngle.disabled = !vIsSpecifyAngle;
+    
+    // 如果切換到指定角度模式，為了避免衝突，我們可以暫時 disable 暫停鈕，或者單純讓它不生效
+    // 這裡的邏輯是：如果是 SpecifyAngle，時間由 input 決定。如果是 AutoPlay，時間由 loop 決定(受 isPausedVec 控制)
+    if(vIsSpecifyAngle) {
        let deg = Math.round(((vTime * vBaseOmega) % (Math.PI*2)) * 180 / Math.PI);
        if(deg<0) deg+=360; inpAngle.value = deg;
+       // 讓按鈕看起來無效
+       document.getElementById('btnPauseVec').style.opacity = '0.5';
+    } else {
+       document.getElementById('btnPauseVec').style.opacity = '1';
     }
   });
 
@@ -420,54 +473,77 @@
 
     const speedMultiplier = chkSlowMo.checked ? 0.2 : 1.0;
     let theta;
-    if (vIsPaused) {
+    if (vIsSpecifyAngle) {
         let deg = parseFloat(inpAngle.value) || 0;
         theta = deg * Math.PI / 180; vTime = theta / vBaseOmega;
     } else {
-        vTime += speedMultiplier; theta = vBaseOmega * vTime;
+        // 只有在 "非暫停" 且 "非指定角度" 模式下才更新時間
+        if (!isPausedVec) {
+            vTime += speedMultiplier;
+        }
+        theta = vBaseOmega * vTime;
     }
     const currentPhase = theta % (Math.PI * 2);
     const cosT = Math.cos(theta); const sinT = Math.sin(theta);
     
-    const rX = vR * cosT; const rY_3d = -vR * sinT * vViewAngle;
-    const vMag = vR * vBaseOmega; const vX = -vMag * sinT; const vY_3d = -vMag * cosT * vViewAngle;
-    const aMag = vR * vBaseOmega * vBaseOmega; const aX = -aMag * cosT; const aY_3d = aMag * sinT * vViewAngle;
+    const rX = vR * cosT; 
+    const rY_3d = -vR * sinT * vViewAngle; 
+    
+    const ucmX = cx + rX; 
+    const ucmY = cy + rY_3d;
+    const shmX = cx + rX; 
+    const shmY = cy; 
 
+    // 畫軌道圓盤
     vCtx.beginPath(); vCtx.ellipse(cx, cy, vR, vR*vViewAngle, 0, 0, Math.PI*2);
     vCtx.strokeStyle="#e0e0e0"; vCtx.lineWidth=2; vCtx.stroke();
+    // 畫 X 軸
     vCtx.beginPath(); vCtx.moveTo(isMobile()?0:0, cy); vCtx.lineTo(isMobile()?w:splitX, cy); 
     vCtx.strokeStyle="#bbb"; vCtx.stroke();
 
-    const ucmX = cx + rX; const ucmY = cy + rY_3d;
-    const shmX = cx + rX; const shmY = cy; 
-
-    if (vViewAngle > 0.2) {
-        vCtx.save(); vCtx.beginPath(); vCtx.strokeStyle="#555"; vCtx.fillStyle="rgba(0,0,0,0.05)";
-        vCtx.ellipse(cx, cy, 40, 40*vViewAngle, 0, 0, -currentPhase, true);
-        vCtx.lineTo(cx, cy); vCtx.fill(); vCtx.stroke();
-        const lx = cx + 55 * Math.cos(-currentPhase/2);
-        const ly = cy + 55 * Math.sin(-currentPhase/2) * vViewAngle;
-        vCtx.font = "italic 16px Times New Roman"; vCtx.fillStyle="#333"; vCtx.fillText("θ", lx, ly);
-        vCtx.restore();
-    }
     if (vViewAngle > 0.05) {
-        vCtx.save(); vCtx.setLineDash([4,4]); vCtx.strokeStyle="#999";
-        vCtx.beginPath(); vCtx.moveTo(ucmX, ucmY); vCtx.lineTo(shmX, shmY); vCtx.stroke();
-        vCtx.restore();
-        vCtx.beginPath(); vCtx.arc(shmX, shmY, 6, 0, Math.PI*2); vCtx.fillStyle="#bdc3c7"; vCtx.fill();
+        drawDashedLine(vCtx, ucmX, ucmY, shmX, shmY);
     }
-    vCtx.beginPath(); vCtx.arc(ucmX, ucmY, 12, 0, Math.PI*2);
-    vCtx.fillStyle="#2c3e50"; vCtx.fill(); vCtx.strokeStyle="white"; vCtx.stroke();
 
-    function drawProjOffset(startX_UCM, startY_UCM, startX_SHM, vecX, vecY3d, color, label) {
-        drawArrow(vCtx, startX_SHM, cy, vecX, 0, color, label, 3, 'solid');
+    vCtx.beginPath(); vCtx.arc(ucmX, ucmY, 8, 0, Math.PI*2);
+    vCtx.fillStyle="#b2bec3"; vCtx.fill(); vCtx.strokeStyle="#888"; vCtx.stroke(); 
+    
+    vCtx.beginPath(); vCtx.arc(shmX, shmY, 12, 0, Math.PI*2);
+    vCtx.fillStyle="#2c3e50"; vCtx.fill(); vCtx.strokeStyle="white"; vCtx.stroke(); 
+
+    // ================= 向量繪製核心邏輯 =================
+    // 1. 位移
+    if (chkDisp.checked) {
+       drawArrow(vCtx, cx, cy, rX, 0, "#0984e3", "x", 3);
+       const endU = drawArrow(vCtx, cx, cy, rX, rY_3d, "#74b9ff", null, 3, 'solid');
+       drawDashedLine(vCtx, endU.x, endU.y, cx + rX, cy);
     }
-    if (chkDisp.checked) drawArrow(vCtx, cx, cy, rX, rY_3d, "#0984e3", "x", 3, (vViewAngle>0.05)?'ghost':'solid');
-    if (chkVel.checked) drawProjOffset(ucmX, ucmY, shmX, vX*25, vY_3d*25, "#00b894", "v");
-    if (chkAcc.checked) drawProjOffset(ucmX, ucmY, shmX, aX*500, aY_3d*500, "#d63031", "a");
+
+    // 2. 速度
+    const vMag = vR * vBaseOmega * 25; 
+    const vx_u = -vMag * sinT; 
+    const vy_u = -vMag * cosT * vViewAngle; 
+    const vx_shm = vx_u; 
+
+    if (chkVel.checked) {
+       const endV_U = drawArrow(vCtx, ucmX, ucmY, vx_u, vy_u, "#55efc4", null, 3, 'solid');
+       const endV_S = drawArrow(vCtx, shmX, shmY, vx_shm, 0, "#00b894", "v", 3);
+       drawDashedLine(vCtx, endV_U.x, endV_U.y, endV_S.x, endV_S.y);
+    }
+
+    // 3. 加速度 (修正倍率為 2000，原3000)
+    const aMag = vR * vBaseOmega * vBaseOmega * 2000; 
+    const ax_u = -aMag * cosT;
+    const ay_u = aMag * sinT * vViewAngle; 
+    const ax_shm = ax_u;
+
+    if (chkAcc.checked) {
+       const endA_U = drawArrow(vCtx, ucmX, ucmY, ax_u, ay_u, "#ff7675", null, 3, 'solid');
+       const endA_S = drawArrow(vCtx, shmX, shmY, ax_shm, 0, "#d63031", "a", 3);
+       drawDashedLine(vCtx, endA_U.x, endA_U.y, endA_S.x, endA_S.y);
+    }
 
     const startY = isMobile() ? (h * 0.4) : 0; 
-    // 模式一不需要傳 overrideScale，讓它使用預設的 h*0.4
     drawCycleGraph(vCtx, currentPhase, graphX, startY, graphW, chartH, {
         label: "位移 (Displacement)", color: "#0984e3", formulaBase: "x = R cos ", type: "cos"
     });
@@ -493,8 +569,16 @@
 
   function horizLoop() {
     if (currentMode !== 'horiz') return;
-    if (hIsAnimating) { hTime++; const t_sec = hTime * 0.5; const x = hAmp * Math.cos(vBaseOmega * t_sec); hBlockX = hEqX + x; hStatus.textContent = `位移 x = ${Math.round(x)}`; }
-    renderHorizFrame(); horizAnimId = requestAnimationFrame(horizLoop);
+    // 必須是「動畫中」且「非暫停」才更新時間
+    if (hIsAnimating && !isPausedHoriz) { 
+        hTime++; 
+        const t_sec = hTime * 0.5; 
+        const x = hAmp * Math.cos(vBaseOmega * t_sec); 
+        hBlockX = hEqX + x; 
+        hStatus.textContent = `位移 x = ${Math.round(x)}`; 
+    }
+    renderHorizFrame(); 
+    horizAnimId = requestAnimationFrame(horizLoop);
   }
   function renderHorizFrame() {
     const w = hCanvas.width; const h = hCanvas.height; hCtx.clearRect(0,0,w,h);
@@ -517,16 +601,13 @@
     const dx = hBlockX - hEqX; let vx = 0, ax = 0; const t_sec = hTime * 0.5;
     if (hIsAnimating) { vx = -hAmp * vBaseOmega * Math.sin(vBaseOmega * t_sec); ax = -hAmp * vBaseOmega * vBaseOmega * Math.cos(vBaseOmega * t_sec); } else { ax = -0.01 * dx / 2; } 
     const view = getHorizView();
+    
+    // 倍率 3000
     if(view==='x') drawArrow(hCtx, hEqX, hFloorY+40, dx, 0, "#0984e3", "x", 4);
     else if(view==='v' && hIsAnimating) drawArrow(hCtx, hBlockX, hFloorY-70, vx*25, 0, "#00b894", "v", 4);
-    else if(view==='a') drawArrow(hCtx, hBlockX, hFloorY-80, ax*100, 0, "#d63031", "a", 4);
+    else if(view==='a') drawArrow(hCtx, hBlockX, hFloorY-80, ax*3000, 0, "#d63031", "a", 4);
     hCtx.restore();
 
-    // 計算真實顯示比例：
-    // 圖表最大高度 = graphH * 0.45
-    // 物理最大位移 = MAX_PHYS_DISPLACEMENT (200)
-    // 當前物理位移 = hIsAnimating ? hAmp : Math.abs(dx)
-    // scale = (currentPhys / MAX) * MaxGraphHeight
     const currentPhysAmp = hIsAnimating ? hAmp : Math.abs(dx);
     const maxGraphHeight = graphH * 0.45;
     const realScale = (currentPhysAmp / MAX_PHYS_DISPLACEMENT) * maxGraphHeight;
@@ -536,13 +617,20 @@
     else if (view === 'v') cfg = { label: "v-t", color: "#00b894", formulaBase: "v = -Aω sin ", type: "neg_sin" };
     else cfg = { label: "a-t", color: "#d63031", formulaBase: "a = -Aω² cos ", type: "neg_cos" }; 
     
-    // 傳入 realScale
     drawCycleGraph(hCtx, phase, graphX, graphY, graphW, graphH, cfg, realScale);
   }
   hCanvas.addEventListener('mousedown', hStart); hCanvas.addEventListener('touchstart', hStart, {passive:false});
   window.addEventListener('mousemove', hMove); window.addEventListener('touchmove', hMove, {passive:false});
   window.addEventListener('mouseup', hEnd); window.addEventListener('touchend', hEnd);
-  hResetBtn.addEventListener('click', () => { hIsAnimating = false; hIsDragging = false; hBlockX = hEqX; hTime = 0; hStatus.textContent = "請拖曳木塊..."; renderHorizFrame(); });
+  
+  hResetBtn.addEventListener('click', () => { 
+      hIsAnimating = false; hIsDragging = false; 
+      // 重置時也要解除暫停
+      isPausedHoriz = false; updatePauseBtn('btnPauseHoriz', false);
+      hBlockX = hEqX; hTime = 0; hStatus.textContent = "請拖曳木塊..."; 
+      renderHorizFrame(); 
+  });
+  
   function hStart(e) { if (currentMode !== 'horiz' || hIsAnimating) return; const r = hCanvas.getBoundingClientRect(); const x = (e.clientX || e.touches[0].clientX) - r.left; const px = x*(hCanvas.width/r.width); if (px >= hBlockX - 30 && px <= hBlockX + 30) { hIsDragging = true; hStatus.textContent = "設定振幅中..."; e.preventDefault(); }}
   function hMove(e) { if (currentMode !== 'horiz' || !hIsDragging) return; const r = hCanvas.getBoundingClientRect(); const x = (e.clientX || e.touches[0].clientX) - r.left; let mx = x*(hCanvas.width/r.width); if (mx < hWallX + 40) mx = hWallX + 40; if (mx > hCanvas.width - 40) mx = hCanvas.width - 40; hBlockX = mx; renderHorizFrame(); e.preventDefault(); }
   function hEnd(e) { if (currentMode !== 'horiz' || !hIsDragging) return; hIsDragging = false; let disp = hBlockX - hEqX; if (Math.abs(disp) < 2) { hBlockX = hEqX; hStatus.textContent = "位移太小"; renderHorizFrame(); } else { hAmp = disp; hTime = 0; hIsAnimating = true; }}
@@ -562,7 +650,14 @@
 
   function vertLoop() {
     if (currentMode !== 'vert') return;
-    if (zIsAnimating) { zTime++; const t_sec = zTime * 0.5; const y = zAmp * Math.cos(vBaseOmega * t_sec); zBlockY = zEqY + y; const f = -y * 0.5; zStatus.textContent = `位移 y = ${Math.round(y)} | 合力 F_net ≈ ${Math.round(f)}`; }
+    if (zIsAnimating && !isPausedVert) { 
+        zTime++; 
+        const t_sec = zTime * 0.5; 
+        const y = zAmp * Math.cos(vBaseOmega * t_sec); 
+        zBlockY = zEqY + y; 
+        const f = -y * 0.5; 
+        zStatus.textContent = `位移 y = ${Math.round(y)} | 合力 F_net ≈ ${Math.round(f)}`; 
+    }
     renderVertFrame(); vertAnimId = requestAnimationFrame(vertLoop);
   }
   function renderVertFrame() {
@@ -604,12 +699,13 @@
 
     const view = getVertView(); const vecX = zAnchorX + 60; const t_sec = zTime * 0.5; let vy = 0, ay = 0;
     if (zIsAnimating) { vy = -zAmp * vBaseOmega * Math.sin(vBaseOmega * t_sec); ay = -zAmp * vBaseOmega * vBaseOmega * Math.cos(vBaseOmega * t_sec); }
+    
+    // 倍率 3000
     if(view==='x') drawArrow(zCtx, vecX, zEqY, 0, dy, "#0984e3", "y", 4);
     else if(view==='v' && zIsAnimating) drawArrow(zCtx, vecX, zBlockY, 0, vy*25, "#00b894", "v", 4);
-    else if(view==='a') drawArrow(zCtx, vecX, zBlockY, 0, ay*100, "#d63031", "a", 4);
+    else if(view==='a') drawArrow(zCtx, vecX, zBlockY, 0, ay*3000, "#d63031", "a", 4);
     zCtx.restore();
 
-    // 真實振幅計算
     const currentPhysAmp = zIsAnimating ? zAmp : Math.abs(dy);
     const maxGraphHeight = graphH * 0.45;
     const realScale = (currentPhysAmp / MAX_PHYS_DISPLACEMENT) * maxGraphHeight;
@@ -624,7 +720,15 @@
   zCanvas.addEventListener('mousedown', zStart); zCanvas.addEventListener('touchstart', zStart, {passive:false});
   window.addEventListener('mousemove', zMove); window.addEventListener('touchmove', zMove, {passive:false});
   window.addEventListener('mouseup', zEnd); window.addEventListener('touchend', zEnd);
-  zResetBtn.addEventListener('click', () => { zIsAnimating = false; zIsDragging = false; zBlockY = zEqY; zTime = 0; zStatus.textContent = "請拖曳木塊..."; renderVertFrame(); });
+  
+  zResetBtn.addEventListener('click', () => { 
+      zIsAnimating = false; zIsDragging = false; 
+      // 重置時解除暫停
+      isPausedVert = false; updatePauseBtn('btnPauseVert', false);
+      zBlockY = zEqY; zTime = 0; zStatus.textContent = "請拖曳木塊..."; 
+      renderVertFrame(); 
+  });
+  
   function zStart(e) { if (currentMode !== 'vert' || zIsAnimating) return; const r = zCanvas.getBoundingClientRect(); const y = (e.clientY || e.touches[0].clientY) - r.top; const py = y*(zCanvas.height/r.height); if (py >= zBlockY - 40 && py <= zBlockY + 40) { zIsDragging = true; zStatus.textContent = "設定振幅中..."; e.preventDefault(); }}
   function zMove(e) { if (currentMode !== 'vert' || !zIsDragging) return; const r = zCanvas.getBoundingClientRect(); const y = (e.clientY || e.touches[0].clientY) - r.top; let my = y*(zCanvas.height/r.height); if (my < zCeilY + 40) my = zCeilY + 40; if (my > zCanvas.height - 40) my = zCanvas.height - 40; zBlockY = my; renderVertFrame(); e.preventDefault(); }
   function zEnd(e) { if (currentMode !== 'vert' || !zIsDragging) return; zIsDragging = false; let disp = zBlockY - zEqY; if (Math.abs(disp) < 2) { zBlockY = zEqY; zStatus.textContent = "位移太小"; renderVertFrame(); } else { zAmp = disp; zTime = 0; zIsAnimating = true; }}
