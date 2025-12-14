@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光電效應</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --panel-bg: #ffffff;
+            --accent-color: #34495e;
+            --highlight: #2980b9;
+            --text-main: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            margin: 0; padding: 0; background-color: var(--bg-color);
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--accent-color); color: white; padding: 10px 15px;
+            font-size: 1.1rem; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            display: flex; justify-content: space-between; align-items: center; z-index: 20;
+        }
+        .toggle-guide-btn {
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+            color: white; padding: 5px 12px; border-radius: 4px; cursor: pointer;
+            font-size: 0.9rem; display: none;
+        }
+
+        /* --- Layout --- */
+        .main-container { display: flex; flex: 1; height: 100%; overflow: hidden; position: relative; }
+
+        /* --- Sidebar --- */
+        .guide-sidebar {
+            width: 280px; background: #fff; border-right: 1px solid #ddd;
+            display: flex; flex-direction: column; padding: 15px; overflow-y: auto;
+            transition: transform 0.3s ease, width 0.3s ease; position: relative; z-index: 10;
+        }
+        .guide-sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border: none; }
+        .guide-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--highlight); padding-bottom: 8px; }
+        .collapse-btn { background: none; border: none; color: #999; font-size: 1.2rem; cursor: pointer; }
+        
+        .question-btn {
+            background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; margin-bottom: 10px;
+            border-radius: 6px; text-align: left; cursor: pointer; font-size: 0.95rem;
+            position: relative; line-height: 1.4; color: var(--text-main);
+        }
+        .question-btn:hover { background: #e2e6ea; border-color: #adb5bd; }
+        .question-btn::before {
+            content: "Q"; display: inline-block; background: var(--highlight); color: white;
+            width: 22px; height: 22px; text-align: center; line-height: 22px;
+            border-radius: 50%; font-size: 0.8rem; margin-right: 8px;
+        }
+        .question-btn.advanced::before { background: #d9534f; content: "進"; }
+
+        /* --- Canvas Area --- */
+        .canvas-area {
+            flex: 1; position: relative;
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            display: flex; justify-content: center; align-items: center; overflow: hidden;
+        }
+        canvas { border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); background: #fff; }
+
+        /* --- Zoom Controls (New) --- */
+        .zoom-toolbar {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 15px; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            display: flex; align-items: center; gap: 10px;
+            z-index: 5; border: 1px solid #ccc;
+        }
+        .zoom-label { font-size: 0.9rem; font-weight: bold; color: #555; display:flex; align-items:center; gap:5px; }
+        .zoom-slider { width: 100px; cursor: pointer; }
+
+        /* --- Right Controls --- */
+        .controls-area {
+            width: 340px; padding: 15px; background-color: var(--panel-bg);
+            border-left: 1px solid #ddd; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 12px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+        }
+        .control-group { background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 12px; }
+        .control-header { font-weight: bold; font-size: 0.9rem; margin-bottom: 8px; color: #555; display: flex; justify-content: space-between; align-items: center;}
+
+        /* Buttons & Sliders */
+        .slider-wrapper { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+        .adj-btn {
+            width: 30px; height: 30px; border: 1px solid #ccc; background: #e0e0e0;
+            border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; padding: 0; flex-shrink: 0;
+        }
+        input[type="range"] { flex: 1; cursor: pointer; height: 6px; }
+
+        .vis-toggle {
+            display: flex; align-items: center; cursor: pointer; padding: 8px;
+            background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;
+            font-size: 0.9rem; font-weight: bold; color: #856404; flex: 1;
+        }
+        .vis-toggle input { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; }
+
+        .reset-btn {
+            background: #e74c3c; color: white; border: none; padding: 8px 12px;
+            border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem;
+            transition: background 0.2s; margin-left: 5px;
+        }
+        .reset-btn:hover { background: #c0392b; }
+
+        /* Data */
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .data-box { background: #f8f9fa; border: 1px solid #e9ecef; padding: 8px; border-radius: 4px; text-align: center; }
+        .data-val { font-size: 1.1rem; font-weight: bold; color: #2c3e50; font-family: monospace; }
+        .unit { font-size: 0.8rem; color: #666; }
+
+        /* Modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px;
+            max-height: 85vh; overflow-y: auto; position: relative;
+        }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; }
+        .highlight-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 10px; margin: 10px 0; }
+
+        /* Spectrum */
+        .spectrum-bar {
+            height: 8px; width: 100%; border-radius: 4px; margin-top: 5px;
+            background: linear-gradient(to right, 
+                #cccccc 0%, #cccccc 34%, 
+                #8b00ff 35%, #0000ff 40%, #00ff00 50%, #ffff00 58%, #ff0000 70%, 
+                #cccccc 76%, #cccccc 100%);
+            border: 1px solid #ddd;
+        }
+
+        /* Mobile */
+        @media (max-width: 900px) {
+            .main-container { flex-direction: column; }
+            .guide-sidebar {
+                position: absolute; left: 0; top: 0; bottom: 0; width: 85%; max-width: 300px;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.3); transform: translateX(-100%);
+            }
+            .guide-sidebar.active { transform: translateX(0); width: 85%; padding: 15px; }
+            .toggle-guide-btn { display: block; }
+            .canvas-area { min-height: 45vh; flex: none; }
+            .controls-area { width: 100%; flex: 1; border-left: none; border-top: 1px solid #ddd; padding: 10px; }
+            header { padding: 8px 12px; }
+            .zoom-toolbar { bottom: 10px; right: 10px; padding: 5px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button class="toggle-guide-btn" onclick="toggleMobileSidebar()">☰ 學習引導</button>
+        <span style="font-weight:bold;">光電效應實驗 V9 (放大鏡版)</span>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="guide-sidebar" id="guideSidebar">
+        <div class="guide-header">
+            <span>學習引導 (Guide)</span>
+            <button class="collapse-btn" onclick="toggleSidebarDesktop()" title="收起">&laquo;</button>
+        </div>
+        
+        <div class="question-btn" onclick="showHelp('trap')">
+            <span style="color:#d35400;">實驗起手式：</span><br>為什麼把強度開到最大，還是沒有電流？
+        </div>
+        <div class="question-btn" onclick="showHelp('cond')">
+            產生光電效應的條件 (底限頻率)
+        </div>
+        <div class="question-btn" onclick="showHelp('energy')">
+            光的能量與強度有何不同？
+        </div>
+        <div class="question-btn advanced" onclick="showHelp('speed')">
+            進階：電子跑出來的速度為何不同？
+        </div>
+        <div class="question-btn" onclick="showHelp('equation')">
+            光電方程式的物理意義
+        </div>
+        <div style="margin-top:auto; font-size:0.8rem; color:#888; text-align:center;">
+            預設顯示：展開
+        </div>
+    </div>
+
+    <div class="canvas-area" id="canvasContainer">
+        <button id="expandBtn" onclick="toggleSidebarDesktop()" style="position:absolute; left:10px; top:10px; z-index:5; display:none; padding:5px 10px; cursor:pointer; background:white; border:1px solid #ccc; border-radius:4px;">引導 &raquo;</button>
+        
+        <div class="zoom-toolbar">
+            <span class="zoom-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Zoom
+            </span>
+            <input type="range" class="zoom-slider" min="100" max="200" value="100" id="zoomSlider" oninput="updateZoom()">
+            <span id="zoomVal" style="font-size:0.8rem; color:#666; width:30px; text-align:right;">1.0x</span>
+        </div>
+
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="controls-area">
+        <div class="control-group">
+            <div class="control-header">觀察與操作 (Control)</div>
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <label class="vis-toggle">
+                    <input type="checkbox" id="showElectronCheck" onchange="toggleElectronVis()">
+                    <span>顯示微觀電子流</span>
+                </label>
+                <button class="reset-btn" onclick="resetElectrons()">清除電子</button>
+            </div>
+            <div style="font-size:0.75rem; color:#666; margin-top:5px;">
+                * 真實實驗看不見電子，請觀察電流表。
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-header">實驗讀數 (2秒平均)</div>
+            <div class="data-grid">
+                <div class="data-box" style="background:#e3f2fd; border-color:#90caf9;">
+                    <div class="unit">電流 (Current)</div>
+                    <div class="data-val" id="currDisp" style="color:#0277bd;">0.00</div>
+                </div>
+                <div class="data-box">
+                    <div class="unit">理論遏止電壓</div>
+                    <div class="data-val" id="stopVoltDisp" style="color:#c0392b;">0.00 V</div>
+                </div>
+                <div class="data-box">
+                    <div class="unit">光子能量 (hf)</div>
+                    <div class="data-val" id="energyDisp">0.00 eV</div>
+                </div>
+                <div class="data-box">
+                    <div class="unit">最大動能 (Kmax)</div>
+                    <div class="data-val" id="kmaxDisp">0.00 eV</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-header">陰極材料 (Metal)</div>
+            <select id="metalSelect" onchange="updatePhysics()" style="width:100%; padding:8px; border-radius:4px; border:1px solid #ccc;">
+            </select>
+        </div>
+
+        <div class="control-group">
+            <div class="control-header">
+                光源參數
+                <span id="lightTypeDisp" style="font-size:0.8rem; background:#eee; padding:2px 6px; border-radius:4px;">Visible</span>
+            </div>
+            
+            <div style="font-size:0.85rem; margin-bottom:2px;">光強度: <span id="intDisp" style="font-weight:bold; color:var(--highlight);">0%</span></div>
+            <div class="slider-wrapper">
+                <button class="adj-btn" onclick="adjust('intensity', -10)">-10</button>
+                <button class="adj-btn" onclick="adjust('intensity', -1)">-1</button>
+                <input type="range" id="intensitySlider" min="0" max="100" value="0" oninput="updatePhysics()">
+                <button class="adj-btn" onclick="adjust('intensity', 1)">+1</button>
+                <button class="adj-btn" onclick="adjust('intensity', 10)">+10</button>
+            </div>
+
+            <div style="font-size:0.85rem; margin-bottom:2px;">波長: <span id="nmDisp" style="font-weight:bold; color:var(--highlight);">600 nm</span></div>
+            <div class="slider-wrapper">
+                <button class="adj-btn" onclick="adjust('wavelength', -10)">-10</button>
+                <button class="adj-btn" onclick="adjust('wavelength', -1)">-1</button>
+                <input type="range" id="wavelengthSlider" min="50" max="1000" value="600" oninput="updatePhysics()">
+                <button class="adj-btn" onclick="adjust('wavelength', 1)">+1</button>
+                <button class="adj-btn" onclick="adjust('wavelength', 10)">+10</button>
+            </div>
+            <div class="spectrum-bar"></div>
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#888;">
+                <span>50nm (UV)</span>
+                <span>1000nm (IR)</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-header">
+                電路電壓 (V)
+                <span id="voltDisp" style="font-family:monospace; color:var(--highlight);">0.00 V</span>
+            </div>
+            <div class="slider-wrapper">
+                <button class="adj-btn" onclick="adjust('voltage', -10)">-10</button>
+                <button class="adj-btn" onclick="adjust('voltage', -1)">-1</button>
+                <input type="range" id="voltageSlider" min="-500" max="500" value="0" oninput="updatePhysics()">
+                <button class="adj-btn" onclick="adjust('voltage', 1)">+1</button>
+                <button class="adj-btn" onclick="adjust('voltage', 10)">+10</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#666; margin-top:2px;">
+                <span>◀ 遏止 (-5V)</span>
+                <span>加速 (+5V) ▶</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-content" id="modalContent">
+        <span class="close-btn" onclick="document.getElementById('modalOverlay').style.display='none'">&times;</span>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+    const h_c = 1240; 
+    
+    const metals = [
+        { name: "鈉 (Na)", phi: 2.29 }, 
+        { name: "銫 (Cs)", phi: 2.14 },
+        { name: "鈣 (Ca)", phi: 2.87 },
+        { name: "鋅 (Zn)", phi: 4.08 },
+        { name: "銅 (Cu)", phi: 4.50 },
+        { name: "鉑 (Pt)", phi: 5.65 }
+    ];
+
+    const state = {
+        wavelength: 600, 
+        intensity: 0,
+        voltage: 0,
+        metalIndex: 0,
+        kmax: 0,
+        photonEnergy: 0,
+        showElectrons: false,
+        zoom: 1.0, // 新增：縮放比例
+        currentBuffer: [], 
+        displayCurrent: 0,
+        lastUpdateTime: 0
+    };
+
+    let electrons = [];
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const ui = {
+        wl: document.getElementById('wavelengthSlider'),
+        int: document.getElementById('intensitySlider'),
+        volt: document.getElementById('voltageSlider'),
+        metal: document.getElementById('metalSelect'),
+        nmDisp: document.getElementById('nmDisp'),
+        typeDisp: document.getElementById('lightTypeDisp'),
+        intDisp: document.getElementById('intDisp'),
+        voltDisp: document.getElementById('voltDisp'),
+        currDisp: document.getElementById('currDisp'),
+        kmaxDisp: document.getElementById('kmaxDisp'),
+        energyDisp: document.getElementById('energyDisp'),
+        stopDisp: document.getElementById('stopVoltDisp'),
+        sidebar: document.getElementById('guideSidebar'),
+        expandBtn: document.getElementById('expandBtn'),
+        showEleCheck: document.getElementById('showElectronCheck'),
+        zoomSlider: document.getElementById('zoomSlider'),
+        zoomVal: document.getElementById('zoomVal')
+    };
+
+    function init() {
+        populateMetals();
+        ui.wl.value = 600; 
+        ui.metal.value = 0;
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        updatePhysics();
+        requestAnimationFrame(animate);
+    }
+
+    function populateMetals() {
+        ui.metal.innerHTML = "";
+        metals.forEach((m, index) => {
+            let opt = document.createElement('option');
+            opt.value = index;
+            opt.text = `${m.name} [ Φ=${m.phi}eV ]`;
+            ui.metal.appendChild(opt);
+        });
+    }
+
+    window.resetElectrons = function() {
+        electrons = [];
+        state.currentBuffer = [];
+        state.displayCurrent = 0;
+        ui.currDisp.textContent = "0.00";
+    }
+
+    // 新增：更新縮放
+    window.updateZoom = function() {
+        state.zoom = parseInt(ui.zoomSlider.value) / 100;
+        ui.zoomVal.textContent = state.zoom.toFixed(1) + "x";
+    }
+
+    window.adjust = function(type, delta) {
+        let el;
+        if (type === 'wavelength') el = ui.wl;
+        else if (type === 'intensity') el = ui.int;
+        else if (type === 'voltage') el = ui.volt;
+        
+        let val = parseInt(el.value);
+        let min = parseInt(el.min);
+        let max = parseInt(el.max);
+        
+        val += delta;
+        if (val < min) val = min;
+        if (val > max) val = max;
+        
+        el.value = val;
+        updatePhysics();
+    };
+
+    window.toggleElectronVis = function() {
+        state.showElectrons = ui.showEleCheck.checked;
+    }
+
+    window.toggleSidebarDesktop = function() {
+        ui.sidebar.classList.toggle('collapsed');
+        ui.expandBtn.style.display = ui.sidebar.classList.contains('collapsed') ? 'block' : 'none';
+    };
+
+    window.toggleMobileSidebar = function() {
+        if (ui.sidebar.classList.contains('active')) {
+            ui.sidebar.classList.remove('active');
+        } else {
+            ui.sidebar.classList.add('active');
+            ui.sidebar.classList.remove('collapsed'); 
+        }
+    };
+
+    window.updatePhysics = function() {
+        state.metalIndex = parseInt(ui.metal.value);
+        state.wavelength = parseInt(ui.wl.value);
+        state.intensity = parseInt(ui.int.value);
+        state.voltage = parseInt(ui.volt.value) / 100;
+
+        const phi = metals[state.metalIndex].phi;
+        state.photonEnergy = h_c / state.wavelength;
+        const kmax = state.photonEnergy - phi;
+        state.kmax = (kmax > 0) ? kmax : 0;
+
+        ui.nmDisp.textContent = state.wavelength + " nm";
+        ui.intDisp.textContent = state.intensity + "%";
+        ui.voltDisp.textContent = (state.voltage >= 0 ? "+" : "") + state.voltage.toFixed(2) + " V";
+        ui.voltDisp.style.color = state.voltage < 0 ? "#c0392b" : "#2c3e50";
+
+        ui.energyDisp.textContent = state.photonEnergy.toFixed(2) + " eV";
+        ui.kmaxDisp.textContent = state.kmax.toFixed(2) + " eV";
+        
+        let stoppingV = (state.kmax > 0) ? state.kmax : 0;
+        ui.stopDisp.textContent = "-" + stoppingV.toFixed(2) + " V";
+
+        let nm = state.wavelength;
+        let typeText = "";
+        let typeColor = "#555";
+        
+        if (nm < 380) { typeText = "紫外線 (UV)"; typeColor = "#888"; }
+        else if (nm > 750) { typeText = "紅外線 (IR)"; typeColor = "#888"; }
+        else { typeText = "可見光 (Visible)"; typeColor = "#2980b9"; }
+        
+        ui.typeDisp.textContent = typeText;
+        ui.typeDisp.style.color = typeColor;
+    }
+
+    function animate(timestamp) {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        
+        // --- 核心修改：縮放邏輯 ---
+        // 基礎比例 (Base Scale)
+        const baseScale = Math.min(w / 800, h / 500) * 0.95;
+        // 應用使用者縮放 (Apply Zoom)
+        const scale = baseScale * state.zoom;
+        
+        const cx = w / 2;
+        const cy = h / 2;
+
+        drawLightSource(cx, cy, scale);
+        drawDevice(cx, cy, scale);
+
+        if (state.kmax > 0 && state.intensity > 0) {
+            spawnElectron(cx, cy, scale);
+        }
+        updateElectrons(cx, cy, scale);
+        
+        drawMeters(cx, cy, scale);
+        
+        if (!state.currentBuffer) state.currentBuffer = [];
+        if (timestamp - state.lastUpdateTime > 200) {
+            if (state.currentBuffer.length > 0) {
+                let sum = state.currentBuffer.reduce((a,b)=>a+b, 0);
+                state.displayCurrent = sum / state.currentBuffer.length;
+            } else {
+                state.displayCurrent = 0;
+            }
+            ui.currDisp.textContent = state.displayCurrent.toFixed(2);
+            state.lastUpdateTime = timestamp;
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    function drawDevice(cx, cy, scale) {
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
+        ctx.strokeStyle = "#7f8c8d"; ctx.lineWidth = 4; ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath(); ctx.roundRect(-200, -80, 400, 160, 40); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#555"; ctx.fillRect(-170, -60, 10, 120);
+        ctx.fillStyle = "#555"; ctx.fillRect(160, -60, 10, 120);
+        ctx.strokeStyle = "#d35400"; ctx.lineWidth = 5;
+        const bottomY = 160;
+        ctx.beginPath();
+        ctx.moveTo(-165, 0); ctx.lineTo(-220, 0); ctx.lineTo(-220, bottomY);
+        ctx.moveTo(165, 0); ctx.lineTo(220, 0); ctx.lineTo(220, bottomY);
+        ctx.moveTo(-220, bottomY); ctx.lineTo(220, bottomY);
+        ctx.stroke();
+        drawBattery(0, bottomY, state.voltage);
+        ctx.restore();
+    }
+
+    function drawBattery(x, y, vol) {
+        ctx.clearRect(x-40, y-20, 80, 40);
+        ctx.beginPath(); ctx.lineWidth = 4; ctx.strokeStyle = "#333";
+        let isFwd = vol >= 0;
+        if(isFwd) {
+            ctx.moveTo(-10, y-10); ctx.lineTo(-10, y+10); ctx.lineWidth=6; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(10, y-20); ctx.lineTo(10, y+20); ctx.lineWidth=2; ctx.stroke();
+        } else {
+            ctx.moveTo(-10, y-20); ctx.lineTo(-10, y+20); ctx.lineWidth=2; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(10, y-10); ctx.lineTo(10, y+10); ctx.lineWidth=6; ctx.stroke();
+        }
+    }
+
+    function drawLightSource(cx, cy, scale) {
+        const lampX = cx + 220 * scale;
+        const lampY = cy - 180 * scale;
+        const targetX = cx - 170 * scale;
+        const targetY = cy;
+
+        let beamColor = getLightColor(state.wavelength);
+        let isVisible = (state.wavelength >= 380 && state.wavelength <= 750);
+
+        if (state.intensity > 0) {
+            ctx.save();
+            ctx.beginPath(); ctx.moveTo(lampX, lampY);
+            ctx.lineTo(targetX, targetY - 55 * scale); ctx.lineTo(targetX, targetY + 55 * scale); ctx.closePath();
+            const grad = ctx.createLinearGradient(lampX, lampY, targetX, targetY);
+            grad.addColorStop(0, beamColor.replace("0.8)", "0.6)"));
+            grad.addColorStop(1, beamColor.replace("0.8)", "0.1)"));
+            ctx.fillStyle = grad;
+            ctx.globalAlpha = 0.3 + (state.intensity / 200);
+            ctx.fill();
+            if (!isVisible) {
+                ctx.fillStyle = "#888"; ctx.font = "bold 14px Arial";
+                ctx.fillText(state.wavelength < 380 ? "UV Radiation" : "IR Radiation", cx - 50*scale, cy - 80*scale);
+            }
+            ctx.restore();
+        }
+        ctx.save(); ctx.translate(lampX, lampY);
+        ctx.rotate(Math.atan2(targetY-lampY, targetX-lampX));
+        ctx.fillStyle = "#333";
+        ctx.beginPath(); ctx.moveTo(0, -15*scale); ctx.lineTo(30*scale, -25*scale); ctx.lineTo(30*scale, 25*scale); ctx.lineTo(0, 15*scale); ctx.fill();
+        if(state.intensity > 0) {
+            ctx.fillStyle = isVisible ? beamColor.replace(",0.8)", ",1)") : "#ccc";
+            ctx.fillRect(0, -12*scale, 4*scale, 24*scale);
+        }
+        ctx.restore();
+    }
+
+    function getLightColor(nm) {
+        if (nm < 380) return "rgba(200, 200, 200, 0.8)";
+        if (nm > 750) return "rgba(180, 180, 180, 0.8)";
+        let r=0, g=0, b=0;
+        if (nm < 440) { r=-(nm-440)/(440-380); g=0; b=1; }
+        else if (nm < 490) { r=0; g=(nm-440)/(490-440); b=1; }
+        else if (nm < 510) { r=0; g=1; b=-(nm-510)/(510-490); }
+        else if (nm < 580) { r=(nm-510)/(580-510); g=1; b=0; }
+        else if (nm < 645) { r=1; g=-(nm-645)/(645-580); b=0; }
+        else { r=1; g=0; b=0; }
+        return `rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},0.8)`;
+    }
+
+    function drawMeters(cx, cy, scale) {
+        // 電流表位置：稍微右移並向下，避免放大時被切掉太多
+        const mx = cx + 220 * scale;
+        const my = cy + 100 * scale;
+        ctx.save(); ctx.translate(mx, my); ctx.scale(scale, scale);
+        ctx.fillStyle = "#fff"; ctx.strokeStyle = "#333"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, 28, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "black"; ctx.font = "bold 14px Arial"; 
+        ctx.textAlign = "center"; ctx.textBaseline="middle"; ctx.fillText("A", 0, -10);
+
+        let angle = (state.displayCurrent / 60) * (Math.PI / 1.5);
+        if(angle > Math.PI/1.5) angle = Math.PI/1.5;
+        if(angle < 0) angle = 0;
+        
+        ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-22 * Math.cos(angle), -22 * Math.sin(angle)); ctx.stroke();
+        ctx.restore();
+    }
+
+    function spawnElectron(cx, cy, scale) {
+        if (Math.random() * 100 > state.intensity * 0.12) return;
+        let startX = cx - 160 * scale;
+        let startY = cy + (Math.random() * 100 - 50) * scale;
+        let ke = Math.random() * state.kmax;
+        let vBase = Math.sqrt(ke) * 2.5; 
+        electrons.push({ x: startX, y: startY, vx: vBase * scale, active: true });
+    }
+
+    function updateElectrons(cx, cy, scale) {
+        let arrivedCount = 0;
+        let pLimit = cx - 170 * scale; 
+        let cLimit = cx + 160 * scale;
+        ctx.fillStyle = "#3498db"; 
+        
+        for(let i=0; i<electrons.length; i++) {
+            let e = electrons[i];
+            if(!e.active) continue;
+            let acc = (state.voltage * 0.2) * scale; 
+            e.vx += acc; e.x += e.vx;
+            
+            if (state.showElectrons) {
+                ctx.beginPath(); ctx.arc(e.x, e.y, 4*scale, 0, Math.PI*2); ctx.fill();
+            }
+            
+            if(e.x >= cLimit) { if(e.vx > 0) { arrivedCount++; e.active = false; } }
+            if(e.vx < 0 && e.x <= pLimit) e.active = false;
+            if(e.x > cx + 400*scale || e.x < cx - 400*scale) e.active = false;
+        }
+        electrons = electrons.filter(e => e.active);
+        let instantVal = arrivedCount * 10;
+        state.currentBuffer.push(instantVal);
+        if(state.currentBuffer.length > 120) state.currentBuffer.shift();
+    }
+
+    function resizeCanvas() {
+        const c = document.getElementById('canvasContainer');
+        canvas.width = c.clientWidth;
+        canvas.height = c.clientHeight;
+    }
+
+    window.showHelp = function(topic) {
+        const body = document.getElementById('modalBody');
+        const overlay = document.getElementById('modalOverlay');
+        let content = "";
+        
+        if (topic === 'trap') {
+            content = `<h3><span style="color:#d35400;">實驗起手式</span>：為什麼沒電流？</h3><div class="highlight-box"><strong>因為光子能量不足！ (\( hf < \Phi \))</strong></div><p>目前的設定是：</p><ul><li><strong>金屬 (鈉)：</strong> 需要至少 <strong>2.29 eV</strong> 的能量才能釋放電子。</li><li><strong>入射光 (橘光 600nm)：</strong> 能量只有 <strong>2.07 eV</strong>。</li></ul><p>雖然你把強度開到最大，但<strong>每一顆光子</strong>的能量都不夠支付金屬的「過路費」。</p><p><strong>試試看：</strong> 把波長拉向左邊 (變短、變藍)，提高單顆光子的能量，直到電流出現！</p>`;
+        } else if (topic === 'cond') {
+            content = `<h3>產生光電效應的條件</h3><div class="highlight-box"><strong>入射光頻率 \( f \) > 金屬底限頻率 \( f_0 \)</strong></div><p>光子的能量由頻率決定：\( E = hf \)。</p><p>每個金屬都有一個束縛電子的最小能量，稱為<strong>功函數 (\( \Phi \))</strong>。</p><p>要讓電子逃脫，光子的能量必須大於功函數：\( hf > \Phi \)</p>`;
+        } else if (topic === 'energy') {
+            content = `<h3>光的能量 vs 光的強度</h3><ul><li><strong>能量 (Energy)：</strong> 取決於<strong>頻率 (顏色)</strong>。頻率越高，單顆光子能量越強。</li><li><strong>強度 (Intensity)：</strong> 取決於<strong>光子數量</strong>。強度越強，光子越多，電流越大。</li></ul>`;
+        } else if (topic === 'speed') {
+            content = `<h3>為什麼電子速度有些快、有些慢？</h3><p>公式算出的是<strong>最大</strong>動能。實際上，深層電子在逃出金屬表面時會損失能量，所以速度較慢。</p>`;
+        } else if (topic === 'equation') {
+            content = `<h3>愛因斯坦光電方程式</h3><div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">\( hf = \Phi + K_{max} \)</div>`;
+        }
+        
+        body.innerHTML = content;
+        overlay.style.display = 'flex';
+        if(window.MathJax) MathJax.typesetPromise();
+    }
+    
+    function closeModal(e) {
+        if (e.target.id === 'modalOverlay') document.getElementById('modalOverlay').style.display = 'none';
+    }
+
+    init();
+</script>
+</body>
+</html>
