@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>光電效應 V16 (全引導美化版)</title>
+    <title>光電效應</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
@@ -41,10 +41,18 @@
             width: 280px; background: #fff; border-right: 1px solid #ddd;
             display: flex; flex-direction: column; padding: 15px; overflow-y: auto;
             transition: transform 0.3s ease, width 0.3s ease; position: relative; z-index: 10;
+            flex-shrink: 0; /* 防止被擠壓 */
         }
         .guide-sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border: none; }
+        
         .guide-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--highlight); padding-bottom: 8px; }
-        .collapse-btn { background: none; border: none; color: #999; font-size: 1.2rem; cursor: pointer; }
+        
+        /* 加大的收起按鈕 */
+        .collapse-btn { 
+            background: #f1f1f1; border: 1px solid #ccc; color: #555; 
+            font-size: 0.9rem; cursor: pointer; padding: 4px 10px; border-radius: 4px;
+        }
+        .collapse-btn:hover { background: #e0e0e0; }
         
         .question-btn {
             background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; margin-bottom: 10px;
@@ -64,8 +72,26 @@
             flex: 1; position: relative;
             background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
             display: flex; justify-content: center; align-items: center; overflow: hidden;
+            transition: all 0.3s ease; /* 讓變大變小有動畫 */
         }
         canvas { border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); background: #fff; }
+
+        /* --- Big Expand Button (New) --- */
+        #expandBtn {
+            position: absolute; left: 0; top: 20px; z-index: 30;
+            display: none; /* JS controls this */
+            background-color: var(--highlight);
+            color: white;
+            border: none;
+            padding: 12px 18px 12px 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 0 30px 30px 0; /* 半圓標籤狀 */
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #expandBtn:hover { background-color: #1a5276; padding-left: 15px; }
 
         /* --- Zoom Controls --- */
         .zoom-toolbar {
@@ -153,6 +179,7 @@
             .controls-area { width: 100%; flex: 1; border-left: none; border-top: 1px solid #ddd; padding: 10px; }
             header { padding: 8px 12px; }
             .zoom-toolbar { bottom: 10px; right: 10px; padding: 5px 10px; }
+            #expandBtn { top: 10px; } /* Mobile adjustments */
         }
     </style>
 </head>
@@ -160,16 +187,16 @@
 
 <header>
     <div style="display:flex; align-items:center; gap:10px;">
-        <button class="toggle-guide-btn" onclick="toggleMobileSidebar()">☰ 學習引導</button>
-        <span style="font-weight:bold;">光電效應 V16 (全引導美化版)</span>
+        <button class="toggle-guide-btn" onclick="toggleMobileSidebar()">☰</button>
+        <span style="font-weight:bold;">光電效應 V17 (大視野版)</span>
     </div>
 </header>
 
 <div class="main-container">
     <div class="guide-sidebar" id="guideSidebar">
         <div class="guide-header">
-            <span>學習引導 (Guide)</span>
-            <button class="collapse-btn" onclick="toggleSidebarDesktop()" title="收起">&laquo;</button>
+            <span>學習引導</span>
+            <button class="collapse-btn" onclick="toggleSidebarDesktop()">收起 ◀</button>
         </div>
         
         <div class="question-btn" onclick="showHelp('trap')">
@@ -193,7 +220,7 @@
     </div>
 
     <div class="canvas-area" id="canvasContainer">
-        <button id="expandBtn" onclick="toggleSidebarDesktop()" style="position:absolute; left:10px; top:10px; z-index:5; display:none; padding:5px 10px; cursor:pointer; background:white; border:1px solid #ccc; border-radius:4px;">引導 &raquo;</button>
+        <button id="expandBtn" onclick="toggleSidebarDesktop()">引導 ▶</button>
         
         <div class="zoom-toolbar">
             <span class="zoom-label">
@@ -427,7 +454,13 @@
 
     window.toggleSidebarDesktop = function() {
         ui.sidebar.classList.toggle('collapsed');
+        // 切換按鈕顯示
         ui.expandBtn.style.display = ui.sidebar.classList.contains('collapsed') ? 'block' : 'none';
+        
+        // 重要：等待 CSS 動畫 (0.3s) 完成後，重新計算 Canvas 大小
+        setTimeout(() => {
+            resizeCanvas();
+        }, 300);
     };
 
     window.toggleMobileSidebar = function() {
@@ -478,6 +511,7 @@
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
         
+        // 自動適應縮放：讓模擬器充滿當前的 Canvas 大小
         const baseScale = Math.min(w / 800, h / 500) * 0.95;
         const scale = baseScale * state.zoom;
         const cx = w / 2;
@@ -541,7 +575,7 @@
         
         const grad = ctx.createLinearGradient(lampX, lampY, targetX, targetY);
         grad.addColorStop(0, beamColor.replace("0.8)", "0.6)"));
-        grad.addColorStop(1, beamColor.replace("0.8)", "0.6)")); // 保持尾端亮度
+        grad.addColorStop(1, beamColor.replace("0.8)", "0.6)")); 
         ctx.fillStyle = grad;
         ctx.globalAlpha = 0.2 + (state.intensity / 150);
         ctx.fill();
