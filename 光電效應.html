@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>光電效應</title>
+    <title>光電效應 V16 (全引導美化版)</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
@@ -65,9 +65,9 @@
             background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
             display: flex; justify-content: center; align-items: center; overflow: hidden;
         }
-        canvas { border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); background: #fff; }
+        canvas { border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); background: #fff; }
 
-        /* --- Zoom Controls (New) --- */
+        /* --- Zoom Controls --- */
         .zoom-toolbar {
             position: absolute; bottom: 20px; right: 20px;
             background: rgba(255, 255, 255, 0.9);
@@ -100,15 +100,15 @@
 
         .vis-toggle {
             display: flex; align-items: center; cursor: pointer; padding: 8px;
-            background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;
-            font-size: 0.9rem; font-weight: bold; color: #856404; flex: 1;
+            background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 4px;
+            font-size: 0.9rem; font-weight: bold; color: #2e7d32; flex: 1;
         }
         .vis-toggle input { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; }
 
         .reset-btn {
             background: #e74c3c; color: white; border: none; padding: 8px 12px;
             border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem;
-            transition: background 0.2s; margin-left: 5px;
+            transition: background 0.2s; 
         }
         .reset-btn:hover { background: #c0392b; }
 
@@ -161,7 +161,7 @@
 <header>
     <div style="display:flex; align-items:center; gap:10px;">
         <button class="toggle-guide-btn" onclick="toggleMobileSidebar()">☰ 學習引導</button>
-        <span style="font-weight:bold;">光電效應實驗 V9 (放大鏡版)</span>
+        <span style="font-weight:bold;">光電效應 V16 (全引導美化版)</span>
     </div>
 </header>
 
@@ -209,16 +209,16 @@
 
     <div class="controls-area">
         <div class="control-group">
-            <div class="control-header">觀察與操作 (Control)</div>
-            <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div class="control-header">觀察模式 (View Mode)</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
                 <label class="vis-toggle">
-                    <input type="checkbox" id="showElectronCheck" onchange="toggleElectronVis()">
-                    <span>顯示微觀電子流</span>
+                    <input type="checkbox" id="photonModeCheck" onchange="togglePhotonMode()">
+                    <span>顯示光子模型 (波包)</span>
                 </label>
-                <button class="reset-btn" onclick="resetElectrons()">清除電子</button>
+                <button class="reset-btn" onclick="resetElectrons()">重置</button>
             </div>
-            <div style="font-size:0.75rem; color:#666; margin-top:5px;">
-                * 真實實驗看不見電子，請觀察電流表。
+            <div style="font-size:0.75rem; color:#666; margin-top:5px;" id="modeDesc">
+                預設：連續光束 (巨觀)。勾選可觀察單顆光子 (微觀)。
             </div>
         </div>
 
@@ -265,7 +265,7 @@
                 <button class="adj-btn" onclick="adjust('intensity', 10)">+10</button>
             </div>
 
-            <div style="font-size:0.85rem; margin-bottom:2px;">波長: <span id="nmDisp" style="font-weight:bold; color:var(--highlight);">600 nm</span></div>
+            <div style="font-size:0.85rem; margin-bottom:2px;">波長 (顏色/頻率): <span id="nmDisp" style="font-weight:bold; color:var(--highlight);">600 nm</span></div>
             <div class="slider-wrapper">
                 <button class="adj-btn" onclick="adjust('wavelength', -10)">-10</button>
                 <button class="adj-btn" onclick="adjust('wavelength', -1)">-1</button>
@@ -326,14 +326,15 @@
         metalIndex: 0,
         kmax: 0,
         photonEnergy: 0,
-        showElectrons: false,
-        zoom: 1.0, // 新增：縮放比例
+        zoom: 1.0, 
         currentBuffer: [], 
         displayCurrent: 0,
-        lastUpdateTime: 0
+        lastUpdateTime: 0,
+        showPhotons: false // 預設：關閉 (連續光模式)
     };
 
     let electrons = [];
+    let photons = []; 
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -352,9 +353,11 @@
         stopDisp: document.getElementById('stopVoltDisp'),
         sidebar: document.getElementById('guideSidebar'),
         expandBtn: document.getElementById('expandBtn'),
-        showEleCheck: document.getElementById('showElectronCheck'),
         zoomSlider: document.getElementById('zoomSlider'),
-        zoomVal: document.getElementById('zoomVal')
+        zoomVal: document.getElementById('zoomVal'),
+        photonCheck: document.getElementById('photonModeCheck'),
+        modeDesc: document.getElementById('modeDesc'),
+        canvasArea: document.querySelector('.canvas-area')
     };
 
     function init() {
@@ -380,12 +383,25 @@
 
     window.resetElectrons = function() {
         electrons = [];
+        photons = [];
         state.currentBuffer = [];
         state.displayCurrent = 0;
         ui.currDisp.textContent = "0.00";
     }
 
-    // 新增：更新縮放
+    window.togglePhotonMode = function() {
+        state.showPhotons = ui.photonCheck.checked;
+        resetElectrons(); // 切換模式時清空畫面
+        
+        if(state.showPhotons) {
+            ui.modeDesc.textContent = "光子模式：顯示光的波長與粒子性。";
+            ui.canvasArea.style.background = "linear-gradient(135deg, #1e1e2e, #2a2a40)"; // 深色背景
+        } else {
+            ui.modeDesc.textContent = "預設：連續光束 (巨觀)。勾選可觀察單顆光子 (微觀)。";
+            ui.canvasArea.style.background = "linear-gradient(135deg, #f5f7fa, #c3cfe2)"; // 亮色背景
+        }
+    }
+
     window.updateZoom = function() {
         state.zoom = parseInt(ui.zoomSlider.value) / 100;
         ui.zoomVal.textContent = state.zoom.toFixed(1) + "x";
@@ -408,10 +424,6 @@
         el.value = val;
         updatePhysics();
     };
-
-    window.toggleElectronVis = function() {
-        state.showElectrons = ui.showEleCheck.checked;
-    }
 
     window.toggleSidebarDesktop = function() {
         ui.sidebar.classList.toggle('collapsed');
@@ -466,23 +478,33 @@
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
         
-        // --- 核心修改：縮放邏輯 ---
-        // 基礎比例 (Base Scale)
         const baseScale = Math.min(w / 800, h / 500) * 0.95;
-        // 應用使用者縮放 (Apply Zoom)
         const scale = baseScale * state.zoom;
-        
         const cx = w / 2;
         const cy = h / 2;
 
-        drawLightSource(cx, cy, scale);
-        drawDevice(cx, cy, scale);
-
-        if (state.kmax > 0 && state.intensity > 0) {
-            spawnElectron(cx, cy, scale);
+        if (state.showPhotons) {
+            // 光子模式：畫燈具 -> 生成光子 -> 畫光子
+            drawLampOnly(cx, cy, scale);
+            if (state.intensity > 0) spawnPhotons(cx, cy, scale);
+            updateAndDrawPhotons(cx, cy, scale);
+        } else {
+            // 連續模式：畫光束
+            drawLightBeam(cx, cy, scale);
+            drawLampOnly(cx, cy, scale);
+            
+            // 連續模式下的電子生成 (隨機)
+            if (state.intensity > 0 && state.kmax > 0) {
+                if (Math.random() * 100 < state.intensity * 0.4) {
+                     let startX = cx - 165 * scale;
+                     let startY = cy + (Math.random() * 100 - 50) * scale;
+                     spawnElectronAt(startX, startY, scale, true); 
+                }
+            }
         }
+
+        drawDevice(cx, cy, scale);
         updateElectrons(cx, cy, scale);
-        
         drawMeters(cx, cy, scale);
         
         if (!state.currentBuffer) state.currentBuffer = [];
@@ -500,12 +522,146 @@
         requestAnimationFrame(animate);
     }
 
+    // --- 連續光模式繪圖 (光束不衰減) ---
+    function drawLightBeam(cx, cy, scale) {
+        if (state.intensity <= 0) return;
+        
+        const lampX = cx + 220 * scale;
+        const lampY = cy - 180 * scale;
+        const targetX = cx - 170 * scale;
+        const targetY = cy;
+
+        let beamColor = getLightColor(state.wavelength);
+        
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(lampX, lampY);
+        ctx.lineTo(targetX, targetY - 55 * scale); 
+        ctx.lineTo(targetX, targetY + 55 * scale); 
+        ctx.closePath();
+        
+        const grad = ctx.createLinearGradient(lampX, lampY, targetX, targetY);
+        grad.addColorStop(0, beamColor.replace("0.8)", "0.6)"));
+        grad.addColorStop(1, beamColor.replace("0.8)", "0.6)")); // 保持尾端亮度
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = 0.2 + (state.intensity / 150);
+        ctx.fill();
+        
+        if (state.wavelength < 380 || state.wavelength > 750) {
+            ctx.fillStyle = "#888"; ctx.font = "bold 14px Arial"; ctx.globalAlpha = 1.0;
+            let label = state.wavelength < 380 ? "UV" : "IR";
+            ctx.fillText(label, cx - 50*scale, cy - 80*scale);
+        }
+        ctx.restore();
+    }
+
+    function drawLampOnly(cx, cy, scale) {
+        const lampX = cx + 220 * scale;
+        const lampY = cy - 180 * scale;
+        const targetX = cx - 170 * scale;
+        const targetY = cy;
+
+        ctx.save(); ctx.translate(lampX, lampY);
+        ctx.rotate(Math.atan2(targetY-lampY, targetX-lampX));
+        ctx.fillStyle = "#333";
+        ctx.beginPath(); ctx.moveTo(0, -15*scale); ctx.lineTo(30*scale, -25*scale); ctx.lineTo(30*scale, 25*scale); ctx.lineTo(0, 15*scale); ctx.fill();
+        
+        if(state.intensity > 0) {
+            let beamColor = getLightColor(state.wavelength);
+            ctx.fillStyle = beamColor.replace(",0.8)", ",1)");
+            ctx.fillRect(0, -12*scale, 4*scale, 24*scale);
+        }
+        ctx.restore();
+    }
+
+    // --- 光子與波包邏輯 ---
+    function spawnPhotons(cx, cy, scale) {
+        if (Math.random() * 150 > state.intensity) return;
+
+        const lampX = cx + 220 * scale;
+        const lampY = cy - 180 * scale;
+        const targetX = cx - 170 * scale;
+        const targetY = cy; 
+
+        const destY = targetY + (Math.random() * 100 - 50) * scale;
+        const destX = targetX;
+        const angle = Math.atan2(destY - lampY, destX - lampX);
+        const speed = 2.5 * scale; 
+
+        photons.push({
+            x: lampX,
+            y: lampY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            wl: state.wavelength,
+            active: true
+        });
+    }
+
+    function updateAndDrawPhotons(cx, cy, scale) {
+        const pLimit = cx - 165 * scale; 
+
+        for(let i=0; i<photons.length; i++) {
+            let p = photons[i];
+            if(!p.active) continue;
+
+            p.x += p.vx;
+            p.y += p.vy;
+
+            drawWavePacket(ctx, p.x, p.y, p.wl, scale);
+
+            if (p.x <= pLimit) {
+                p.active = false;
+                if (state.kmax > 0) {
+                    spawnElectronAt(p.x, p.y, scale, true);
+                }
+            }
+        }
+        photons = photons.filter(p => p.active);
+    }
+
+    function drawWavePacket(ctx, x, y, nm, scale) {
+        const color = getLightColor(nm);
+        ctx.strokeStyle = color.replace("0.8)", "1)");
+        ctx.lineWidth = 3; 
+        ctx.beginPath();
+        
+        const period = (nm / 40) * scale; 
+        const length = 20 * scale; 
+        
+        for(let i = 0; i <= length; i+=2) {
+            let dx = i - length/2;
+            let dy = Math.sin(dx / period * Math.PI * 2) * (5 * scale);
+            let envelope = Math.cos((dx / length) * Math.PI);
+            if (i===0) ctx.moveTo(x + dx, y + dy * envelope);
+            else ctx.lineTo(x + dx, y + dy * envelope);
+        }
+        ctx.stroke();
+    }
+
+    // --- 電子邏輯 ---
+    function spawnElectronAt(x, y, scale, force) {
+        let ke = Math.random() * state.kmax;
+        if (ke < 0.05) ke = 0.05; 
+
+        let vBase = Math.sqrt(ke) * 2.5; 
+        
+        electrons.push({ 
+            x: x + 2, 
+            y: y, 
+            vx: vBase * scale, 
+            vy: 0, 
+            active: true 
+        });
+    }
+
     function drawDevice(cx, cy, scale) {
         ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
-        ctx.strokeStyle = "#7f8c8d"; ctx.lineWidth = 4; ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.strokeStyle = "#7f8c8d"; ctx.lineWidth = 4; ctx.fillStyle = "rgba(255,255,255,0.85)";
         ctx.beginPath(); ctx.roundRect(-200, -80, 400, 160, 40); ctx.fill(); ctx.stroke();
+        
         ctx.fillStyle = "#555"; ctx.fillRect(-170, -60, 10, 120);
         ctx.fillStyle = "#555"; ctx.fillRect(160, -60, 10, 120);
+        
         ctx.strokeStyle = "#d35400"; ctx.lineWidth = 5;
         const bottomY = 160;
         ctx.beginPath();
@@ -530,42 +686,6 @@
         }
     }
 
-    function drawLightSource(cx, cy, scale) {
-        const lampX = cx + 220 * scale;
-        const lampY = cy - 180 * scale;
-        const targetX = cx - 170 * scale;
-        const targetY = cy;
-
-        let beamColor = getLightColor(state.wavelength);
-        let isVisible = (state.wavelength >= 380 && state.wavelength <= 750);
-
-        if (state.intensity > 0) {
-            ctx.save();
-            ctx.beginPath(); ctx.moveTo(lampX, lampY);
-            ctx.lineTo(targetX, targetY - 55 * scale); ctx.lineTo(targetX, targetY + 55 * scale); ctx.closePath();
-            const grad = ctx.createLinearGradient(lampX, lampY, targetX, targetY);
-            grad.addColorStop(0, beamColor.replace("0.8)", "0.6)"));
-            grad.addColorStop(1, beamColor.replace("0.8)", "0.1)"));
-            ctx.fillStyle = grad;
-            ctx.globalAlpha = 0.3 + (state.intensity / 200);
-            ctx.fill();
-            if (!isVisible) {
-                ctx.fillStyle = "#888"; ctx.font = "bold 14px Arial";
-                ctx.fillText(state.wavelength < 380 ? "UV Radiation" : "IR Radiation", cx - 50*scale, cy - 80*scale);
-            }
-            ctx.restore();
-        }
-        ctx.save(); ctx.translate(lampX, lampY);
-        ctx.rotate(Math.atan2(targetY-lampY, targetX-lampX));
-        ctx.fillStyle = "#333";
-        ctx.beginPath(); ctx.moveTo(0, -15*scale); ctx.lineTo(30*scale, -25*scale); ctx.lineTo(30*scale, 25*scale); ctx.lineTo(0, 15*scale); ctx.fill();
-        if(state.intensity > 0) {
-            ctx.fillStyle = isVisible ? beamColor.replace(",0.8)", ",1)") : "#ccc";
-            ctx.fillRect(0, -12*scale, 4*scale, 24*scale);
-        }
-        ctx.restore();
-    }
-
     function getLightColor(nm) {
         if (nm < 380) return "rgba(200, 200, 200, 0.8)";
         if (nm > 750) return "rgba(180, 180, 180, 0.8)";
@@ -580,7 +700,6 @@
     }
 
     function drawMeters(cx, cy, scale) {
-        // 電流表位置：稍微右移並向下，避免放大時被切掉太多
         const mx = cx + 220 * scale;
         const my = cy + 100 * scale;
         ctx.save(); ctx.translate(mx, my); ctx.scale(scale, scale);
@@ -598,15 +717,6 @@
         ctx.restore();
     }
 
-    function spawnElectron(cx, cy, scale) {
-        if (Math.random() * 100 > state.intensity * 0.12) return;
-        let startX = cx - 160 * scale;
-        let startY = cy + (Math.random() * 100 - 50) * scale;
-        let ke = Math.random() * state.kmax;
-        let vBase = Math.sqrt(ke) * 2.5; 
-        electrons.push({ x: startX, y: startY, vx: vBase * scale, active: true });
-    }
-
     function updateElectrons(cx, cy, scale) {
         let arrivedCount = 0;
         let pLimit = cx - 170 * scale; 
@@ -617,11 +727,10 @@
             let e = electrons[i];
             if(!e.active) continue;
             let acc = (state.voltage * 0.2) * scale; 
-            e.vx += acc; e.x += e.vx;
+            e.vx += acc; 
+            e.x += e.vx;
             
-            if (state.showElectrons) {
-                ctx.beginPath(); ctx.arc(e.x, e.y, 4*scale, 0, Math.PI*2); ctx.fill();
-            }
+            ctx.beginPath(); ctx.arc(e.x, e.y, 4*scale, 0, Math.PI*2); ctx.fill();
             
             if(e.x >= cLimit) { if(e.vx > 0) { arrivedCount++; e.active = false; } }
             if(e.vx < 0 && e.x <= pLimit) e.active = false;
@@ -645,15 +754,92 @@
         let content = "";
         
         if (topic === 'trap') {
-            content = `<h3><span style="color:#d35400;">實驗起手式</span>：為什麼沒電流？</h3><div class="highlight-box"><strong>因為光子能量不足！ (\( hf < \Phi \))</strong></div><p>目前的設定是：</p><ul><li><strong>金屬 (鈉)：</strong> 需要至少 <strong>2.29 eV</strong> 的能量才能釋放電子。</li><li><strong>入射光 (橘光 600nm)：</strong> 能量只有 <strong>2.07 eV</strong>。</li></ul><p>雖然你把強度開到最大，但<strong>每一顆光子</strong>的能量都不夠支付金屬的「過路費」。</p><p><strong>試試看：</strong> 把波長拉向左邊 (變短、變藍)，提高單顆光子的能量，直到電流出現！</p>`;
+            content = `
+                <h3>實驗起手式：為什麼沒電流？</h3>
+                <div style="text-align:center; margin-bottom:15px;">
+                    <span style="font-size:1.1rem; font-weight:bold; color:#d35400;">原因：光子能量不足</span>
+                </div>
+                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                    \\( hf < \\Phi \\)
+                </div>
+                <div style="margin-top:15px;">
+                    <p><strong>說明：</strong></p>
+                    <ul style="line-height:1.6;">
+                        <li><strong>\\( \\Phi \\) (功函數)</strong>：金屬 (如鈉 2.29 eV) 要求的最低門票。</li>
+                        <li><strong>\\( hf \\) (光子能量)</strong>：入射光 (如紅光) 攜帶的能量。</li>
+                        <li><strong>結果</strong>：能量不夠，強度 (數量) 再強也沒用。</li>
+                    </ul>
+                    <p style="color:#2980b9; font-weight:bold; margin-top:10px;">➔ 試著把波長調短 (藍移)！</p>
+                </div>
+            `;
         } else if (topic === 'cond') {
-            content = `<h3>產生光電效應的條件</h3><div class="highlight-box"><strong>入射光頻率 \( f \) > 金屬底限頻率 \( f_0 \)</strong></div><p>光子的能量由頻率決定：\( E = hf \)。</p><p>每個金屬都有一個束縛電子的最小能量，稱為<strong>功函數 (\( \Phi \))</strong>。</p><p>要讓電子逃脫，光子的能量必須大於功函數：\( hf > \Phi \)</p>`;
+            content = `
+                <h3>產生光電效應的條件</h3>
+                <div style="text-align:center; margin-bottom:15px;">
+                    <span style="font-size:1.1rem; font-weight:bold; color:#2e7d32;">入射光頻率 必須大於 底限頻率</span>
+                </div>
+                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                    \\( f > f_0 \\)  或  \\( hf > \\Phi \\)
+                </div>
+                <div style="margin-top:15px;">
+                    <p><strong>符號說明：</strong></p>
+                    <ul style="line-height:1.6;">
+                        <li><strong>\\( f \\)</strong>：入射光的頻率 (決定顏色)。</li>
+                        <li><strong>\\( \\Phi \\)</strong>：金屬的功函數 (束縛能)。</li>
+                    </ul>
+                </div>
+            `;
         } else if (topic === 'energy') {
-            content = `<h3>光的能量 vs 光的強度</h3><ul><li><strong>能量 (Energy)：</strong> 取決於<strong>頻率 (顏色)</strong>。頻率越高，單顆光子能量越強。</li><li><strong>強度 (Intensity)：</strong> 取決於<strong>光子數量</strong>。強度越強，光子越多，電流越大。</li></ul>`;
+            content = `
+                <h3>光的能量 vs 強度</h3>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; text-align:center; margin-top:10px;">
+                    <div style="background:#e3f2fd; padding:10px; border-radius:6px;">
+                        <strong style="color:#1565c0; display:block; margin-bottom:5px;">能量 (Energy)</strong>
+                        <div style="font-size:0.9rem;">取決於 <strong>頻率</strong></div>
+                        <div style="font-size:0.8rem; color:#666;">(顏色決定單顆夠不夠力)</div>
+                    </div>
+                    <div style="background:#fff3e0; padding:10px; border-radius:6px;">
+                        <strong style="color:#ef6c00; display:block; margin-bottom:5px;">強度 (Intensity)</strong>
+                        <div style="font-size:0.9rem;">取決於 <strong>光子數</strong></div>
+                        <div style="font-size:0.8rem; color:#666;">(亮度決定電流大小)</div>
+                    </div>
+                </div>
+            `;
         } else if (topic === 'speed') {
-            content = `<h3>為什麼電子速度有些快、有些慢？</h3><p>公式算出的是<strong>最大</strong>動能。實際上，深層電子在逃出金屬表面時會損失能量，所以速度較慢。</p>`;
+            content = `
+                <h3>為什麼電子速度不同？</h3>
+                <div style="text-align:center; margin-bottom:15px;">
+                    <span style="font-size:1rem; font-weight:bold; color:#555;">公式算出的是「最大」動能</span>
+                </div>
+                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                    \\( K_{max} \\)
+                </div>
+                <div style="margin-top:15px;">
+                    <p><strong>實際上：</strong></p>
+                    <ul style="line-height:1.6;">
+                        <li><strong>表面電子</strong>：直接飛出，擁有最大動能。</li>
+                        <li><strong>深層電子</strong>：逃脫時會碰撞耗損能量，所以速度較慢。</li>
+                    </ul>
+                </div>
+            `;
         } else if (topic === 'equation') {
-            content = `<h3>愛因斯坦光電方程式</h3><div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">\( hf = \Phi + K_{max} \)</div>`;
+            content = `
+                <h3>愛因斯坦光電方程式</h3>
+                <div style="text-align:center; margin-bottom:15px;">
+                    <span style="font-size:1.1rem; font-weight:bold; color:#d35400;">光子能量 = 功函數 + 電子最大動能</span>
+                </div>
+                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                    \\( hf = \\Phi + K_{max} \\)
+                </div>
+                <div style="margin-top:15px;">
+                    <p><strong>符號說明：</strong></p>
+                    <ul style="line-height:1.6;">
+                        <li><strong>\\( hf \\)</strong>：光子能量 (來自入射光)</li>
+                        <li><strong>\\( \\Phi \\)</strong>：功函數 (金屬的門票)</li>
+                        <li><strong>\\( K_{max} \\)</strong>：電子最大動能 (逃出來的速度)</li>
+                    </ul>
+                </div>
+            `;
         }
         
         body.innerHTML = content;
