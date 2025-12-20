@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光譜實驗室</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #0d0d0d; color: #eee;
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* 手機轉向提示 */
+        #landscape-warning {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 20000;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        @media (max-width: 768px) and (orientation: portrait) { #landscape-warning { display: flex; } }
+        .rotate-icon { font-size: 60px; animation: rotatePhone 2s infinite; margin-bottom: 20px; }
+        @keyframes rotatePhone { 0% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+
+        /* 頂部導航 */
+        header {
+            background-color: #1a1a1a; padding: 0 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #333; height: 50px; flex-shrink: 0;
+        }
+        .mission-text { color: #f1c40f; font-weight: bold; font-size: 1.1rem; }
+        .btn-next { 
+            background: #2980b9; color: white; border: none; padding: 6px 16px; border-radius: 4px; 
+            cursor: pointer; display: none; animation: pulse 1s infinite; font-weight: bold;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* 主工作區 */
+        .main-workspace { display: flex; flex: 1; position: relative; overflow: hidden; }
+        
+        .canvas-area {
+            flex: 1; background: #000; position: relative;
+            background-image: radial-gradient(#222 1px, transparent 1px); background-size: 30px 30px;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* 右側工具欄 */
+        .sidebar {
+            width: 70px; background-color: #151515; border-left: 1px solid #333;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 10px 0; gap: 8px; z-index: 20;
+        }
+        .sidebar-title { color: #666; font-size: 0.8rem; border-bottom: 1px solid #333; width: 100%; text-align: center; padding-bottom: 5px; }
+        .tool-slot {
+            width: 50px; height: 50px; background: #252525; border: 2px solid #333; border-radius: 8px;
+            display: flex; justify-content: center; align-items: center; cursor: grab; position: relative;
+        }
+        .tool-slot:active { border-color: #3498db; }
+        .tool-slot span { font-size: 26px; pointer-events: none; }
+        .tool-slot::after { content: attr(data-label); position: absolute; bottom: -12px; font-size: 9px; color: #888; white-space: nowrap; }
+        
+        /* 底部光譜蒐集條 */
+        .gallery-bar {
+            height: 80px; background: #111; border-top: 2px solid #333;
+            display: flex; align-items: center; padding: 0 15px; gap: 10px; overflow-x: auto; flex-shrink: 0;
+        }
+        .snapshot-card {
+            background: #222; border: 1px solid #444; border-radius: 4px; padding: 4px;
+            display: flex; flex-direction: column; align-items: center; min-width: 120px;
+            animation: slideLeft 0.5s ease-out;
+        }
+        @keyframes slideLeft { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .snapshot-canvas { width: 110px; height: 30px; background: black; margin-bottom: 2px; border: 1px solid #555; }
+        .snapshot-label { font-size: 0.7rem; color: #aaa; }
+
+        /* 元素選擇器 */
+        #element-selector {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(30, 30, 30, 0.95); border: 1px solid #f1c40f; padding: 8px 15px; border-radius: 20px;
+            display: none; box-shadow: 0 0 20px rgba(0,0,0,0.8); z-index: 100; font-size: 0.9rem;
+        }
+        #element-selector select { margin-left:5px; padding: 3px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; }
+
+        /* 最終比較視窗 (Modal) */
+        #comparison-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 30000;
+            flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.5s;
+        }
+        .modal-content {
+            background: #1a1a1a; padding: 30px; border-radius: 15px; border: 2px solid #f1c40f;
+            text-align: center; max-width: 80%; box-shadow: 0 0 50px rgba(241, 196, 15, 0.2);
+        }
+        .comp-title { font-size: 1.5rem; color: #fff; margin-bottom: 20px; }
+        .comp-container { display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; background: #000; padding: 10px; border-radius: 8px;}
+        .comp-row { display: flex; align-items: center; gap: 10px; }
+        .comp-label { width: 80px; text-align: right; color: #aaa; font-size: 0.9rem; }
+        .comp-canvas { width: 300px; height: 50px; border: 1px solid #555; background: black; }
+        
+        /* 按鈕群組 */
+        .btn-group { display: flex; gap: 20px; justify-content: center; }
+        
+        .restart-btn-big {
+            padding: 10px 30px; font-size: 1.1rem; background: #27ae60; color: white; border: none; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4); transition: transform 0.2s;
+        }
+        .restart-btn-big:hover { transform: scale(1.05); background: #2ecc71; }
+        
+        .close-btn-big {
+            padding: 10px 30px; font-size: 1.1rem; background: #555; color: white; border: 1px solid #777; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4); transition: transform 0.2s;
+        }
+        .close-btn-big:hover { transform: scale(1.05); background: #777; }
+
+        /* 左下角小重置 */
+        .mini-reset {
+            position: fixed; bottom: 15px; left: 15px; z-index: 40000;
+            background: rgba(255, 255, 255, 0.1); color: #666; border: 1px solid #444;
+            padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;
+        }
+        .mini-reset:hover { background: #c0392b; color: white; border-color: #c0392b; }
+
+        .ghost-item { position: fixed; pointer-events: none; z-index: 9999; font-size: 40px; transform: translate(-50%, -50%); display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="landscape-warning"><div class="rotate-icon">📱</div><h2>請轉橫向操作</h2></div>
+
+    <div id="comparison-modal">
+        <div class="modal-content">
+            <div class="comp-title">實驗總結：光譜的互補性</div>
+            <p style="color:#888; margin-bottom:15px;">仔細觀察：發射光譜的亮線，是否剛好填補了吸收光譜的缺口？</p>
+            <div class="comp-container">
+                <div class="comp-row">
+                    <div class="comp-label">發射光譜<br>(明線)</div>
+                    <canvas id="finalEmission" class="comp-canvas"></canvas>
+                </div>
+                <div class="comp-row">
+                    <div class="comp-label">吸收光譜<br>(暗線)</div>
+                    <canvas id="finalAbsorption" class="comp-canvas"></canvas>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="restart-btn-big" onclick="fullRestart()">↺ 重新開始</button>
+                <button class="close-btn-big" onclick="closeModal()">✕ 關閉視窗</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="mini-reset" onclick="fullRestart()">↺ 重置實驗</button>
+
+    <header>
+        <div class="mission-text" id="missionText">任務 1/3：製作連續光譜 (熱輻射)</div>
+        <button class="btn-next" id="nextBtn" onclick="nextLevel()">任務成功！下一關</button>
+    </header>
+
+    <div class="main-workspace">
+        <div id="element-selector">
+            <label>🧪 氣體元素：</label>
+            <select id="gasTypeSelect" onchange="changeElement(this.value)">
+                <option value="He">氦 (He) - 預設</option>
+                <option value="Ne">氖 (Ne)</option>
+                <option value="H">氫 (H)</option>
+                <option value="Hg">汞 (Hg)</option>
+            </select>
+        </div>
+
+        <div class="canvas-area" id="canvasWrapper">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+        
+        <div class="sidebar">
+            <div class="sidebar-title">器材</div>
+            <div class="tool-slot" onmousedown="initDrag(event, 'bulb', 'sidebar')" ontouchstart="initDrag(event, 'bulb', 'sidebar')" data-label="燈泡"><span>💡</span></div>
+            <div class="tool-slot" onmousedown="initDrag(event, 'tube', 'sidebar')" ontouchstart="initDrag(event, 'tube', 'sidebar')" data-label="放電管"><span>🧪</span></div>
+            <div class="tool-slot" onmousedown="initDrag(event, 'gas', 'sidebar')" ontouchstart="initDrag(event, 'gas', 'sidebar')" data-label="冷氣體"><span>☁️</span></div>
+            <div class="tool-slot" onmousedown="initDrag(event, 'prism', 'sidebar')" ontouchstart="initDrag(event, 'prism', 'sidebar')" data-label="稜鏡"><span>🔺</span></div>
+            <div class="tool-slot" onmousedown="initDrag(event, 'screen', 'sidebar')" ontouchstart="initDrag(event, 'screen', 'sidebar')" data-label="屏幕"><span>⬜</span></div>
+        </div>
+    </div>
+
+    <div class="gallery-bar" id="gallery">
+        <div style="color:#555; font-size:0.8rem;">光譜收集區 ▶</div>
+    </div>
+
+    <div id="ghost" class="ghost-item"></div>
+
+    <script>
+        // --- 元素數據庫 ---
+        const elementsData = {
+            'He': { 
+                name: '氦 (He)', color: '#FFD700', glow: 'rgba(255, 215, 0, 0.8)',
+                lines: [0.15, 0.22, 0.40, 0.45, 0.65, 0.88] 
+            },
+            'Ne': { 
+                name: '氖 (Ne)', color: '#FF4500', glow: 'rgba(255, 69, 0, 0.8)',
+                lines: [0.65, 0.68, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] 
+            },
+            'H': { 
+                name: '氫 (H)', color: '#E6E6FA', glow: 'rgba(230, 230, 250, 0.8)',
+                lines: [0.15, 0.28, 0.45, 0.85] 
+            },
+            'Hg': { 
+                name: '汞 (Hg)', color: '#00FFFF', glow: 'rgba(0, 255, 255, 0.8)',
+                lines: [0.10, 0.15, 0.35, 0.55, 0.60] 
+            }
+        };
+
+        // --- 全域狀態 ---
+        let currentElementKey = 'He';
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('canvasWrapper');
+        let width, height;
+        let level = 1;
+        let isLevelComplete = false;
+        let frame = 0;
+
+        // Slot 配置
+        const slots = [
+            { id: 0, x: 0.20, y: 0.5, w: 80, h: 80, label: "光源", accept: ['bulb', 'tube'], item: null },
+            { id: 1, x: 0.38, y: 0.5, w: 80, h: 80, label: "介質", accept: ['gas'], item: null },
+            { id: 2, x: 0.56, y: 0.5, w: 80, h: 80, label: "分光", accept: ['prism'], item: null },
+            { id: 3, x: 0.80, y: 0.5, w: 30, h: 160, label: "屏幕", accept: ['screen'], item: null }
+        ];
+
+        function resize() {
+            width = wrapper.clientWidth;
+            height = wrapper.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        setTimeout(resize, 100);
+
+        // --- 拖曳系統 ---
+        let dragInfo = { active: false, type: null, source: null };
+        const ghost = document.getElementById('ghost');
+
+        function initDrag(e, type, source) {
+            e.preventDefault();
+            dragInfo = { active: true, type, source };
+            const icons = { 'bulb': '💡', 'tube': '🧪', 'gas': '☁️', 'prism': '🔺', 'screen': '⬜' };
+            ghost.innerText = icons[type];
+            ghost.style.display = 'block';
+            moveGhost(e);
+            
+            ['mousemove', 'touchmove'].forEach(ev => document.addEventListener(ev, moveGhost, {passive:false}));
+            ['mouseup', 'touchend'].forEach(ev => document.addEventListener(ev, endDrag));
+        }
+
+        canvas.addEventListener('mousedown', onCanvasInteract);
+        canvas.addEventListener('touchstart', onCanvasInteract, {passive:false});
+
+        function onCanvasInteract(e) {
+            if (dragInfo.active) return;
+            const {x, y} = getCoords(e);
+            slots.forEach((s, idx) => {
+                const sx = s.x*width, sy = s.y*height;
+                if(s.item && Math.abs(x-sx) < s.w/2+10 && Math.abs(y-sy) < s.h/2+10) {
+                    const type = s.item;
+                    s.item = null;
+                    initDrag(e, type, idx);
+                    updatePhysics();
+                }
+            });
+        }
+
+        function moveGhost(e) {
+            e.preventDefault();
+            const {cx, cy} = getClientCoords(e);
+            ghost.style.left = cx + 'px';
+            ghost.style.top = cy + 'px';
+        }
+
+        function endDrag(e) {
+            ['mousemove', 'touchmove', 'mouseup', 'touchend'].forEach(ev => document.removeEventListener(ev, arguments.callee));
+            document.removeEventListener('mousemove', moveGhost); 
+            document.removeEventListener('touchmove', moveGhost);
+            
+            const {x, y} = getCoords(e);
+            slots.forEach(s => {
+                const sx = s.x*width, sy = s.y*height;
+                if(Math.abs(x-sx) < s.w/2+20 && Math.abs(y-sy) < s.h/2+20) {
+                    if(s.accept.includes(dragInfo.type)) {
+                        s.item = dragInfo.type;
+                    }
+                }
+            });
+
+            dragInfo.active = false;
+            ghost.style.display = 'none';
+            updatePhysics();
+            checkMission();
+        }
+
+        function getClientCoords(e) {
+            let cx = e.clientX, cy = e.clientY;
+            if(e.touches && e.touches.length) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+            else if(e.changedTouches && e.changedTouches.length) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY; }
+            return {cx, cy};
+        }
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const {cx, cy} = getClientCoords(e);
+            return { x: cx - rect.left, y: cy - rect.top };
+        }
+
+        function changeElement(val) {
+            currentElementKey = val;
+            updatePhysics();
+        }
+
+        // --- 物理引擎 ---
+        let physics = { result: null, hasPrism: false, hasSource: false, hasGas: false, hasScreen: false, sourceType: null };
+
+        function updatePhysics() {
+            physics = { result: null, hasPrism: false, hasSource: false, hasGas: false, hasScreen: false, sourceType: null };
+            const s0 = slots[0].item, s1 = slots[1].item, s2 = slots[2].item, s3 = slots[3].item;
+
+            const selector = document.getElementById('element-selector');
+            selector.style.display = (s0 === 'tube' || s1 === 'gas') ? 'block' : 'none';
+
+            if (s0 === 'bulb') { physics.hasSource = true; physics.sourceType = 'white'; }
+            if (s0 === 'tube') { physics.hasSource = true; physics.sourceType = 'emission'; }
+            if (s1 === 'gas') physics.hasGas = true;
+            if (s2 === 'prism') physics.hasPrism = true;
+            if (s3 === 'screen') physics.hasScreen = true;
+
+            if (physics.hasSource && physics.hasScreen) {
+                if (physics.hasPrism) {
+                    if (physics.sourceType === 'white') {
+                        physics.result = physics.hasGas ? 'absorption' : 'continuous';
+                    } else {
+                        physics.result = 'emission';
+                    }
+                } else {
+                    physics.result = (physics.sourceType === 'white') ? 'spot-white' : 'spot-element';
+                }
+            }
+        }
+
+        // --- 繪圖邏輯 ---
+        function loop() {
+            ctx.clearRect(0, 0, width, height);
+            
+            slots.forEach(s => {
+                const cx = s.x*width, cy = s.y*height;
+                ctx.strokeStyle = "#444"; ctx.fillStyle = "#1a1a1a";
+                ctx.beginPath(); ctx.ellipse(cx, cy+s.h/2-5, s.w/2, 8, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#666"; ctx.font = "12px Arial"; ctx.textAlign = "center"; ctx.fillText(s.label, cx, cy+s.h/2+15);
+            });
+
+            if(physics.hasSource) drawLightSystem();
+            slots.forEach(s => { if(s.item) drawRealItem(s.item, s.x*width, s.y*height); });
+
+            frame++;
+            requestAnimationFrame(loop);
+        }
+        loop();
+
+        function drawLightSystem() {
+            const p0 = {x: slots[0].x*width+20, y: slots[0].y*height};
+            const p1 = {x: slots[1].x*width, y: slots[1].y*height};
+            const p2 = {x: slots[2].x*width, y: slots[2].y*height};
+            const p3 = {x: slots[3].x*width, y: slots[3].y*height};
+            
+            let sourceColor = 'rgba(255,255,255,0.9)';
+            if (physics.sourceType === 'emission') sourceColor = elementsData[currentElementKey].glow;
+
+            let t1 = physics.hasGas ? {x:p1.x-30,y:p1.y} : (physics.hasPrism?{x:p2.x-30,y:p2.y} : (physics.hasScreen?p3:{x:width,y:p0.y}));
+            drawBeam(p0, t1, sourceColor, 3);
+
+            if(physics.hasGas) {
+                let start = {x:p1.x+30, y:p1.y};
+                let t2 = physics.hasPrism?{x:p2.x-30,y:p2.y} : (physics.hasScreen?p3:{x:width,y:start.y});
+                drawBeam(start, t2, sourceColor, 3);
+            }
+
+            if(physics.hasPrism) {
+                let start = p2;
+                let sx = physics.hasScreen ? p3.x - 5 : width;
+                let cy = physics.hasScreen ? p3.y : start.y;
+                
+                if (physics.result === 'continuous') {
+                    drawSpectrumFan(start, sx, cy, false);
+                } else if (physics.result === 'absorption') {
+                    drawSpectrumFan(start, sx, cy, true);
+                } else if (physics.result === 'emission' || (!physics.hasScreen && physics.sourceType === 'emission')) {
+                    drawEmissionFan(start, sx, cy);
+                }
+            }
+        }
+
+        function drawBeam(p1, p2, color, w) {
+            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.setLineDash([10, 20]); ctx.lineDashOffset = -frame*2;
+            ctx.stroke(); ctx.setLineDash([]); ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function drawSpectrumFan(origin, targetX, targetY, isAbsorption) {
+            const spread = 60;
+            const topY = targetY - spread;
+            const botY = targetY + spread;
+
+            let grad = ctx.createLinearGradient(0, topY, 0, botY);
+            grad.addColorStop(0, "rgb(148,0,211)"); grad.addColorStop(0.2, "blue");
+            grad.addColorStop(0.4, "green"); grad.addColorStop(0.6, "yellow");
+            grad.addColorStop(0.8, "orange"); grad.addColorStop(1, "red");
+
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(targetX, topY); ctx.lineTo(targetX, botY); ctx.fill();
+
+            if (isAbsorption) {
+                const lines = elementsData[currentElementKey].lines;
+                lines.forEach(pos => {
+                    let lineY = topY + pos * (botY - topY);
+                    ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(targetX, lineY);
+                    ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 2; ctx.stroke();
+                });
+            }
+        }
+
+        function drawEmissionFan(origin, targetX, targetY) {
+            const spread = 60;
+            const topY = targetY - spread;
+            const botY = targetY + spread;
+            const lines = elementsData[currentElementKey].lines;
+            lines.forEach(pos => {
+                let lineY = topY + pos * (botY - topY);
+                ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(targetX, lineY);
+                ctx.strokeStyle = getWavelengthColor(pos); ctx.lineWidth = 2; ctx.stroke();
+            });
+        }
+
+        function getWavelengthColor(pos) {
+            if(pos < 0.2) return 'rgb(148,0,211)'; if(pos < 0.4) return 'rgb(0,0,255)';
+            if(pos < 0.5) return 'rgb(0,255,255)'; if(pos < 0.6) return 'rgb(0,255,0)';
+            if(pos < 0.8) return 'rgb(255,215,0)'; return 'rgb(255,0,0)';
+        }
+
+        function drawRealItem(type, x, y) {
+            ctx.save(); ctx.translate(x, y);
+            if(type==='bulb') {
+                ctx.fillStyle="#444"; ctx.fillRect(-15,30,30,15);
+                ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2);
+                ctx.fillStyle = physics.hasSource && slots[0].item==='bulb' ? "rgba(255,255,200,0.9)" : "rgba(255,255,255,0.2)";
+                ctx.fill(); ctx.stroke();
+            } else if(type==='tube') {
+                ctx.fillStyle="#333"; ctx.fillRect(-18,-5,36,10); ctx.strokeRect(-10,-35,20,70);
+                if(physics.hasSource && slots[0].item==='tube') {
+                    ctx.shadowBlur=20; ctx.shadowColor=elementsData[currentElementKey].color;
+                    ctx.fillStyle=elementsData[currentElementKey].color; ctx.fillRect(-6,-30,12,60);
+                }
+            } else if(type==='gas') {
+                ctx.fillStyle="rgba(255,255,255,0.1)"; ctx.beginPath(); ctx.arc(0,0,28,0,Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle="white"; ctx.font="bold 14px Arial"; ctx.fillText(currentElementKey, 0, 5);
+            } else if(type==='prism') {
+                ctx.beginPath(); ctx.moveTo(0,-35); ctx.lineTo(30,25); ctx.lineTo(-30,25); ctx.closePath();
+                ctx.fillStyle="rgba(200,250,255,0.3)"; ctx.fill(); ctx.stroke();
+            } else if(type==='screen') {
+                ctx.fillStyle="#eee"; ctx.fillRect(-5,-65,10,130);
+                if(physics.result) drawScreenTexture(-5, -65, 10, 130);
+            }
+            ctx.restore();
+        }
+
+        function drawScreenTexture(x, y, w, h) {
+            renderSpectrum(ctx, x, y, w, h, physics.result, currentElementKey);
+        }
+
+        // --- 通用光譜渲染 ---
+        function renderSpectrum(targetCtx, x, y, w, h, type, elementKey) {
+            if(type === 'continuous' || type === 'absorption') {
+                let g = targetCtx.createLinearGradient(0, y, 0, y+h);
+                g.addColorStop(0, "rgb(148,0,211)"); g.addColorStop(0.2, "blue");
+                g.addColorStop(0.4, "green"); g.addColorStop(0.6, "yellow");
+                g.addColorStop(0.8, "orange"); g.addColorStop(1, "red");
+                targetCtx.fillStyle = g; targetCtx.fillRect(x, y, w, h);
+            } else {
+                targetCtx.fillStyle = "black"; targetCtx.fillRect(x, y, w, h);
+            }
+
+            if(type === 'absorption' || type === 'emission') {
+                const lines = elementsData[elementKey].lines;
+                lines.forEach(pos => {
+                    let ly = y + pos * h;
+                    if(type === 'absorption') {
+                        targetCtx.fillStyle = "black"; targetCtx.fillRect(x, ly-1, w, 3);
+                    } else {
+                        targetCtx.fillStyle = getWavelengthColor(pos);
+                        targetCtx.fillRect(x, ly-1, w, 3);
+                    }
+                });
+            } else if (type.includes('spot')) {
+                 targetCtx.fillStyle = type==='spot-white'?'white':elementsData[elementKey].color;
+                 targetCtx.beginPath(); targetCtx.arc(x+w/2, y+h/2, 4, 0, Math.PI*2); targetCtx.fill();
+            }
+        }
+
+        // --- 任務與快照 ---
+        function checkMission() {
+            if(isLevelComplete) return;
+            let success = false;
+            if(level===1 && physics.result==='continuous') success=true;
+            if(level===2 && physics.result==='emission' && currentElementKey==='He') success=true;
+            if(level===3 && physics.result==='absorption' && currentElementKey==='He') success=true;
+            
+            if(success) {
+                isLevelComplete = true;
+                const btn = document.getElementById('nextBtn');
+                btn.style.display = 'block';
+                if(level===3) {
+                    btn.innerText = "完成實驗！查看總結";
+                } else {
+                    btn.innerText = "任務成功！下一關";
+                }
+                takeSnapshot();
+            }
+        }
+
+        function nextLevel() {
+            if(level === 3) {
+                showComparisonModal();
+                return;
+            }
+            level++;
+            isLevelComplete = false;
+            document.getElementById('nextBtn').style.display = 'none';
+            slots.forEach(s => s.item = null);
+            updatePhysics();
+
+            const txt = document.getElementById('missionText');
+            if(level===2) txt.innerText = "任務 2/3：製作「氦」的發射光譜 (明線)";
+            if(level===3) txt.innerText = "任務 3/3：製作「氦」的吸收光譜 (暗線)";
+        }
+
+        function takeSnapshot() {
+            const gallery = document.getElementById('gallery');
+            const card = document.createElement('div');
+            card.className = 'snapshot-card';
+            
+            const snapCvs = document.createElement('canvas');
+            snapCvs.className = 'snapshot-canvas';
+            snapCvs.width = 110; snapCvs.height = 30;
+            const sCtx = snapCvs.getContext('2d');
+            
+            if(physics.result === 'continuous' || physics.result === 'absorption') {
+                let g = sCtx.createLinearGradient(0, 0, 110, 0);
+                g.addColorStop(0, "rgb(148,0,211)"); g.addColorStop(0.2, "blue");
+                g.addColorStop(0.4, "green"); g.addColorStop(0.6, "yellow");
+                g.addColorStop(0.8, "orange"); g.addColorStop(1, "red");
+                sCtx.fillStyle = g; sCtx.fillRect(0,0,110,30);
+            } else {
+                sCtx.fillStyle = "black"; sCtx.fillRect(0,0,110,30);
+            }
+            if(physics.result === 'absorption' || physics.result === 'emission') {
+                const lines = elementsData[currentElementKey].lines;
+                lines.forEach(pos => {
+                    let lx = pos * 110;
+                    if(physics.result === 'absorption') sCtx.fillStyle = "black";
+                    else sCtx.fillStyle = getWavelengthColor(pos);
+                    sCtx.fillRect(lx-1, 0, 3, 30);
+                });
+            }
+
+            const label = document.createElement('div');
+            label.className = 'snapshot-label';
+            if(physics.result === 'continuous') {
+                label.innerText = "連續光譜 (熱輻射)";
+            } else {
+                label.innerText = (physics.result==='emission'?'發射':'吸收') + ` (${currentElementKey})`;
+            }
+
+            card.appendChild(snapCvs);
+            card.appendChild(label);
+            gallery.appendChild(card);
+            gallery.scrollLeft = gallery.scrollWidth;
+        }
+
+        // --- 最終比較視窗 ---
+        function showComparisonModal() {
+            const modal = document.getElementById('comparison-modal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.style.opacity = 1, 10);
+
+            const cvsE = document.getElementById('finalEmission');
+            cvsE.width = 300; cvsE.height = 50;
+            const ctxE = cvsE.getContext('2d');
+            drawHorizontalSpectrum(ctxE, 300, 50, 'emission', 'He');
+
+            const cvsA = document.getElementById('finalAbsorption');
+            cvsA.width = 300; cvsA.height = 50;
+            const ctxA = cvsA.getContext('2d');
+            drawHorizontalSpectrum(ctxA, 300, 50, 'absorption', 'He');
+        }
+
+        function drawHorizontalSpectrum(ctx, w, h, type, element) {
+            if(type === 'absorption') {
+                let g = ctx.createLinearGradient(0, 0, w, 0);
+                g.addColorStop(0, "rgb(148,0,211)"); g.addColorStop(0.2, "blue");
+                g.addColorStop(0.4, "green"); g.addColorStop(0.6, "yellow");
+                g.addColorStop(0.8, "orange"); g.addColorStop(1, "red");
+                ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+            } else {
+                ctx.fillStyle = "black"; ctx.fillRect(0, 0, w, h);
+            }
+            const lines = elementsData[element].lines;
+            lines.forEach(pos => {
+                let x = pos * w;
+                if(type === 'absorption') {
+                    ctx.fillStyle = "black"; ctx.fillRect(x-1, 0, 4, h);
+                } else {
+                    ctx.fillStyle = getWavelengthColor(pos); ctx.fillRect(x-1, 0, 3, h);
+                }
+            });
+        }
+
+        // 新增：關閉視窗功能 (不重置狀態)
+        function closeModal() {
+            const modal = document.getElementById('comparison-modal');
+            modal.style.opacity = 0;
+            setTimeout(() => modal.style.display = 'none', 500);
+            
+            // 讓下一關按鈕隱藏，避免重複觸發，因為任務已經結束了
+            document.getElementById('nextBtn').style.display = 'none';
+            document.getElementById('missionText').innerText = "🎉 任務全數完成！請自由探索";
+        }
+
+        function fullRestart() {
+            const modal = document.getElementById('comparison-modal');
+            modal.style.opacity = 0;
+            setTimeout(() => modal.style.display = 'none', 500);
+            
+            level = 1;
+            isLevelComplete = false;
+            slots.forEach(s => s.item = null);
+            document.getElementById('gallery').innerHTML = '<div style="color:#555; font-size:0.8rem;">光譜收集區 ▶</div>';
+            document.getElementById('missionText').innerText = "任務 1/3：製作連續光譜 (熱輻射)";
+            document.getElementById('nextBtn').style.display = 'none';
+            currentElementKey = 'He';
+            document.getElementById('gasTypeSelect').value = 'He';
+            updatePhysics();
+        }
+    </script>
+</body>
+</html>
