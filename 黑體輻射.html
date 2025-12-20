@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>黑體輻射</title>
+    <title>黑體輻射模擬器 (修正版)</title>
     <style>
         :root {
             --primary: #2c3e50;
@@ -503,41 +503,76 @@
             const scaleX = (val) => padding.left + ((val - xMin) / (xMax - xMin)) * (width - padding.left - padding.right);
             const scaleY = (val) => (height - padding.bottom) - (val / effectiveYMax) * (height - padding.top - padding.bottom);
 
+            // ============================================
+            // 修正 1：調整圖層順序，先畫網格線 (最底層)
+            // ============================================
+            gCtx.beginPath(); gCtx.strokeStyle="#e0e0e0"; gCtx.lineWidth=1;
+            const stepX = Math.round(xMax/5/500)*500 || 500;
+            for(let x=0; x<=xMax; x+=stepX) {
+                if(x<xMin) continue;
+                let px = scaleX(x);
+                // 只畫線，文字標籤留到最後畫，以免被光譜蓋住
+                gCtx.moveTo(px, padding.top); gCtx.lineTo(px, height-padding.bottom);
+            }
+            gCtx.stroke();
+
+            // ============================================
+            // 修正 2：接著畫光譜 (中間層)
+            // ============================================
             const vS = scaleX(380);
             const vE = scaleX(750);
             gCtx.save();
             gCtx.beginPath();
             gCtx.rect(padding.left, padding.top, width-padding.left-padding.right, height-padding.bottom-padding.top);
             gCtx.clip();
-            gCtx.fillStyle = "#fffcfc"; gCtx.fillRect(vE, padding.top, width, height);
-            gCtx.fillStyle = "#fcfcff"; gCtx.fillRect(0, padding.top, vS, height);
+            
+            // 背景底色
+            gCtx.fillStyle = "#fffcfc"; gCtx.fillRect(vE, padding.top, width, height); // 紅外線區
+            gCtx.fillStyle = "#fcfcff"; gCtx.fillRect(0, padding.top, vS, height);    // 紫外線區
+            
+            // 繪製彩虹 (可見光區)
             if(vE > padding.left && vS < width) {
                 const grad = gCtx.createLinearGradient(Math.max(vS,0), 0, Math.min(vE,width), 0);
-                grad.addColorStop(0, "rgba(148,0,211,0.2)"); grad.addColorStop(0.5, "rgba(0,255,0,0.2)"); grad.addColorStop(1, "rgba(255,0,0,0.2)"); 
+                
+                // 調整：不透明度提升至 0.75，顏色更鮮豔且能稍微蓋過底下的網格線
+                grad.addColorStop(0.0, "rgba(100, 0, 200, 0.75)");   // 紫 (Violet)
+                grad.addColorStop(0.25, "rgba(0, 0, 255, 0.75)");    // 藍 (Blue)
+                grad.addColorStop(0.4, "rgba(0, 255, 255, 0.75)");   // 青 (Cyan)
+                grad.addColorStop(0.5, "rgba(0, 255, 0, 0.75)");     // 綠 (Green)
+                grad.addColorStop(0.7, "rgba(255, 255, 0, 0.75)");   // 黃 (Yellow)
+                grad.addColorStop(0.85, "rgba(255, 127, 0, 0.75)");  // 橙 (Orange)
+                grad.addColorStop(1.0, "rgba(255, 0, 0, 0.75)");     // 紅 (Red)
+
                 gCtx.fillStyle = grad;
                 gCtx.fillRect(Math.max(vS, padding.left), padding.top, Math.min(vE, width)-Math.max(vS, padding.left), height);
             }
             gCtx.restore();
 
-            gCtx.beginPath(); gCtx.strokeStyle="#e0e0e0"; gCtx.lineWidth=1;
-            const stepX = Math.round(xMax/5/500)*500 || 500;
+            // ============================================
+            // 修正 3：補上文字標籤與外框 (最上層)
+            // ============================================
+            
+            // 畫 X 軸文字 (因為剛才只畫了網格線)
+            gCtx.fillStyle = "#888"; gCtx.font="10px Arial"; gCtx.textAlign="center";
             for(let x=0; x<=xMax; x+=stepX) {
                 if(x<xMin) continue;
                 let px = scaleX(x);
-                gCtx.moveTo(px, padding.top); gCtx.lineTo(px, height-padding.bottom);
-                gCtx.fillStyle = "#888"; gCtx.font="10px Arial"; gCtx.textAlign="center";
                 gCtx.fillText(x, px, height-padding.bottom+15);
             }
-            gCtx.stroke();
+
+            // 畫外框
             gCtx.beginPath(); gCtx.strokeStyle="#333"; gCtx.lineWidth=2;
             gCtx.moveTo(padding.left, padding.top); gCtx.lineTo(padding.left, height-padding.bottom);
             gCtx.lineTo(width-padding.right, height-padding.bottom);
             gCtx.stroke();
+            
+            // 畫軸標題
             gCtx.fillStyle = "#333"; gCtx.font="12px Arial"; gCtx.textAlign = "center";
             gCtx.fillText("波長 (nm)", width/2, height-10);
             gCtx.save(); gCtx.rotate(-Math.PI/2);
             gCtx.fillText("輻射強度 (Intensity)", -height/2, 20); gCtx.restore();
 
+            // 繪製黑體輻射曲線 (最顯眼)
             gCtx.beginPath(); gCtx.lineWidth = 3;
             if(currentTemp < 1000) gCtx.strokeStyle = "#888";
             else if(currentTemp < 3500) gCtx.strokeStyle = "#e74c3c";
@@ -554,6 +589,7 @@
             }
             gCtx.stroke();
 
+            // 繪製峰值點
             const peakNm = 2.898e6 / currentTemp;
             if(peakNm > xMin && peakNm < xMax) {
                 let px = scaleX(peakNm);
