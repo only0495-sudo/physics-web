@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>高中物理 - 簡諧運動實驗室 (v7.2 暫停功能版)</title>
+<title>高中物理 - 簡諧運動實驗室 (v7.4 角度修正版)</title>
 <style>
   :root {
     --primary: #6c5ce7;
@@ -14,7 +14,7 @@
     --color-a: #d63031;
     --color-ucm-light: #74b9ff;
     --color-natural: #e67e22;
-    --color-pause: #f1c40f; /* 暫停按鈕顏色 */
+    --color-pause: #f1c40f;
   }
 
   body {
@@ -71,9 +71,8 @@
   
   .reset-btn { background: linear-gradient(135deg, #d63031, #ff7675); }
   
-  /* 暫停按鈕樣式 */
   .pause-btn { background: linear-gradient(135deg, #f39c12, #f1c40f); color: white; min-width: 80px; }
-  .pause-btn.paused { background: linear-gradient(135deg, #27ae60, #2ecc71); } /* 暫停時變綠色(提示可以繼續) */
+  .pause-btn.paused { background: linear-gradient(135deg, #27ae60, #2ecc71); }
 
   .unit-toggle-group { display: flex; gap: 0; background: #eee; padding: 2px; border-radius: 20px; border: 1px solid #ddd; }
   .unit-btn { padding: 4px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; font-weight: bold; border: none; background: transparent; color: #666; }
@@ -114,7 +113,7 @@
 
           <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
             <label class="cb-item" style="color: var(--primary);">
-              <input type="checkbox" id="slowMoCheck"> 慢動作
+              <input type="checkbox" id="slowMoCheckVec"> 慢動作
             </label>
           </div>
 
@@ -163,6 +162,11 @@
       <div class="control-row">
         <button class="action-btn pause-btn" id="btnPauseHoriz" onclick="togglePause('horiz')">暫停</button>
         <button class="action-btn reset-btn" id="resetHorizBtn">重置實驗</button>
+        <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
+            <label class="cb-item" style="color: var(--primary);">
+              <input type="checkbox" id="slowMoCheckHoriz"> 慢動作
+            </label>
+        </div>
       </div>
     </div>
   </div>
@@ -197,6 +201,11 @@
        <div class="control-row">
         <button class="action-btn pause-btn" id="btnPauseVert" onclick="togglePause('vert')">暫停</button>
         <button class="action-btn reset-btn" id="resetVertBtn">重置實驗</button>
+        <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
+            <label class="cb-item" style="color: var(--primary);">
+              <input type="checkbox" id="slowMoCheckVert"> 慢動作
+            </label>
+        </div>
       </div>
     </div>
   </div>
@@ -426,12 +435,12 @@
   // ================= 模式一 (Vector Mode) =================
   const vCanvas = document.getElementById('vectorCanvas');
   const vCtx = vCanvas.getContext('2d');
-  const vR = 100; const vBaseOmega = 0.02; 
+  const vBaseOmega = 0.02; 
   let vTime = 0; let vViewAngle = 0; let vTargetAngle = 0; let vIsSpecifyAngle = false;
 
   const btnRotate = document.getElementById('rotateBtn');
   const chkPause = document.getElementById('pauseCheck');
-  const chkSlowMo = document.getElementById('slowMoCheck'); 
+  const chkSlowMoVec = document.getElementById('slowMoCheckVec'); 
   const inpAngle = document.getElementById('angleInput');
   const chkDisp = document.getElementById('checkDisp');
   const chkVel = document.getElementById('checkVel');
@@ -443,13 +452,9 @@
   });
   chkPause.addEventListener('change', () => {
     vIsSpecifyAngle = chkPause.checked; inpAngle.disabled = !vIsSpecifyAngle;
-    
-    // 如果切換到指定角度模式，為了避免衝突，我們可以暫時 disable 暫停鈕，或者單純讓它不生效
-    // 這裡的邏輯是：如果是 SpecifyAngle，時間由 input 決定。如果是 AutoPlay，時間由 loop 決定(受 isPausedVec 控制)
     if(vIsSpecifyAngle) {
        let deg = Math.round(((vTime * vBaseOmega) % (Math.PI*2)) * 180 / Math.PI);
        if(deg<0) deg+=360; inpAngle.value = deg;
-       // 讓按鈕看起來無效
        document.getElementById('btnPauseVec').style.opacity = '0.5';
     } else {
        document.getElementById('btnPauseVec').style.opacity = '1';
@@ -471,13 +476,17 @@
         graphX = splitX; graphW = w - splitX; chartH = h / 3;
     }
 
-    const speedMultiplier = chkSlowMo.checked ? 0.2 : 1.0;
+    // 計算最大可用半徑
+    let maxR = Math.min(isMobile() ? w : splitX, h) * 0.45; 
+    if (!isMobile() && maxR > splitX/2 - 20) maxR = splitX/2 - 20;
+    const vR = maxR; 
+
+    const speedMultiplier = chkSlowMoVec.checked ? 0.2 : 1.0;
     let theta;
     if (vIsSpecifyAngle) {
         let deg = parseFloat(inpAngle.value) || 0;
         theta = deg * Math.PI / 180; vTime = theta / vBaseOmega;
     } else {
-        // 只有在 "非暫停" 且 "非指定角度" 模式下才更新時間
         if (!isPausedVec) {
             vTime += speedMultiplier;
         }
@@ -497,6 +506,38 @@
     // 畫軌道圓盤
     vCtx.beginPath(); vCtx.ellipse(cx, cy, vR, vR*vViewAngle, 0, 0, Math.PI*2);
     vCtx.strokeStyle="#e0e0e0"; vCtx.lineWidth=2; vCtx.stroke();
+    
+    // --- 修正: 畫 3D 視角下的夾角扇形與文字 ---
+    if (vViewAngle > 0.05) {
+        vCtx.save();
+        vCtx.beginPath();
+        vCtx.moveTo(cx, cy); // 關鍵修正：必須回到圓心，才能畫出扇形
+
+        let drawPhase = currentPhase % (Math.PI * 2);
+        
+        // 畫扇形 (逆時針方向)
+        vCtx.ellipse(cx, cy, vR*0.25, (vR*0.25)*vViewAngle, 0, 0, -drawPhase, true);
+        
+        vCtx.fillStyle = "rgba(255, 200, 0, 0.5)"; // 半透明黃色
+        vCtx.fill();
+
+        // --- 繪製 θ 文字 ---
+        let midAngle = -drawPhase / 2;
+        let textR = vR * 0.35; // 文字半徑
+        
+        let tx = cx + textR * Math.cos(midAngle);
+        let ty = cy + textR * Math.sin(midAngle) * vViewAngle;
+
+        vCtx.fillStyle = "#e67e22";
+        vCtx.font = "bold 18px Times New Roman";
+        vCtx.textAlign = "center";
+        vCtx.textBaseline = "middle";
+        vCtx.fillText("θ", tx, ty);
+
+        vCtx.restore();
+    }
+    // --------------------------------
+
     // 畫 X 軸
     vCtx.beginPath(); vCtx.moveTo(isMobile()?0:0, cy); vCtx.lineTo(isMobile()?w:splitX, cy); 
     vCtx.strokeStyle="#bbb"; vCtx.stroke();
@@ -511,7 +552,6 @@
     vCtx.beginPath(); vCtx.arc(shmX, shmY, 12, 0, Math.PI*2);
     vCtx.fillStyle="#2c3e50"; vCtx.fill(); vCtx.strokeStyle="white"; vCtx.stroke(); 
 
-    // ================= 向量繪製核心邏輯 =================
     // 1. 位移
     if (chkDisp.checked) {
        drawArrow(vCtx, cx, cy, rX, 0, "#0984e3", "x", 3);
@@ -531,8 +571,8 @@
        drawDashedLine(vCtx, endV_U.x, endV_U.y, endV_S.x, endV_S.y);
     }
 
-    // 3. 加速度 (修正倍率為 2000，原3000)
-    const aMag = vR * vBaseOmega * vBaseOmega * 2000; 
+    // 3. 加速度
+    const aMag = vR * vBaseOmega * vBaseOmega * 1500; 
     const ax_u = -aMag * cosT;
     const ay_u = aMag * sinT * vViewAngle; 
     const ax_shm = ax_u;
@@ -559,6 +599,7 @@
   // ================= 模式二 (Horizontal) =================
   const hCanvas = document.getElementById('horizCanvas');
   const hCtx = hCanvas.getContext('2d');
+  const chkSlowMoHoriz = document.getElementById('slowMoCheckHoriz'); 
   let hEqX = 250, hFloorY = 300, hWallX = 30;
   let hBlockX = 250; let hAmp = 0; let hIsDragging = false;
   let hIsAnimating = false; let hTime = 0;
@@ -569,9 +610,10 @@
 
   function horizLoop() {
     if (currentMode !== 'horiz') return;
-    // 必須是「動畫中」且「非暫停」才更新時間
     if (hIsAnimating && !isPausedHoriz) { 
-        hTime++; 
+        const speed = chkSlowMoHoriz.checked ? 0.4 : 2.5;
+        hTime += speed; 
+        
         const t_sec = hTime * 0.5; 
         const x = hAmp * Math.cos(vBaseOmega * t_sec); 
         hBlockX = hEqX + x; 
@@ -602,7 +644,6 @@
     if (hIsAnimating) { vx = -hAmp * vBaseOmega * Math.sin(vBaseOmega * t_sec); ax = -hAmp * vBaseOmega * vBaseOmega * Math.cos(vBaseOmega * t_sec); } else { ax = -0.01 * dx / 2; } 
     const view = getHorizView();
     
-    // 倍率 3000
     if(view==='x') drawArrow(hCtx, hEqX, hFloorY+40, dx, 0, "#0984e3", "x", 4);
     else if(view==='v' && hIsAnimating) drawArrow(hCtx, hBlockX, hFloorY-70, vx*25, 0, "#00b894", "v", 4);
     else if(view==='a') drawArrow(hCtx, hBlockX, hFloorY-80, ax*3000, 0, "#d63031", "a", 4);
@@ -625,7 +666,6 @@
   
   hResetBtn.addEventListener('click', () => { 
       hIsAnimating = false; hIsDragging = false; 
-      // 重置時也要解除暫停
       isPausedHoriz = false; updatePauseBtn('btnPauseHoriz', false);
       hBlockX = hEqX; hTime = 0; hStatus.textContent = "請拖曳木塊..."; 
       renderHorizFrame(); 
@@ -638,6 +678,7 @@
   // ================= 模式三 (Vert) =================
   const zCanvas = document.getElementById('vertCanvas');
   const zCtx = zCanvas.getContext('2d');
+  const chkSlowMoVert = document.getElementById('slowMoCheckVert'); 
   let zEqY = 300, zCeilY = 50, zAnchorX = 250;
   let zBlockY = 300; let zAmp = 0; let zIsDragging = false;
   let zIsAnimating = false; let zTime = 0;
@@ -651,7 +692,9 @@
   function vertLoop() {
     if (currentMode !== 'vert') return;
     if (zIsAnimating && !isPausedVert) { 
-        zTime++; 
+        const speed = chkSlowMoVert.checked ? 0.4 : 2.5;
+        zTime += speed; 
+        
         const t_sec = zTime * 0.5; 
         const y = zAmp * Math.cos(vBaseOmega * t_sec); 
         zBlockY = zEqY + y; 
@@ -700,7 +743,6 @@
     const view = getVertView(); const vecX = zAnchorX + 60; const t_sec = zTime * 0.5; let vy = 0, ay = 0;
     if (zIsAnimating) { vy = -zAmp * vBaseOmega * Math.sin(vBaseOmega * t_sec); ay = -zAmp * vBaseOmega * vBaseOmega * Math.cos(vBaseOmega * t_sec); }
     
-    // 倍率 3000
     if(view==='x') drawArrow(zCtx, vecX, zEqY, 0, dy, "#0984e3", "y", 4);
     else if(view==='v' && zIsAnimating) drawArrow(zCtx, vecX, zBlockY, 0, vy*25, "#00b894", "v", 4);
     else if(view==='a') drawArrow(zCtx, vecX, zBlockY, 0, ay*3000, "#d63031", "a", 4);
@@ -723,7 +765,6 @@
   
   zResetBtn.addEventListener('click', () => { 
       zIsAnimating = false; zIsDragging = false; 
-      // 重置時解除暫停
       isPausedVert = false; updatePauseBtn('btnPauseVert', false);
       zBlockY = zEqY; zTime = 0; zStatus.textContent = "請拖曳木塊..."; 
       renderVertFrame(); 
