@@ -5,19 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>光譜物理實驗室</title>
     <style>
+        /* --- 核心佈局 --- */
         body {
             margin: 0; padding: 0;
             background-color: #0d0d0d; color: #eee;
             font-family: "Microsoft JhengHei", Arial, sans-serif;
             display: flex; flex-direction: column;
-            height: 100vh; overflow: hidden;
+            height: 100vh; 
+            height: 100dvh; 
+            overflow: hidden; 
             user-select: none; -webkit-user-select: none;
         }
 
-        /* 手機轉向提示 */
         #landscape-warning {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 20000;
+            background: rgba(0,0,0,0.95); z-index: 50000;
             flex-direction: column; justify-content: center; align-items: center; text-align: center;
         }
         @media (max-width: 768px) and (orientation: portrait) { #landscape-warning { display: flex; } }
@@ -26,69 +28,75 @@
 
         /* 頂部導航 */
         header {
-            background-color: #1a1a1a; padding: 0 20px;
+            background-color: #1a1a1a; padding: 0 15px;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #333; height: 50px; flex-shrink: 0;
+            border-bottom: 1px solid #333; 
+            height: 50px; flex-shrink: 0; 
         }
-        .mission-text { color: #f1c40f; font-weight: bold; font-size: 1.2rem; } /* 字體加大 */
+        .mission-text { color: #f1c40f; font-weight: bold; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         .btn-next { 
-            background: #2980b9; color: white; border: none; padding: 8px 20px; border-radius: 6px; 
-            cursor: pointer; display: none; animation: pulse 1s infinite; font-weight: bold; font-size: 1rem;
+            background: #2980b9; color: white; border: none; padding: 6px 12px; border-radius: 4px; 
+            cursor: pointer; display: none; animation: pulse 1s infinite; font-weight: bold; font-size: 0.9rem;
+            white-space: nowrap;
         }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         /* 主工作區 */
-        .main-workspace { display: flex; flex: 1; position: relative; overflow: hidden; }
+        .main-workspace { 
+            display: flex; flex: 1; position: relative; overflow: hidden; min-height: 0; 
+        }
         
         .canvas-area {
             flex: 1; background: #000; position: relative;
             background-image: radial-gradient(#222 1px, transparent 1px); background-size: 30px 30px;
+            overflow: hidden;
         }
-        canvas { display: block; width: 100%; height: 100%; }
+        canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-        /* 右側工具欄 (加大) */
+        /* 右側工具欄 */
         .sidebar {
-            width: 110px; /* 加寬 */
-            background-color: #151515; border-left: 2px solid #333;
+            width: 90px; background-color: #151515; border-left: 2px solid #333;
             display: flex; flex-direction: column; align-items: center;
-            padding: 15px 0; gap: 15px; z-index: 20;
+            padding: 10px 0; gap: 10px; z-index: 20;
+            overflow-y: auto; -webkit-overflow-scrolling: touch; 
         }
-        .sidebar-title { color: #888; font-size: 1rem; border-bottom: 1px solid #444; width: 100%; text-align: center; padding-bottom: 8px; margin-bottom: 5px; font-weight: bold;}
+        .sidebar-title { color: #888; font-size: 0.9rem; border-bottom: 1px solid #444; width: 100%; text-align: center; padding-bottom: 5px; margin-bottom: 0; font-weight: bold;}
         
-        /* 工具格 (加大) */
         .tool-slot {
-            width: 75px; height: 75px; /* 加大 */
-            background: #252525; border: 2px solid #444; border-radius: 12px;
+            width: 65px; height: 65px; flex-shrink: 0;
+            background: #252525; border: 2px solid #444; border-radius: 10px;
             display: flex; justify-content: center; align-items: center; cursor: grab; position: relative;
-            transition: transform 0.1s;
+            touch-action: none; 
         }
         .tool-slot:active { border-color: #3498db; transform: scale(0.95); }
-        .tool-slot span { font-size: 40px; pointer-events: none; } /* 圖示加大 */
-        .tool-slot::after { content: attr(data-label); position: absolute; bottom: -18px; font-size: 12px; color: #aaa; white-space: nowrap; font-weight: bold;}
+        .tool-slot span { font-size: 32px; pointer-events: none; } 
+        .tool-slot::after { content: attr(data-label); position: absolute; bottom: -16px; font-size: 11px; color: #aaa; white-space: nowrap; font-weight: bold;}
         
         /* 底部光譜蒐集條 */
         .gallery-bar {
-            height: 90px; background: #111; border-top: 2px solid #333;
-            display: flex; align-items: center; padding: 0 15px; gap: 15px; overflow-x: auto; flex-shrink: 0;
+            height: 70px; background: #111; border-top: 2px solid #333;
+            display: flex; align-items: center; padding: 0 10px; gap: 10px; overflow-x: auto; flex-shrink: 0;
+            -webkit-overflow-scrolling: touch;
         }
         .snapshot-card {
-            background: #222; border: 1px solid #444; border-radius: 6px; padding: 6px;
-            display: flex; flex-direction: column; align-items: center; min-width: 140px;
-            animation: slideLeft 0.5s ease-out;
+            background: #222; border: 1px solid #444; border-radius: 4px; padding: 4px;
+            display: flex; flex-direction: column; align-items: center; min-width: 100px;
+            animation: slideLeft 0.5s ease-out; flex-shrink: 0;
         }
         @keyframes slideLeft { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        .snapshot-canvas { width: 130px; height: 35px; background: black; margin-bottom: 4px; border: 1px solid #555; }
-        .snapshot-label { font-size: 0.8rem; color: #aaa; }
+        .snapshot-canvas { width: 90px; height: 25px; background: black; margin-bottom: 2px; border: 1px solid #555; }
+        .snapshot-label { font-size: 0.7rem; color: #aaa; }
 
-        /* 元素選擇器 (加大) */
+        /* 元素選擇器 */
         #element-selector {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(30, 30, 30, 0.95); border: 2px solid #f1c40f; padding: 10px 20px; border-radius: 25px;
-            display: none; box-shadow: 0 0 20px rgba(0,0,0,0.8); z-index: 100; font-size: 1.1rem;
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(30, 30, 30, 0.95); border: 2px solid #f1c40f; padding: 8px 15px; border-radius: 20px;
+            display: none; box-shadow: 0 0 20px rgba(0,0,0,0.8); z-index: 100; font-size: 1rem;
+            white-space: nowrap;
         }
-        #element-selector select { margin-left:10px; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; font-size: 1rem;}
+        #element-selector select { margin-left:5px; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; font-size: 0.9rem;}
 
-        /* 最終比較視窗 (Modal) */
+        /* 最終比較視窗 */
         #comparison-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 30000;
@@ -96,38 +104,47 @@
             opacity: 0; transition: opacity 0.5s;
         }
         .modal-content {
-            background: #1a1a1a; padding: 40px; border-radius: 20px; border: 2px solid #f1c40f;
-            text-align: center; max-width: 90%; box-shadow: 0 0 50px rgba(241, 196, 15, 0.2);
+            background: #1a1a1a; padding: 20px; border-radius: 15px; border: 2px solid #f1c40f;
+            text-align: center; max-width: 95%; max-height: 95vh; overflow-y: auto;
+            box-shadow: 0 0 50px rgba(241, 196, 15, 0.2);
         }
-        .comp-title { font-size: 1.8rem; color: #fff; margin-bottom: 25px; }
-        .comp-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; background: #000; padding: 15px; border-radius: 12px;}
-        .comp-row { display: flex; align-items: center; gap: 15px; }
-        .comp-label { width: 90px; text-align: right; color: #aaa; font-size: 1rem; font-weight: bold;}
-        .comp-canvas { width: 350px; height: 60px; border: 1px solid #555; background: black; }
+        .comp-title { font-size: 1.4rem; color: #fff; margin-bottom: 15px; }
+        .comp-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; background: #000; padding: 10px; border-radius: 8px;}
+        .comp-row { display: flex; align-items: center; gap: 5px; }
+        .comp-label { width: 70px; text-align: right; color: #aaa; font-size: 0.8rem; font-weight: bold; line-height: 1.2;}
+        .comp-canvas { width: 250px; height: 40px; border: 1px solid #555; background: black; }
         
-        .btn-group { display: flex; gap: 20px; justify-content: center; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;}
         
-        .restart-btn-big {
-            padding: 12px 35px; font-size: 1.2rem; background: #27ae60; color: white; border: none; border-radius: 35px; cursor: pointer; font-weight: bold;
-            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4); transition: transform 0.2s;
+        .restart-btn-big, .close-btn-big {
+            padding: 10px 20px; font-size: 1rem; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: bold;
+            flex: 1; min-width: 120px;
         }
-        .restart-btn-big:hover { transform: scale(1.05); background: #2ecc71; }
-        
-        .close-btn-big {
-            padding: 12px 35px; font-size: 1.2rem; background: #555; color: white; border: 1px solid #777; border-radius: 35px; cursor: pointer; font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.4); transition: transform 0.2s;
-        }
-        .close-btn-big:hover { transform: scale(1.05); background: #777; }
+        .restart-btn-big { background: #27ae60; box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4); }
+        .close-btn-big { background: #555; border: 1px solid #777; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
 
-        /* 左下角小重置 */
         .mini-reset {
-            position: fixed; bottom: 15px; left: 15px; z-index: 40000;
+            position: fixed; bottom: 85px; left: 15px; z-index: 40000;
             background: rgba(255, 255, 255, 0.1); color: #888; border: 1px solid #555;
-            padding: 8px 15px; border-radius: 6px; font-size: 0.9rem; cursor: pointer;
+            padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;
         }
-        .mini-reset:hover { background: #c0392b; color: white; border-color: #c0392b; }
 
-        .ghost-item { position: fixed; pointer-events: none; z-index: 9999; font-size: 60px; transform: translate(-50%, -50%); display: none; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); }
+        .ghost-item { position: fixed; pointer-events: none; z-index: 9999; font-size: 50px; transform: translate(-50%, -50%); display: none; filter: drop-shadow(0 0 5px rgba(255,255,255,0.5)); }
+
+        @media (max-height: 500px) {
+            header { height: 40px; }
+            .mission-text { font-size: 1rem; }
+            .btn-next { padding: 4px 8px; font-size: 0.8rem; }
+            .sidebar { width: 80px; padding: 5px 0; gap: 8px; }
+            .tool-slot { width: 55px; height: 55px; border-radius: 8px; }
+            .tool-slot span { font-size: 28px; }
+            .tool-slot::after { font-size: 10px; bottom: -14px; }
+            .gallery-bar { height: 60px; }
+            .snapshot-card { min-width: 90px; }
+            .snapshot-canvas { width: 80px; height: 20px; }
+            #element-selector { top: 5px; padding: 5px 12px; font-size: 0.9rem; }
+            .mini-reset { bottom: 75px; left: 10px; padding: 4px 8px; font-size: 0.7rem; }
+        }
     </style>
 </head>
 <body>
@@ -136,8 +153,8 @@
 
     <div id="comparison-modal">
         <div class="modal-content">
-            <div class="comp-title">實驗總結：光譜的互補性</div>
-            <p style="color:#aaa; font-size: 1.1rem; margin-bottom:20px;">仔細觀察：發射光譜的亮線，是否剛好填補了吸收光譜的缺口？</p>
+            <div class="comp-title">光譜的互補性 (氫)</div>
+            <p style="color:#aaa; font-size: 0.9rem; margin-bottom:15px;">觀察：氫原子的發射亮線是否填補了吸收暗線？</p>
             <div class="comp-container">
                 <div class="comp-row">
                     <div class="comp-label">發射光譜<br>(明線)</div>
@@ -151,25 +168,25 @@
             
             <div class="btn-group">
                 <button class="restart-btn-big" onclick="fullRestart()">↺ 重新開始</button>
-                <button class="close-btn-big" onclick="closeModal()">✕ 關閉視窗</button>
+                <button class="close-btn-big" onclick="closeModal()">✕ 關閉</button>
             </div>
         </div>
     </div>
 
-    <button class="mini-reset" onclick="fullRestart()">↺ 重置實驗</button>
+    <button class="mini-reset" onclick="fullRestart()">↺ 重置</button>
 
     <header>
-        <div class="mission-text" id="missionText">任務 1/3：製作連續光譜 (熱輻射)</div>
+        <div class="mission-text" id="missionText">任務 1/3：製作連續光譜</div>
         <button class="btn-next" id="nextBtn" onclick="nextLevel()">任務成功！下一關</button>
     </header>
 
     <div class="main-workspace">
         <div id="element-selector">
-            <label>🧪 氣體元素：</label>
+            <label>🧪</label>
             <select id="gasTypeSelect" onchange="changeElement(this.value)">
-                <option value="He">氦 (He) - 預設</option>
+                <option value="H">氫 (H) - 預設</option>
+                <option value="He">氦 (He)</option>
                 <option value="Ne">氖 (Ne)</option>
-                <option value="H">氫 (H)</option>
                 <option value="Hg">汞 (Hg)</option>
             </select>
         </div>
@@ -179,17 +196,18 @@
         </div>
         
         <div class="sidebar">
-            <div class="sidebar-title">實驗器材庫</div>
+            <div class="sidebar-title">器材庫</div>
             <div class="tool-slot" onmousedown="initDrag(event, 'bulb', 'sidebar')" ontouchstart="initDrag(event, 'bulb', 'sidebar')" data-label="燈泡"><span>💡</span></div>
             <div class="tool-slot" onmousedown="initDrag(event, 'tube', 'sidebar')" ontouchstart="initDrag(event, 'tube', 'sidebar')" data-label="放電管"><span>🧪</span></div>
             <div class="tool-slot" onmousedown="initDrag(event, 'gas', 'sidebar')" ontouchstart="initDrag(event, 'gas', 'sidebar')" data-label="冷氣體"><span>☁️</span></div>
             <div class="tool-slot" onmousedown="initDrag(event, 'prism', 'sidebar')" ontouchstart="initDrag(event, 'prism', 'sidebar')" data-label="三稜鏡"><span>🔺</span></div>
             <div class="tool-slot" onmousedown="initDrag(event, 'screen', 'sidebar')" ontouchstart="initDrag(event, 'screen', 'sidebar')" data-label="屏幕"><span>⬜</span></div>
+            <div style="height: 20px; flex-shrink: 0;"></div>
         </div>
     </div>
 
     <div class="gallery-bar" id="gallery">
-        <div style="color:#555; font-size:0.9rem; font-weight:bold;">光譜收集區 ▶</div>
+        <div style="color:#555; font-size:0.8rem; font-weight:bold; white-space:nowrap;">蒐集區 ▶</div>
     </div>
 
     <div id="ghost" class="ghost-item"></div>
@@ -197,6 +215,11 @@
     <script>
         // --- 元素數據庫 ---
         const elementsData = {
+            'H': { 
+                name: '氫 (H)', color: '#E6E6FA', glow: 'rgba(230, 230, 250, 0.8)',
+                // 巴耳末系四條可見光：紅、青、藍、紫
+                lines: [0.15, 0.28, 0.45, 0.85] 
+            },
             'He': { 
                 name: '氦 (He)', color: '#FFD700', glow: 'rgba(255, 215, 0, 0.8)',
                 lines: [0.15, 0.22, 0.40, 0.45, 0.65, 0.88] 
@@ -205,10 +228,6 @@
                 name: '氖 (Ne)', color: '#FF4500', glow: 'rgba(255, 69, 0, 0.8)',
                 lines: [0.65, 0.68, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] 
             },
-            'H': { 
-                name: '氫 (H)', color: '#E6E6FA', glow: 'rgba(230, 230, 250, 0.8)',
-                lines: [0.15, 0.28, 0.45, 0.85] 
-            },
             'Hg': { 
                 name: '汞 (Hg)', color: '#00FFFF', glow: 'rgba(0, 255, 255, 0.8)',
                 lines: [0.10, 0.15, 0.35, 0.55, 0.60] 
@@ -216,7 +235,7 @@
         };
 
         // --- 全域狀態 ---
-        let currentElementKey = 'He';
+        let currentElementKey = 'H'; // 預設改為氫
         const canvas = document.getElementById('mainCanvas');
         const ctx = canvas.getContext('2d');
         const wrapper = document.getElementById('canvasWrapper');
@@ -225,16 +244,12 @@
         let isLevelComplete = false;
         let frame = 0;
 
-        // Slot 配置 (位置更緊湊 x 座標集中，尺寸加大 w/h)
+        // Slot 配置
         const slots = [
-            // id 0: 光源 (從 0.20 移到 0.15)
-            { id: 0, x: 0.15, y: 0.5, w: 110, h: 110, label: "光源區", accept: ['bulb', 'tube'], item: null },
-            // id 1: 介質 (從 0.38 移到 0.35)
-            { id: 1, x: 0.35, y: 0.5, w: 110, h: 110, label: "介質區", accept: ['gas'], item: null },
-            // id 2: 稜鏡 (從 0.56 移到 0.55)
-            { id: 2, x: 0.55, y: 0.5, w: 110, h: 110, label: "分光區", accept: ['prism'], item: null },
-            // id 3: 屏幕 (保持在 0.85)
-            { id: 3, x: 0.85, y: 0.5, w: 40, h: 200, label: "屏幕區", accept: ['screen'], item: null }
+            { id: 0, x: 0.18, y: 0.5, w: 90, h: 90, label: "光源", accept: ['bulb', 'tube'], item: null },
+            { id: 1, x: 0.38, y: 0.5, w: 90, h: 90, label: "介質", accept: ['gas'], item: null },
+            { id: 2, x: 0.58, y: 0.5, w: 90, h: 90, label: "分光", accept: ['prism'], item: null },
+            { id: 3, x: 0.85, y: 0.5, w: 40, h: 180, label: "屏幕", accept: ['screen'], item: null }
         ];
 
         function resize() {
@@ -245,33 +260,36 @@
         }
         window.addEventListener('resize', resize);
         setTimeout(resize, 100);
+        setTimeout(resize, 500);
 
         // --- 拖曳系統 ---
         let dragInfo = { active: false, type: null, source: null };
         const ghost = document.getElementById('ghost');
 
         function initDrag(e, type, source) {
-            e.preventDefault();
+            if (e.cancelable) e.preventDefault();
             dragInfo = { active: true, type, source };
             const icons = { 'bulb': '💡', 'tube': '🧪', 'gas': '☁️', 'prism': '🔺', 'screen': '⬜' };
             ghost.innerText = icons[type];
             ghost.style.display = 'block';
             moveGhost(e);
             
-            ['mousemove', 'touchmove'].forEach(ev => document.addEventListener(ev, moveGhost, {passive:false}));
-            ['mouseup', 'touchend'].forEach(ev => document.addEventListener(ev, endDrag));
+            document.addEventListener('mousemove', moveGhost);
+            document.addEventListener('touchmove', moveGhost, {passive: false});
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
         }
 
         canvas.addEventListener('mousedown', onCanvasInteract);
-        canvas.addEventListener('touchstart', onCanvasInteract, {passive:false});
+        canvas.addEventListener('touchstart', onCanvasInteract, {passive: false});
 
         function onCanvasInteract(e) {
             if (dragInfo.active) return;
             const {x, y} = getCoords(e);
             slots.forEach((s, idx) => {
                 const sx = s.x*width, sy = s.y*height;
-                // 判定範圍隨器材變大
-                if(s.item && Math.abs(x-sx) < s.w/2+10 && Math.abs(y-sy) < s.h/2+10) {
+                if(s.item && Math.abs(x-sx) < s.w/2+15 && Math.abs(y-sy) < s.h/2+15) {
+                    if (e.cancelable) e.preventDefault();
                     const type = s.item;
                     s.item = null;
                     initDrag(e, type, idx);
@@ -281,21 +299,22 @@
         }
 
         function moveGhost(e) {
-            e.preventDefault();
+            if (e.cancelable) e.preventDefault();
             const {cx, cy} = getClientCoords(e);
             ghost.style.left = cx + 'px';
             ghost.style.top = cy + 'px';
         }
 
         function endDrag(e) {
-            ['mousemove', 'touchmove', 'mouseup', 'touchend'].forEach(ev => document.removeEventListener(ev, arguments.callee));
             document.removeEventListener('mousemove', moveGhost); 
             document.removeEventListener('touchmove', moveGhost);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchend', endDrag);
             
             const {x, y} = getCoords(e);
             slots.forEach(s => {
                 const sx = s.x*width, sy = s.y*height;
-                if(Math.abs(x-sx) < s.w/2+20 && Math.abs(y-sy) < s.h/2+20) {
+                if(Math.abs(x-sx) < s.w/2+25 && Math.abs(y-sy) < s.h/2+25) {
                     if(s.accept.includes(dragInfo.type)) {
                         s.item = dragInfo.type;
                     }
@@ -323,6 +342,7 @@
         function changeElement(val) {
             currentElementKey = val;
             updatePhysics();
+            checkMission(); // 切換元素後重新檢查任務狀態
         }
 
         // --- 物理引擎 ---
@@ -360,11 +380,12 @@
             
             slots.forEach(s => {
                 const cx = s.x*width, cy = s.y*height;
-                // 底座變大
+                let scale = (height < 500) ? 0.8 : 1.0; 
+                ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
                 ctx.strokeStyle = "#444"; ctx.fillStyle = "#1a1a1a";
-                ctx.beginPath(); ctx.ellipse(cx, cy+s.h/2-10, s.w/2, 12, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-                // 標籤字體變大
-                ctx.fillStyle = "#666"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.fillText(s.label, cx, cy+s.h/2+20);
+                ctx.beginPath(); ctx.ellipse(0, s.h/2-10, s.w/2, 10, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#666"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.fillText(s.label, 0, s.h/2+20);
+                ctx.restore();
             });
 
             if(physics.hasSource) drawLightSystem();
@@ -384,14 +405,13 @@
             let sourceColor = 'rgba(255,255,255,0.9)';
             if (physics.sourceType === 'emission') sourceColor = elementsData[currentElementKey].glow;
 
-            let beamW = 5; // 光束變粗
-
-            let t1 = physics.hasGas ? {x:p1.x-40,y:p1.y} : (physics.hasPrism?{x:p2.x-40,y:p2.y} : (physics.hasScreen?p3:{x:width,y:p0.y}));
+            let beamW = 4;
+            let t1 = physics.hasGas ? {x:p1.x-30,y:p1.y} : (physics.hasPrism?{x:p2.x-30,y:p2.y} : (physics.hasScreen?p3:{x:width,y:p0.y}));
             drawBeam(p0, t1, sourceColor, beamW);
 
             if(physics.hasGas) {
-                let start = {x:p1.x+40, y:p1.y};
-                let t2 = physics.hasPrism?{x:p2.x-40,y:p2.y} : (physics.hasScreen?p3:{x:width,y:start.y});
+                let start = {x:p1.x+30, y:p1.y};
+                let t2 = physics.hasPrism?{x:p2.x-30,y:p2.y} : (physics.hasScreen?p3:{x:width,y:start.y});
                 drawBeam(start, t2, sourceColor, beamW);
             }
 
@@ -414,12 +434,12 @@
             ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
             ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke();
             ctx.globalCompositeOperation = 'lighter';
-            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.setLineDash([15, 30]); ctx.lineDashOffset = -frame*3;
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.setLineDash([10, 20]); ctx.lineDashOffset = -frame*2;
             ctx.stroke(); ctx.setLineDash([]); ctx.globalCompositeOperation = 'source-over';
         }
 
         function drawSpectrumFan(origin, targetX, targetY, isAbsorption) {
-            const spread = 80; // 扇形變大
+            const spread = (height < 500) ? 50 : 70;
             const topY = targetY - spread;
             const botY = targetY + spread;
 
@@ -436,20 +456,20 @@
                 lines.forEach(pos => {
                     let lineY = topY + pos * (botY - topY);
                     ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(targetX, lineY);
-                    ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 3; ctx.stroke();
+                    ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 2; ctx.stroke();
                 });
             }
         }
 
         function drawEmissionFan(origin, targetX, targetY) {
-            const spread = 80;
+            const spread = (height < 500) ? 50 : 70;
             const topY = targetY - spread;
             const botY = targetY + spread;
             const lines = elementsData[currentElementKey].lines;
             lines.forEach(pos => {
                 let lineY = topY + pos * (botY - topY);
                 ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(targetX, lineY);
-                ctx.strokeStyle = getWavelengthColor(pos); ctx.lineWidth = 4; ctx.stroke();
+                ctx.strokeStyle = getWavelengthColor(pos); ctx.lineWidth = 3; ctx.stroke();
             });
         }
 
@@ -461,8 +481,7 @@
 
         function drawRealItem(type, x, y) {
             ctx.save(); ctx.translate(x, y);
-            // 放大 1.3 倍
-            ctx.scale(1.3, 1.3);
+            let s = (height < 500) ? 1.0 : 1.3; ctx.scale(s, s);
 
             if(type==='bulb') {
                 ctx.fillStyle="#444"; ctx.fillRect(-15,30,30,15);
@@ -492,7 +511,6 @@
             renderSpectrum(ctx, x, y, w, h, physics.result, currentElementKey);
         }
 
-        // --- 通用光譜渲染 ---
         function renderSpectrum(targetCtx, x, y, w, h, type, elementKey) {
             if(type === 'continuous' || type === 'absorption') {
                 let g = targetCtx.createLinearGradient(0, y, 0, y+h);
@@ -526,17 +544,18 @@
             if(isLevelComplete) return;
             let success = false;
             if(level===1 && physics.result==='continuous') success=true;
-            if(level===2 && physics.result==='emission' && currentElementKey==='He') success=true;
-            if(level===3 && physics.result==='absorption' && currentElementKey==='He') success=true;
+            // 任務判定改為檢查 'H'
+            if(level===2 && physics.result==='emission' && currentElementKey==='H') success=true;
+            if(level===3 && physics.result==='absorption' && currentElementKey==='H') success=true;
             
             if(success) {
                 isLevelComplete = true;
                 const btn = document.getElementById('nextBtn');
                 btn.style.display = 'block';
                 if(level===3) {
-                    btn.innerText = "完成實驗！查看總結";
+                    btn.innerText = "總結";
                 } else {
-                    btn.innerText = "任務成功！下一關";
+                    btn.innerText = "下一關";
                 }
                 takeSnapshot();
             }
@@ -554,8 +573,9 @@
             updatePhysics();
 
             const txt = document.getElementById('missionText');
-            if(level===2) txt.innerText = "任務 2/3：製作「氦」的發射光譜 (明線)";
-            if(level===3) txt.innerText = "任務 3/3：製作「氦」的吸收光譜 (暗線)";
+            // 任務文字改為氫
+            if(level===2) txt.innerText = "任務 2：氫發射光譜";
+            if(level===3) txt.innerText = "任務 3：氫吸收光譜";
         }
 
         function takeSnapshot() {
@@ -565,34 +585,34 @@
             
             const snapCvs = document.createElement('canvas');
             snapCvs.className = 'snapshot-canvas';
-            snapCvs.width = 130; snapCvs.height = 35;
+            snapCvs.width = 90; snapCvs.height = 25;
             const sCtx = snapCvs.getContext('2d');
             
             if(physics.result === 'continuous' || physics.result === 'absorption') {
-                let g = sCtx.createLinearGradient(0, 0, 130, 0);
+                let g = sCtx.createLinearGradient(0, 0, 90, 0);
                 g.addColorStop(0, "rgb(148,0,211)"); g.addColorStop(0.2, "blue");
                 g.addColorStop(0.4, "green"); g.addColorStop(0.6, "yellow");
                 g.addColorStop(0.8, "orange"); g.addColorStop(1, "red");
-                sCtx.fillStyle = g; sCtx.fillRect(0,0,130,35);
+                sCtx.fillStyle = g; sCtx.fillRect(0,0,90,25);
             } else {
-                sCtx.fillStyle = "black"; sCtx.fillRect(0,0,130,35);
+                sCtx.fillStyle = "black"; sCtx.fillRect(0,0,90,25);
             }
             if(physics.result === 'absorption' || physics.result === 'emission') {
                 const lines = elementsData[currentElementKey].lines;
                 lines.forEach(pos => {
-                    let lx = pos * 130;
+                    let lx = pos * 90;
                     if(physics.result === 'absorption') sCtx.fillStyle = "black";
                     else sCtx.fillStyle = getWavelengthColor(pos);
-                    sCtx.fillRect(lx-1, 0, 3, 35);
+                    sCtx.fillRect(lx-1, 0, 3, 25);
                 });
             }
 
             const label = document.createElement('div');
             label.className = 'snapshot-label';
             if(physics.result === 'continuous') {
-                label.innerText = "連續光譜 (熱輻射)";
+                label.innerText = "連續光譜";
             } else {
-                label.innerText = (physics.result==='emission'?'發射':'吸收') + ` (${currentElementKey})`;
+                label.innerText = (physics.result==='emission'?'發射':'吸收') + `-${currentElementKey}`;
             }
 
             card.appendChild(snapCvs);
@@ -606,16 +626,19 @@
             const modal = document.getElementById('comparison-modal');
             modal.style.display = 'flex';
             setTimeout(() => modal.style.opacity = 1, 10);
+            
+            const w = Math.min(300, window.innerWidth - 60);
 
             const cvsE = document.getElementById('finalEmission');
-            cvsE.width = 350; cvsE.height = 60;
+            cvsE.width = w; cvsE.height = 40;
             const ctxE = cvsE.getContext('2d');
-            drawHorizontalSpectrum(ctxE, 350, 60, 'emission', 'He');
+            // 使用 H 作為總結
+            drawHorizontalSpectrum(ctxE, w, 40, 'emission', 'H');
 
             const cvsA = document.getElementById('finalAbsorption');
-            cvsA.width = 350; cvsA.height = 60;
+            cvsA.width = w; cvsA.height = 40;
             const ctxA = cvsA.getContext('2d');
-            drawHorizontalSpectrum(ctxA, 350, 60, 'absorption', 'He');
+            drawHorizontalSpectrum(ctxA, w, 40, 'absorption', 'H');
         }
 
         function drawHorizontalSpectrum(ctx, w, h, type, element) {
@@ -643,9 +666,8 @@
             const modal = document.getElementById('comparison-modal');
             modal.style.opacity = 0;
             setTimeout(() => modal.style.display = 'none', 500);
-            
             document.getElementById('nextBtn').style.display = 'none';
-            document.getElementById('missionText').innerText = "🎉 任務全數完成！請自由探索";
+            document.getElementById('missionText').innerText = "🎉 請自由探索";
         }
 
         function fullRestart() {
@@ -656,11 +678,13 @@
             level = 1;
             isLevelComplete = false;
             slots.forEach(s => s.item = null);
-            document.getElementById('gallery').innerHTML = '<div style="color:#555; font-size:0.9rem; font-weight:bold;">光譜收集區 ▶</div>';
-            document.getElementById('missionText').innerText = "任務 1/3：製作連續光譜 (熱輻射)";
+            document.getElementById('gallery').innerHTML = '<div style="color:#555; font-size:0.8rem; font-weight:bold; white-space:nowrap;">蒐集區 ▶</div>';
+            document.getElementById('missionText').innerText = "任務 1/3：製作連續光譜";
             document.getElementById('nextBtn').style.display = 'none';
-            currentElementKey = 'He';
-            document.getElementById('gasTypeSelect').value = 'He';
+            
+            // 重置為氫 (H)
+            currentElementKey = 'H';
+            document.getElementById('gasTypeSelect').value = 'H';
             updatePhysics();
         }
     </script>
