@@ -541,7 +541,7 @@
         drawPhoton();
     }
 
-    // --- 繪製能階圖 (右側 - 修正文字重疊) ---
+    // --- 繪製能階圖 (右側 - 修正文字重疊與高亮) ---
     function drawEnergyChart() {
         const w = energyCanvas.width;
         const h = energyCanvas.height;
@@ -567,26 +567,16 @@
                 n: n, 
                 ev: ev, 
                 y: y, 
-                labelY: y // 初始標籤位置等於線的位置
+                labelY: y 
             });
         }
 
         // 2. 解決標籤重疊 (Smart Label Spacing)
-        // 因為 n=5 在最上面 (Y最小)，n=1 在最下面 (Y最大)。
-        // 我們從最上面 (n=5) 開始往下檢查，如果下面的標籤太靠近上面的，就把它往下推。
-        
-        const minGap = 18; // 標籤之間的最小像素距離
-
-        // 陣列是 n=1,2,3,4,5。對應 linesData[0]...linesData[4]。
-        // linesData[4] 是 n=5 (Top)。
-        // 我們從 linesData[3] (n=4) 開始往下遍歷到 linesData[0] (n=1)。
-        
+        const minGap = 18; 
         for (let i = maxN - 2; i >= 0; i--) { 
-            const upperItem = linesData[i+1]; // 視覺上在上面的那個 (n較大)
-            const currentItem = linesData[i]; // 當前要處理的 (n較小)
+            const upperItem = linesData[i+1]; 
+            const currentItem = linesData[i]; 
             
-            // 如果當前標籤的Y < 上面標籤的Y + 間距，代表太近或重疊了
-            // (注意 canvas Y 往下是變大)
             if (currentItem.labelY < upperItem.labelY + minGap) {
                 currentItem.labelY = upperItem.labelY + minGap;
             }
@@ -595,20 +585,29 @@
         // 3. 繪製線條與標籤
         linesData.forEach(item => {
             const { n, ev, y, labelY } = item;
+            const isCurrent = (n === currentN && !isTransitioning);
 
             // A. 畫物理上的能階線 (位置不變)
             energyCtx.beginPath();
             energyCtx.moveTo(padLeft, y);
             energyCtx.lineTo(w - padRight, y);
             
-            const isCurrent = (n === currentN && !isTransitioning);
             energyCtx.strokeStyle = isCurrent ? '#4a90e2' : '#ccc';
             energyCtx.lineWidth = isCurrent ? 2 : 1;
             energyCtx.stroke();
 
-            // B. 畫標籤 (位置可能被推移)
-            energyCtx.fillStyle = '#666';
-            energyCtx.font = "12px Arial";
+            // B. 畫標籤 (設定高亮樣式)
+            if (isCurrent) {
+                energyCtx.fillStyle = '#4a90e2';
+                energyCtx.font = "bold 14px Arial"; // 加粗放大
+                energyCtx.shadowColor = '#4a90e2';
+                energyCtx.shadowBlur = 10; // 發光效果
+            } else {
+                energyCtx.fillStyle = '#666';
+                energyCtx.font = "12px Arial";
+                energyCtx.shadowBlur = 0;
+                energyCtx.shadowColor = 'transparent';
+            }
             
             // 檢查是否有位移，如果有，畫引導線
             const isShifted = Math.abs(labelY - y) > 2;
@@ -617,6 +616,8 @@
                 energyCtx.beginPath();
                 energyCtx.strokeStyle = '#eee';
                 energyCtx.lineWidth = 1;
+                // 引導線不需要發光
+                energyCtx.shadowBlur = 0; 
                 
                 // 左側引導線 (n=...)
                 energyCtx.moveTo(padLeft - 2, y); 
@@ -629,6 +630,9 @@
                 energyCtx.lineTo(w - padRight + 8, labelY);
                 energyCtx.stroke();
                 
+                // 恢復可能的發光效果 (雖然 stroke 已經畫完了，但為了保險起見，如果是 current 仍保持設定給 fillText)
+                if(isCurrent) energyCtx.shadowBlur = 10;
+
                 // 文字位置調整
                 energyCtx.textAlign = 'right';
                 energyCtx.textBaseline = 'middle';
@@ -645,6 +649,10 @@
                 energyCtx.textAlign = 'left';
                 energyCtx.fillText(`${ev.toFixed(2)}eV`, w - padRight + 5, y);
             }
+            
+            // 重置陰影，避免影響下一個循環 (雖然有 else，但安全起見)
+            energyCtx.shadowBlur = 0;
+            energyCtx.shadowColor = 'transparent';
         });
 
         // 頂部 0eV 標示
@@ -657,11 +665,13 @@
         energyCtx.stroke();
         energyCtx.setLineDash([]);
         energyCtx.fillStyle = '#aaa';
+        energyCtx.font = "12px Arial"; // 確保這邊字體重置
+        energyCtx.shadowBlur = 0;
         energyCtx.textAlign = 'left';
         energyCtx.fillText("0eV", w - padRight + 5, yZero);
 
 
-        // 4. 畫電子點 (電子要跟隨「物理」線條，而不是標籤)
+        // 4. 畫電子點
         let displayEnergy = getEnergy(currentN);
         
         if (isTransitioning) {
