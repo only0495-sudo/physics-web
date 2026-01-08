@@ -42,7 +42,7 @@
             border-right: 1px solid #eee;
         }
 
-        canvas {
+        #atomCanvas {
             display: block;
             width: 100%;
             height: 100%;
@@ -128,19 +128,34 @@
             padding: 25px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            overflow-y: auto; 
             box-shadow: -5px 0 15px rgba(0,0,0,0.02);
             z-index: 10;
-            min-width: 300px;
+            min-width: 320px;
         }
 
-        h1 { margin: 0 0 15px 0; font-size: 1.6rem; color: #2c3e50; text-align: center;}
+        h1 { margin: 0 0 10px 0; font-size: 1.5rem; color: #2c3e50; text-align: center;}
+
+        /* 能階圖 Canvas */
+        .energy-chart-container {
+            width: 100%;
+            height: 220px; /* 固定高度 */
+            background: #fff;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+        #energyCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
 
         /* 數據顯示面板 */
         .info-card {
             background: var(--panel-bg);
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             margin-bottom: 20px;
             border-left: 5px solid var(--accent-color);
         }
@@ -148,26 +163,26 @@
         .info-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 1rem;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
         }
         .info-label { color: #7f8c8d; }
-        .info-value { font-weight: bold; color: #2c3e50; font-family: monospace; font-size: 1.1rem; }
+        .info-value { font-weight: bold; color: #2c3e50; font-family: monospace; font-size: 1.05rem; }
         
         .main-status {
             text-align: center;
-            font-size: 1.2rem;
-            margin-bottom: 15px;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
             font-weight: bold;
             color: #333;
             min-height: 1.5em;
         }
 
-        .button-group { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
+        .button-group { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
 
         button.action-btn {
-            padding: 18px;
-            font-size: 1.1rem;
+            padding: 15px;
+            font-size: 1rem;
             border: none;
             border-radius: 10px;
             cursor: pointer;
@@ -191,14 +206,13 @@
         /* RWD: 手機直立模式 */
         @media (max-width: 768px) {
             .main-container { flex-direction: column; }
-            .canvas-area { flex: 1.5; border-right: none; border-bottom: 1px solid #eee; }
+            .canvas-area { flex: 1; border-right: none; border-bottom: 1px solid #eee; min-height: 50vh; }
             .controls-area { flex: 1; padding: 15px; border-radius: 20px 20px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
             .button-group { flex-direction: row; }
             button.action-btn { flex: 1; padding: 12px; font-size: 1rem; }
             h1 { font-size: 1.3rem; margin-bottom: 10px; }
             .info-card { padding: 12px; margin-bottom: 10px; }
-            .mode-switch-container { top: 10px; right: 10px; padding: 5px 10px; transform: scale(0.9); transform-origin: right top; }
-            .zoom-controls { bottom: 10px; left: 10px; transform: scale(0.9); transform-origin: left bottom; }
+            .energy-chart-container { height: 180px; }
         }
     </style>
 </head>
@@ -230,6 +244,11 @@
             電子位於 n = 1 (基態)
         </div>
 
+        <!-- 能階圖區域 -->
+        <div class="energy-chart-container">
+            <canvas id="energyCanvas"></canvas>
+        </div>
+
         <div class="info-card">
             <div class="info-row">
                 <span class="info-label">能階變化</span>
@@ -255,15 +274,19 @@
         </div>
         
         <p style="text-align: center; color: #aaa; font-size: 0.8rem; margin-top: 15px;">
-            滑鼠滾輪可縮放 | r ∝ n² | E = -13.6/n² eV
+            滑鼠滾輪可縮放 | E = -13.6/n² eV
         </p>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('atomCanvas');
-    const ctx = canvas.getContext('2d');
-    const container = document.getElementById('canvasContainer');
+    const atomCanvas = document.getElementById('atomCanvas');
+    const atomCtx = atomCanvas.getContext('2d');
+    const atomContainer = document.getElementById('canvasContainer');
+
+    const energyCanvas = document.getElementById('energyCanvas');
+    const energyCtx = energyCanvas.getContext('2d');
+    const energyContainer = document.querySelector('.energy-chart-container');
     
     // ===== 物理常數與參數 =====
     let currentN = 1;
@@ -271,25 +294,29 @@
     const maxN = 5;
     
     // 顯示與動畫狀態
-    let scaleFactor = 1.0; // 縮放倍率
+    let scaleFactor = 1.0; 
     let transitionProgress = 0;
     let isTransitioning = false;
     let electronAngle = 0;
-    let wavePhase = 0; // 駐波的相位動畫用
-    let showWaveMode = false; // 是否顯示為駐波
-    let photon = null; // 光子物件
+    let wavePhase = 0; 
+    let showWaveMode = false;
+    let photon = null; 
 
     // ===== 初始化與視窗處理 =====
     function resizeCanvas() {
-        const rect = container.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
+        const rect = atomContainer.getBoundingClientRect();
+        atomCanvas.width = rect.width;
+        atomCanvas.height = rect.height;
+
+        const eRect = energyContainer.getBoundingClientRect();
+        energyCanvas.width = eRect.width;
+        energyCanvas.height = eRect.height;
     }
     window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 100);
     resizeCanvas();
 
-    // 滾輪縮放監聽
-    container.addEventListener('wheel', (e) => {
+    atomContainer.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
         adjustZoom(delta);
@@ -297,7 +324,6 @@
 
     function adjustZoom(delta) {
         scaleFactor += delta;
-        // 限制縮放範圍，避免太大或太小
         scaleFactor = Math.max(0.4, Math.min(scaleFactor, 2.5));
     }
 
@@ -307,24 +333,19 @@
 
     // ===== 核心邏輯 =====
 
-    // 取得畫布中心
     function getCenter() {
-        return { x: canvas.width / 2, y: canvas.height / 2 };
+        return { x: atomCanvas.width / 2, y: atomCanvas.height / 2 };
     }
 
-    // 計算基底半徑 (確保 n=5 在預設縮放下能顯示)
     function getBaseRadius() {
-        const minDim = Math.min(canvas.width, canvas.height);
-        // n=5時 r=25*baseR，預留空間，除以縮放因子讓縮放以中心為基準
+        const minDim = Math.min(atomCanvas.width, atomCanvas.height);
         return (minDim / 2 * 0.85) / 25 * scaleFactor;
     }
 
-    // 計算能階能量 (eV)
     function getEnergy(n) {
         return -13.6 / (n * n);
     }
 
-    // 更新數據面板
     function updateInfoPanel(nOld, nNew) {
         if (nOld === nNew) {
             document.getElementById('dispDeltaN').innerText = "-";
@@ -336,65 +357,54 @@
         const deltaN = Math.abs(nNew - nOld);
         const eOld = getEnergy(nOld);
         const eNew = getEnergy(nNew);
-        const deltaE = Math.abs(eNew - eOld); // eV
+        const deltaE = Math.abs(eNew - eOld); 
         
-        // 能量 = 1240 / 波長(nm) => 波長 = 1240 / 能量
         const wavelength = 1240 / deltaE;
 
-        // 更新 UI
         document.getElementById('dispDeltaN').innerText = `${nOld} ➝ ${nNew}`;
         document.getElementById('dispEnergy').innerText = `${deltaE.toFixed(2)} eV`;
         
-        // 判斷光區
         let waveText = `${Math.round(wavelength)} nm`;
         let rangeText = "";
         if (wavelength < 400) rangeText = "(紫外光)";
         else if (wavelength > 700) rangeText = "(紅外光)";
         else rangeText = "(可見光)";
 
-        document.getElementById('dispWavelength').innerText = `${waveText} ${rangeText}`;
-        document.getElementById('dispWavelength').style.color = getPhotonColor(wavelength);
+        const wlElem = document.getElementById('dispWavelength');
+        wlElem.innerText = `${waveText} ${rangeText}`;
+        wlElem.style.color = getPhotonColor(wavelength);
     }
 
-    // 根據波長取得顏色
     function getPhotonColor(lambda) {
-        if (lambda < 400) return '#9b59b6'; // 紫 (UV)
-        if (lambda > 700) return '#e74c3c'; // 紅 (IR)
-        // 簡單的可見光譜映射
-        if (lambda >= 400 && lambda < 450) return '#8e44ad'; // 紫
-        if (lambda >= 450 && lambda < 490) return '#2980b9'; // 藍
-        if (lambda >= 490 && lambda < 560) return '#27ae60'; // 綠
-        if (lambda >= 560 && lambda < 590) return '#f1c40f'; // 黃
-        if (lambda >= 590 && lambda < 635) return '#e67e22'; // 橘
-        return '#c0392b'; // 紅
+        if (lambda < 400) return '#9b59b6';
+        if (lambda > 700) return '#e74c3c';
+        if (lambda >= 400 && lambda < 450) return '#8e44ad';
+        if (lambda >= 450 && lambda < 490) return '#2980b9';
+        if (lambda >= 490 && lambda < 560) return '#27ae60';
+        if (lambda >= 560 && lambda < 590) return '#f1c40f';
+        if (lambda >= 590 && lambda < 635) return '#e67e22';
+        return '#c0392b';
     }
 
     // ===== 操作邏輯 =====
 
-    // 給予能量 (吸收)
     function absorbEnergy() {
         if (isTransitioning || currentN >= maxN) return;
         
         const next = currentN + 1;
         startTransition(currentN, next);
         
-        // 狀態文字
         const status = document.getElementById('statusMessage');
         status.innerHTML = `吸收能量... <span style="color:var(--btn-absorb)">▲</span>`;
-        
         updateInfoPanel(currentN, next);
     }
 
-    // 釋放能量 (發射) - 隨機機制
     function releaseEnergy() {
         if (isTransitioning || currentN <= 1) return;
 
-        // 隨機選擇一個比現在低的能階
-        // 例如 currentN=4, 可選 1, 2, 3
-        // Math.random() * (4-1) -> 0~2.99 -> floor -> 0,1,2 -> +1 -> 1,2,3
         const possibleTargets = currentN - 1;
         const randomDelta = Math.floor(Math.random() * possibleTargets); 
-        const next = (currentN - 1) - randomDelta; // 確保一定比 current 小
+        const next = (currentN - 1) - randomDelta;
 
         startTransition(currentN, next);
 
@@ -402,10 +412,8 @@
         const lambda = 1240 / eDiff;
         const color = getPhotonColor(lambda);
 
-        // 狀態文字
         const status = document.getElementById('statusMessage');
         status.innerHTML = `釋放能量! <span style="color:${color}">▼ ${Math.round(lambda)}nm</span>`;
-
         updateInfoPanel(currentN, next);
     }
 
@@ -418,12 +426,10 @@
     }
 
     function updateButtons() {
-        // 躍遷中鎖定按鈕
         const lock = isTransitioning;
         document.getElementById('btnAbsorb').disabled = lock || (targetN >= maxN);
         document.getElementById('btnEmit').disabled = lock || (targetN <= 1);
         
-        // 如果躍遷結束，更新狀態文字
         if (!lock) {
             const status = document.getElementById('statusMessage');
             status.innerText = `電子位於 n = ${currentN} ` + (currentN===1?"(基態)":"(受激態)");
@@ -431,182 +437,299 @@
     }
 
     // ===== 繪圖迴圈 =====
+
     function draw() {
+        drawAtom();
+        drawEnergyChart();
+        requestAnimationFrame(draw);
+    }
+
+    // --- 繪製原子模型 (左側) ---
+    function drawAtom() {
         const { x: cx, y: cy } = getCenter();
         const baseR = getBaseRadius();
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        atomCtx.clearRect(0, 0, atomCanvas.width, atomCanvas.height);
 
-        // 1. 畫原子核
-        ctx.beginPath();
-        ctx.arc(cx, cy, 8 * scaleFactor, 0, Math.PI * 2); // 核也隨縮放微調
-        ctx.fillStyle = '#ff4757';
-        ctx.fill();
-        ctx.fillStyle = 'white';
-        ctx.font = `${12 * scaleFactor}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('+', cx, cy);
+        // 核
+        atomCtx.beginPath();
+        atomCtx.arc(cx, cy, 8 * scaleFactor, 0, Math.PI * 2);
+        atomCtx.fillStyle = '#ff4757';
+        atomCtx.fill();
+        atomCtx.fillStyle = 'white';
+        atomCtx.font = `${12 * scaleFactor}px Arial`;
+        atomCtx.textAlign = 'center';
+        atomCtx.textBaseline = 'middle';
+        atomCtx.fillText('+', cx, cy);
 
-        // 2. 畫軌道
+        // 軌道
         for (let n = 1; n <= maxN; n++) {
             const r = baseR * n * n;
-            ctx.beginPath();
-            ctx.arc(cx, cy, r, 0, Math.PI * 2);
-            ctx.strokeStyle = (n === currentN && !isTransitioning) ? '#4a90e2' : '#ddd';
-            ctx.lineWidth = 1.5;
+            atomCtx.beginPath();
+            atomCtx.arc(cx, cy, r, 0, Math.PI * 2);
+            atomCtx.strokeStyle = (n === currentN && !isTransitioning) ? '#4a90e2' : '#ddd';
+            atomCtx.lineWidth = 1.5;
             
-            // 虛線標示
-            if (n > 1) ctx.setLineDash([5, 5]);
-            else ctx.setLineDash([]);
+            if (n > 1) atomCtx.setLineDash([5, 5]);
+            else atomCtx.setLineDash([]);
             
-            ctx.stroke();
-            ctx.setLineDash([]);
+            atomCtx.stroke();
+            atomCtx.setLineDash([]);
 
-            // 標示 n 值 (畫在軌道下方)
-            ctx.fillStyle = '#aaa';
-            ctx.font = `${10 * scaleFactor}px Arial`;
-            ctx.fillText(`n=${n}`, cx, cy + r + (12 * scaleFactor));
+            atomCtx.fillStyle = '#aaa';
+            atomCtx.font = `${10 * scaleFactor}px Arial`;
+            atomCtx.fillText(`n=${n}`, cx, cy + r + (12 * scaleFactor));
         }
 
-        // 3. 計算電子/駐波半徑
+        // 計算電子狀態
         let rCurrent = baseR * currentN * currentN;
         
         if (isTransitioning) {
             const rTarget = baseR * targetN * targetN;
-            // 緩動函數 ease-in-out
             const t = transitionProgress;
             const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
             rCurrent = rCurrent + (rTarget - rCurrent) * ease;
             
-            transitionProgress += 0.03;
+            transitionProgress += 0.02; 
             
             if (transitionProgress >= 1) {
                 isTransitioning = false;
-                
-                // 發射光子邏輯
                 if (currentN > targetN) {
                     const eDiff = Math.abs(getEnergy(targetN) - getEnergy(currentN));
                     const lambda = 1240 / eDiff;
-                    // 從電子當前角度發射
                     emitPhoton(cx + Math.cos(electronAngle)*rCurrent, cy + Math.sin(electronAngle)*rCurrent, electronAngle, getPhotonColor(lambda));
                 }
-                
                 currentN = targetN;
                 updateButtons();
             }
         }
 
-        // 4. 繪製電子或駐波
         const angularSpeed = 0.02 / (isTransitioning ? (currentN+targetN)/2 : currentN);
         electronAngle += angularSpeed;
-        wavePhase += 0.1; // 駐波的波動速度
+        wavePhase += 0.1;
 
         if (showWaveMode) {
-            // === 真實模型：駐波 ===
-            // 2*pi*r = n*lambda. 我們需要在圓周上畫出 n 個波
-            // r(theta) = rBase + Amplitude * sin(n * theta + phase)
-            
-            ctx.beginPath();
-            const waveAmp = 10 * scaleFactor; // 波幅
-            
-            // 由於是要畫封閉曲線，theta 繞一圈
-            // 使用較細的 step 讓波平滑
+            atomCtx.beginPath();
+            const waveAmp = 10 * scaleFactor;
             for (let theta = 0; theta <= Math.PI * 2; theta += 0.01) {
-                // 有效 n (躍遷時取混合態)
                 const effN = isTransitioning ? (currentN + (targetN-currentN)*transitionProgress) : currentN;
-                
-                // 駐波半徑變化
                 const rWave = rCurrent + waveAmp * Math.sin(effN * theta + wavePhase);
-                
                 const wx = cx + rWave * Math.cos(theta);
                 const wy = cy + rWave * Math.sin(theta);
-                
-                if (theta === 0) ctx.moveTo(wx, wy);
-                else ctx.lineTo(wx, wy);
+                if (theta === 0) atomCtx.moveTo(wx, wy);
+                else atomCtx.lineTo(wx, wy);
             }
-            ctx.closePath();
-            ctx.strokeStyle = '#2ed573';
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#2ed573';
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-
+            atomCtx.closePath();
+            atomCtx.strokeStyle = '#2ed573';
+            atomCtx.lineWidth = 3;
+            atomCtx.shadowBlur = 15;
+            atomCtx.shadowColor = '#2ed573';
+            atomCtx.stroke();
+            atomCtx.shadowBlur = 0;
         } else {
-            // === 粒子模型：點 ===
             const ex = cx + Math.cos(electronAngle) * rCurrent;
             const ey = cy + Math.sin(electronAngle) * rCurrent;
-
-            ctx.beginPath();
-            ctx.arc(ex, ey, 6 * scaleFactor, 0, Math.PI * 2);
-            ctx.fillStyle = '#2ed573';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#2ed573';
-            ctx.fill();
-            ctx.shadowBlur = 0;
+            atomCtx.beginPath();
+            atomCtx.arc(ex, ey, 6 * scaleFactor, 0, Math.PI * 2);
+            atomCtx.fillStyle = '#2ed573';
+            atomCtx.shadowBlur = 10;
+            atomCtx.shadowColor = '#2ed573';
+            atomCtx.fill();
+            atomCtx.shadowBlur = 0;
         }
 
-        // 5. 繪製光子
         drawPhoton();
-
-        requestAnimationFrame(draw);
     }
 
+    // --- 繪製能階圖 (右側 - 修正文字重疊) ---
+    function drawEnergyChart() {
+        const w = energyCanvas.width;
+        const h = energyCanvas.height;
+        energyCtx.clearRect(0, 0, w, h);
+
+        const padTop = 30;
+        const padBottom = 20;
+        const padLeft = 40;
+        const padRight = 60; // 右邊留白加大一點給文字
+        const chartH = h - padTop - padBottom;
+
+        // 能量映射：n=1 (-13.6eV) 在底部，n=inf (0eV) 在頂部
+        const mapEnergyToY = (ev) => {
+            return padTop + (ev / -14.5) * chartH;
+        };
+
+        // 1. 準備數據：計算所有線的物理Y座標和初始標籤座標
+        let linesData = [];
+        for(let n=1; n<=maxN; n++) {
+            const ev = getEnergy(n);
+            const y = mapEnergyToY(ev);
+            linesData.push({ 
+                n: n, 
+                ev: ev, 
+                y: y, 
+                labelY: y // 初始標籤位置等於線的位置
+            });
+        }
+
+        // 2. 解決標籤重疊 (Smart Label Spacing)
+        // 因為 n=5 在最上面 (Y最小)，n=1 在最下面 (Y最大)。
+        // 我們從最上面 (n=5) 開始往下檢查，如果下面的標籤太靠近上面的，就把它往下推。
+        
+        const minGap = 18; // 標籤之間的最小像素距離
+
+        // 陣列是 n=1,2,3,4,5。對應 linesData[0]...linesData[4]。
+        // linesData[4] 是 n=5 (Top)。
+        // 我們從 linesData[3] (n=4) 開始往下遍歷到 linesData[0] (n=1)。
+        
+        for (let i = maxN - 2; i >= 0; i--) { 
+            const upperItem = linesData[i+1]; // 視覺上在上面的那個 (n較大)
+            const currentItem = linesData[i]; // 當前要處理的 (n較小)
+            
+            // 如果當前標籤的Y < 上面標籤的Y + 間距，代表太近或重疊了
+            // (注意 canvas Y 往下是變大)
+            if (currentItem.labelY < upperItem.labelY + minGap) {
+                currentItem.labelY = upperItem.labelY + minGap;
+            }
+        }
+
+        // 3. 繪製線條與標籤
+        linesData.forEach(item => {
+            const { n, ev, y, labelY } = item;
+
+            // A. 畫物理上的能階線 (位置不變)
+            energyCtx.beginPath();
+            energyCtx.moveTo(padLeft, y);
+            energyCtx.lineTo(w - padRight, y);
+            
+            const isCurrent = (n === currentN && !isTransitioning);
+            energyCtx.strokeStyle = isCurrent ? '#4a90e2' : '#ccc';
+            energyCtx.lineWidth = isCurrent ? 2 : 1;
+            energyCtx.stroke();
+
+            // B. 畫標籤 (位置可能被推移)
+            energyCtx.fillStyle = '#666';
+            energyCtx.font = "12px Arial";
+            
+            // 檢查是否有位移，如果有，畫引導線
+            const isShifted = Math.abs(labelY - y) > 2;
+
+            if (isShifted) {
+                energyCtx.beginPath();
+                energyCtx.strokeStyle = '#eee';
+                energyCtx.lineWidth = 1;
+                
+                // 左側引導線 (n=...)
+                energyCtx.moveTo(padLeft - 2, y); 
+                energyCtx.lineTo(padLeft - 8, labelY);
+                energyCtx.stroke();
+                
+                // 右側引導線 (eV)
+                energyCtx.beginPath();
+                energyCtx.moveTo(w - padRight + 2, y);
+                energyCtx.lineTo(w - padRight + 8, labelY);
+                energyCtx.stroke();
+                
+                // 文字位置調整
+                energyCtx.textAlign = 'right';
+                energyCtx.textBaseline = 'middle';
+                energyCtx.fillText(`n=${n}`, padLeft - 10, labelY);
+                
+                energyCtx.textAlign = 'left';
+                energyCtx.fillText(`${ev.toFixed(2)}eV`, w - padRight + 10, labelY);
+            } else {
+                // 沒有位移，直接畫
+                energyCtx.textAlign = 'right';
+                energyCtx.textBaseline = 'middle';
+                energyCtx.fillText(`n=${n}`, padLeft - 5, y);
+                
+                energyCtx.textAlign = 'left';
+                energyCtx.fillText(`${ev.toFixed(2)}eV`, w - padRight + 5, y);
+            }
+        });
+
+        // 頂部 0eV 標示
+        const yZero = mapEnergyToY(0);
+        energyCtx.beginPath();
+        energyCtx.strokeStyle = '#eee';
+        energyCtx.setLineDash([2,2]);
+        energyCtx.moveTo(padLeft, yZero);
+        energyCtx.lineTo(w - padRight, yZero);
+        energyCtx.stroke();
+        energyCtx.setLineDash([]);
+        energyCtx.fillStyle = '#aaa';
+        energyCtx.textAlign = 'left';
+        energyCtx.fillText("0eV", w - padRight + 5, yZero);
+
+
+        // 4. 畫電子點 (電子要跟隨「物理」線條，而不是標籤)
+        let displayEnergy = getEnergy(currentN);
+        
+        if (isTransitioning) {
+            const t = transitionProgress;
+            const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            const eStart = getEnergy(currentN);
+            const eEnd = getEnergy(targetN);
+            displayEnergy = eStart + (eEnd - eStart) * ease;
+        }
+
+        const electronY = mapEnergyToY(displayEnergy);
+        const electronX = (padLeft + w - padRight) / 2;
+
+        energyCtx.beginPath();
+        energyCtx.arc(electronX, electronY, 5, 0, Math.PI*2);
+        energyCtx.fillStyle = '#2ed573';
+        energyCtx.fill();
+        
+        energyCtx.beginPath();
+        energyCtx.arc(electronX, electronY, 10, 0, Math.PI*2);
+        energyCtx.fillStyle = 'rgba(46, 213, 115, 0.3)';
+        energyCtx.fill();
+    }
+
+
+    // --- 光子動畫 ---
     function emitPhoton(x, y, angle, color) {
         photon = {
-            x: x,
-            y: y,
-            angle: angle, // 沿徑向射出
-            dist: 0,
-            color: color,
-            active: true
+            x: x, y: y, angle: angle, dist: 0, color: color, active: true
         };
     }
 
     function drawPhoton() {
         if (!photon || !photon.active) return;
-
-        photon.dist += 5 * scaleFactor; // 速度隨縮放調整視覺
+        photon.dist += 5 * scaleFactor;
         
         const px = photon.x + Math.cos(photon.angle) * photon.dist;
         const py = photon.y + Math.sin(photon.angle) * photon.dist;
 
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(photon.angle);
-
-        ctx.beginPath();
-        ctx.strokeStyle = photon.color;
-        ctx.lineWidth = 3;
+        atomCtx.save();
+        atomCtx.translate(px, py);
+        atomCtx.rotate(photon.angle);
+        atomCtx.beginPath();
+        atomCtx.strokeStyle = photon.color;
+        atomCtx.lineWidth = 3;
         
         const waveLen = 15 * scaleFactor;
         const amp = 6 * scaleFactor;
         const len = 60 * scaleFactor;
 
-        // 畫一段正弦波代表光子
         for (let i = 0; i < len; i+=2) {
-            ctx.lineTo(i - len/2, Math.sin(i / waveLen * Math.PI * 2) * amp);
+            atomCtx.lineTo(i - len/2, Math.sin(i / waveLen * Math.PI * 2) * amp);
         }
-        ctx.stroke();
+        atomCtx.stroke();
         
-        // 畫箭頭
-        ctx.beginPath();
-        ctx.fillStyle = photon.color;
-        ctx.moveTo(len/2 + 5, 0);
-        ctx.lineTo(len/2 - 5, -5);
-        ctx.lineTo(len/2 - 5, 5);
-        ctx.fill();
+        atomCtx.beginPath();
+        atomCtx.fillStyle = photon.color;
+        atomCtx.moveTo(len/2 + 5, 0);
+        atomCtx.lineTo(len/2 - 5, -5);
+        atomCtx.lineTo(len/2 - 5, 5);
+        atomCtx.fill();
+        atomCtx.restore();
 
-        ctx.restore();
-
-        // 邊界檢查
-        if (photon.dist > Math.max(canvas.width, canvas.height) / scaleFactor * 1.5) {
+        if (photon.dist > Math.max(atomCanvas.width, atomCanvas.height) / scaleFactor * 1.5) {
             photon.active = false;
         }
     }
 
-    // 啟動繪圖
     draw();
     updateButtons();
 
