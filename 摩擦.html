@@ -65,6 +65,15 @@
             </div>
         </div>
 
+        <!-- 中間上方：摩擦力公式面板 -->
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm p-3 rounded-xl shadow-md border border-white/50 z-10 pointer-events-none text-center">
+            <h2 class="text-sm font-bold text-slate-700 mb-1">摩擦力公式 (極值)</h2>
+            <div class="text-sm text-slate-600 font-mono flex flex-col gap-1 text-left">
+                <span>最大靜摩擦力 f<sub>s(max)</sub> = μ<sub>s</sub>N = <span id="formula-fsmax" class="text-red-500 font-bold">0.0</span> N</span>
+                <span>動摩擦力 f<sub>k</sub> = μ<sub>k</sub>N = <span id="formula-fk" class="text-blue-600 font-bold">0.0</span> N</span>
+            </div>
+        </div>
+
         <!-- 右上角：摩擦力對推力/角度關係圖 (已放大) -->
         <div class="absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-4 rounded-xl shadow-md border border-white/50 z-10 pointer-events-none">
             <h2 id="graph-title" class="text-sm font-bold text-slate-700 mb-2 text-center">摩擦力-推力 關係圖</h2>
@@ -200,8 +209,8 @@
                     教學引導
                 </h3>
                 <ol class="list-decimal list-inside text-sm text-blue-900 space-y-2">
-                    <li><strong>測量係數：</strong>在斜面模式中慢慢調高角度，物體剛好開始滑動的那一瞬間，此時的 $tan(\theta)$ 即非常接近靜摩擦係數 $\mu_s$。</li>
-                    <li><strong>滑動狀態：</strong>滑動後，摩擦力轉變為「動摩擦力」，因為 $\mu_k$ 較小，下滑力大於摩擦力，物體將不斷加速。</li>
+                    <li><strong>測量係數：</strong>在斜面模式中慢慢調高角度，物體剛好開始滑動的那一瞬間，此時的 tan(θ) 即非常接近靜摩擦係數 μ<sub>s</sub>。</li>
+                    <li><strong>滑動狀態：</strong>滑動後，摩擦力轉變為「動摩擦力」，因為 μ<sub>k</sub> 較小，下滑力大於摩擦力，物體將不斷加速。</li>
                 </ol>
             </div>
 
@@ -257,6 +266,10 @@
         const statF = document.getElementById('stat-F');
         const statf = document.getElementById('stat-f');
         const statState = document.getElementById('stat-state');
+        
+        // 公式顯示 DOM
+        const formulaFsmax = document.getElementById('formula-fsmax');
+        const formulaFk = document.getElementById('formula-fk');
 
         // 物理常數與狀態變數
         const g = 9.8; // 重力加速度 m/s^2
@@ -769,11 +782,16 @@
 
         function updateStatsDisplay() {
             const rad = (physics.mode === 'inclined' ? physics.angle : 0) * Math.PI / 180;
+            const normalForce = physics.mode === 'inclined' ? physics.mass * g * Math.cos(rad) : physics.mass * g;
             const drivingForce = physics.mode === 'horizontal' ? physics.force : physics.mass * g * Math.sin(rad);
 
             statV.innerText = physics.velocity.toFixed(2) + ' m/s';
             statF.innerText = drivingForce.toFixed(1) + ' N';
             statf.innerText = physics.friction.toFixed(1) + ' N';
+            
+            // 更新公式面板數值
+            formulaFsmax.innerText = (physics.mus * normalForce).toFixed(1);
+            formulaFk.innerText = (physics.muk * normalForce).toFixed(1);
             
             if (physics.isStatic) {
                 statState.innerText = '靜止 (受靜摩擦)';
