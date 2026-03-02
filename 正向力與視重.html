@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正向力與視重教學模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            /* 調整為更適合橫向展示的比例 */
+            aspect-ratio: 16/10; 
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .instruction-panel {
+            background-color: #e0f2fe;
+            border-left: 4px solid #3b82f6;
+        }
+        .mode-hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col min-h-screen">
+
+    <div class="max-w-7xl mx-auto w-full flex-grow">
+        
+        <!-- 頂部標題與核心公式 -->
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-800 mb-4">正向力與視重模擬器</h1>
+            <div class="inline-block bg-blue-100 p-4 rounded-lg shadow-sm border-2 border-blue-300">
+                <p class="text-xl md:text-2xl font-bold text-blue-900">
+                    核心概念：| 壓迫總力 | = | 正向力 N | = 視重
+                </p>
+            </div>
+        </header>
+
+        <!-- 模式切換標籤 -->
+        <div class="flex justify-center space-x-2 mb-6">
+            <button id="tab-block" onclick="switchMode('block')" class="px-6 py-2 text-lg font-bold rounded-t-lg bg-blue-600 text-white shadow-md transition-colors">
+                模式一：方塊受力
+            </button>
+            <button id="tab-elevator" onclick="switchMode('elevator')" class="px-6 py-2 text-lg font-bold rounded-t-lg bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-md transition-colors">
+                模式二：電梯自動升降
+            </button>
+        </div>
+
+        <!-- 主要互動區 (橫向佈局：左側畫布 + 右側控制) -->
+        <div class="flex flex-col lg:flex-row gap-8 bg-white p-6 rounded-b-lg rounded-t-none shadow-md border border-gray-200">
+            
+            <!-- 左側：模擬畫面 (原右側，現在放到前面) -->
+            <div class="flex-[3] flex flex-col justify-center">
+                <div class="canvas-container border-4 border-gray-800 bg-gray-100">
+                    <canvas id="simCanvas"></canvas>
+                    
+                    <!-- 模式二專用：大視重讀數 Overlay -->
+                    <div id="elevator-overlay" class="absolute top-4 right-4 bg-white/95 p-3 rounded-lg shadow-xl border-4 border-blue-500 text-right mode-hidden transform transition-all">
+                        <div class="text-sm text-gray-600 font-bold mb-1">體重讀數<br>( | 正向力 N | )</div>
+                        <div id="big-scale-reading" class="text-5xl md:text-6xl font-mono font-bold text-blue-600 tracking-tight">
+                            600 <span class="text-2xl">N</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側：控制面板 (原左側) -->
+            <div class="flex-[2] space-y-6">
+                
+                <!-- 模式一控制面板：方塊受力 -->
+                <div id="controls-block" class="space-y-6">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">方塊受力控制</h2>
+                    <p class="text-gray-600">調整外力的大小與方向，觀察藍色的粗箭頭 (|正向力|) 如何改變以維持垂直方向的平衡。如果向上的拉力超過重力，方塊會飛走！</p>
+                    
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="block text-md font-bold text-gray-700">方塊質量 (m)</label>
+                            <span id="block-mass-val" class="text-md font-bold text-gray-900">50 kg</span>
+                        </div>
+                        <input type="range" id="block-mass" min="10" max="100" value="50" class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <div class="p-4 bg-orange-50 rounded-lg border border-orange-200 space-y-4">
+                        <div class="flex items-center space-x-2 border-b border-orange-200 pb-2">
+                            <input type="checkbox" id="force-toggle" class="w-5 h-5 text-orange-600 rounded cursor-pointer">
+                            <label for="force-toggle" class="font-bold text-lg text-orange-800 cursor-pointer">啟用外力 (F)</label>
+                        </div>
+                        
+                        <!-- 外力控制區 (預設半透明不可用) -->
+                        <div id="force-controls-wrapper" class="space-y-4 opacity-50 pointer-events-none transition-opacity">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <label class="block text-sm font-bold text-gray-700">外力大小 (|F|)</label>
+                                    <span id="block-force-val" class="text-sm font-bold text-orange-700">200 N</span>
+                                </div>
+                                <input type="range" id="block-force" min="0" max="1500" value="200" step="10" class="w-full h-2 bg-orange-300 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <label class="block text-sm font-bold text-gray-700">外力角度 (0°向右，90°向上)</label>
+                                    <span id="block-angle-val" class="text-sm font-bold text-orange-700">45° (右上拉)</span>
+                                </div>
+                                <input type="range" id="block-angle" min="0" max="360" value="45" class="w-full h-2 bg-orange-300 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 class="font-bold text-gray-800 mb-2">垂直方向受力分析</h3>
+                        <div class="space-y-1 text-md">
+                            <p>向下重力 W = m × g = <span id="block-w-text" class="font-bold text-gray-700">490</span> N</p>
+                            <p>外力垂直分量 = <span id="block-fy-text" class="font-bold text-orange-600">0</span> N</p>
+                            <div class="border-t pt-2 mt-2">
+                                <p class="text-xl">正向力 N = <span id="block-n-text" class="font-bold text-blue-600">490</span> N</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模式二控制面板：電梯升降 -->
+                <div id="controls-elevator" class="space-y-6 mode-hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 border-b pb-2">電梯自動升降旅程</h2>
+                    <p class="text-gray-600">從遠景觀察電梯從一樓上升到頂樓的過程，抵達後可以進行下降旅程。請注意觀察左上角狀態、底部曲線圖，以及右上角的磅秤讀數。</p>
+                    
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="v-graph-toggle" class="w-5 h-5 text-green-600 rounded cursor-pointer">
+                            <label for="v-graph-toggle" class="font-bold text-lg text-green-800 cursor-pointer">顯示 v-t 圖形 (左下角)</label>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="graph-toggle" class="w-5 h-5 text-blue-600 rounded cursor-pointer">
+                            <label for="graph-toggle" class="font-bold text-lg text-blue-800 cursor-pointer">顯示 N-t 圖形 (右下角)</label>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-2 rounded-lg text-center mt-2 flex gap-2">
+                        <button id="btn-start-journey" onclick="startJourney()" class="flex-1 py-4 px-4 bg-green-500 hover:bg-green-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95">
+                            ▲ 開始上升旅程
+                        </button>
+                        <button id="btn-pause-journey" onclick="togglePause()" class="w-24 py-4 px-4 bg-gray-400 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95 opacity-50 cursor-not-allowed" disabled>
+                            暫停
+                        </button>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 class="font-bold text-gray-800 mb-2">平滑漸進旅程階段說明 (以上升為例)</h3>
+                        <ul class="list-disc pl-5 text-sm space-y-2 text-gray-700">
+                            <li><strong>階段 1 (漸進加速)：</strong> a 慢慢從 0 增加到最大再回歸 0。需要額外向上的力，N > |重力| (超重)。</li>
+                            <li><strong>階段 2 (等速上升)：</strong> a = 0。合力為零，N = |重力| (正常)。</li>
+                            <li><strong>階段 3 (漸進減速)：</strong> a 慢慢往負向變大再回歸 0。合力向下，N < |重力| (失重)。</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 底部教學引導 -->
+        <div class="instruction-panel p-6 rounded-lg shadow-sm mt-8 mb-8">
+            <h2 class="text-xl font-bold text-blue-900 mb-3 flex items-center">
+                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                教學引導與原理說明
+            </h2>
+            <p class="mb-2"><strong>視重</strong>是我們「感覺」到的重量，也就是磅秤測量到的數值。</p>
+            <p class="mb-2">當我們站在磅秤或地板上時，我們對接觸面施加了一個向下的<strong>壓迫總力</strong>。根據牛頓第三運動定律（作用力與反作用力），接觸面會給我們一個大小相等、方向相反的<strong>正向力 (N)</strong>。</p>
+            <p class="mb-2">因此，磅秤測量到的其實是「它對我們施加的正向力大小」。</p>
+            <ul class="list-disc pl-5 space-y-2 text-md text-gray-800 mt-4">
+                <li><strong>真實重量 (W)：</strong> 地球對物體的重力，方向永遠垂直向下，大小固定。</li>
+                <li><strong>正向力 (N)：</strong> 接觸面給予物體的垂直支撐力。它是一個「被動調節」的力，會根據力平衡或加速度需求而改變大小。</li>
+                <li><strong>在模式一中：</strong> 當你向上拉方塊時，地板不需要提供那麼大的支撐力，所以正向力減小；當你向下壓方塊時，地板必須提供更大的支撐力，正向力增加。</li>
+                <li><strong>在模式二中：</strong> 根據牛頓第二運動定律 (合力 = m × a)。<br>
+                    垂直向上的合力 = N - W = m × a。<br>
+                    整理得到 <strong>N = W + (m × a)</strong>。<br>
+                    當電梯具有向上的加速度 (a > 0) 時，N 變大，視重增加；具有向下的加速度 (a < 0) 時，N 變小，視重減少。
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 常數
+        const g = 9.8; 
+        
+        // 系統狀態
+        let currentMode = 'block'; 
+        let lastTime = 0;
+
+        // --- 模式一：方塊狀態 ---
+        const blockState = {
+            mass: 50,
+            forceEnabled: false, 
+            forceMag: 200,
+            forceAngle: 45,
+            W: 0,
+            Fy: 0,
+            Fx: 0,
+            N: 0,
+            y: 0,  // 方塊在空中的高度
+            vy: 0  // 方塊的垂直速度
+        };
+
+        // --- 模式二：電梯狀態 ---
+        const elevatorState = {
+            mass: 600 / g,   // 將靜止正向力固定在 600N，回推質量
+            displacement: 0, // 真實物理位移 (m)
+            a: 0,            // 真實物理加速度
+            v: 0,            // 真實物理速度
+            N: 600,          // 正向力預設 600N
+            journeyActive: false,
+            isPaused: false, // 暫停狀態
+            timer: 0,
+            phase: 'idle',
+            location: 'bottom', // 'bottom' 或 'top'
+            direction: 'up',    // 'up' 或 'down'
+            history: [],        // 記錄 {t, N, v} 用於繪製圖表
+            showGraph: false,   // 是否顯示 N-t 圖
+            showVGraph: false   // 是否顯示 v-t 圖
+        };
+
+        // UI 元素
+        const ui = {
+            tabBlock: document.getElementById('tab-block'),
+            tabElevator: document.getElementById('tab-elevator'),
+            ctrlBlock: document.getElementById('controls-block'),
+            ctrlElevator: document.getElementById('controls-elevator'),
+            overlay: document.getElementById('elevator-overlay'),
+            
+            // Block UI
+            bMassIn: document.getElementById('block-mass'),
+            bMassVal: document.getElementById('block-mass-val'),
+            bForceToggle: document.getElementById('force-toggle'),
+            bForceWrapper: document.getElementById('force-controls-wrapper'),
+            bForceIn: document.getElementById('block-force'),
+            bForceVal: document.getElementById('block-force-val'),
+            bAngleIn: document.getElementById('block-angle'),
+            bAngleVal: document.getElementById('block-angle-val'),
+            bTextW: document.getElementById('block-w-text'),
+            bTextFy: document.getElementById('block-fy-text'),
+            bTextN: document.getElementById('block-n-text'),
+
+            // Elevator UI
+            eScaleRead: document.getElementById('big-scale-reading'),
+            eBtn: document.getElementById('btn-start-journey'),
+            ePauseBtn: document.getElementById('btn-pause-journey'),
+            eGraphToggle: document.getElementById('graph-toggle'),
+            eVGraphToggle: document.getElementById('v-graph-toggle')
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            if (mode === 'block') {
+                ui.tabBlock.className = "px-6 py-2 text-lg font-bold rounded-t-lg bg-blue-600 text-white shadow-md transition-colors";
+                ui.tabElevator.className = "px-6 py-2 text-lg font-bold rounded-t-lg bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-md transition-colors";
+                ui.ctrlBlock.classList.remove('mode-hidden');
+                ui.ctrlElevator.classList.add('mode-hidden');
+                ui.overlay.classList.add('mode-hidden');
+                
+                blockState.y = 0;
+                blockState.vy = 0;
+            } else {
+                ui.tabElevator.className = "px-6 py-2 text-lg font-bold rounded-t-lg bg-blue-600 text-white shadow-md transition-colors";
+                ui.tabBlock.className = "px-6 py-2 text-lg font-bold rounded-t-lg bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-md transition-colors";
+                ui.ctrlElevator.classList.remove('mode-hidden');
+                ui.ctrlBlock.classList.add('mode-hidden');
+                ui.overlay.classList.remove('mode-hidden');
+                
+                // 重置電梯狀態
+                elevatorState.journeyActive = false;
+                elevatorState.isPaused = false;
+                elevatorState.timer = 0;
+                elevatorState.a = 0;
+                elevatorState.v = 0;
+                elevatorState.displacement = 0;
+                elevatorState.phase = 'idle';
+                elevatorState.location = 'bottom';
+                elevatorState.N = 600;
+                elevatorState.history = [{t: 0, N: 600, v: 0}]; 
+                elevatorState.showGraph = ui.eGraphToggle.checked;
+                elevatorState.showVGraph = ui.eVGraphToggle.checked;
+                
+                ui.eBtn.disabled = false;
+                ui.eBtn.className = "flex-1 py-4 px-4 bg-green-500 hover:bg-green-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95";
+                ui.eBtn.innerHTML = "▲ 開始上升旅程";
+
+                ui.ePauseBtn.disabled = true;
+                ui.ePauseBtn.innerHTML = "暫停";
+                ui.ePauseBtn.className = "w-24 py-4 px-4 bg-gray-400 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95 opacity-50 cursor-not-allowed";
+
+                updateElevatorUI();
+            }
+            updatePhysics();
+        }
+
+        function startJourney() {
+            if (elevatorState.journeyActive) return;
+            elevatorState.journeyActive = true;
+            elevatorState.isPaused = false;
+            elevatorState.timer = 0;
+            elevatorState.direction = elevatorState.location === 'bottom' ? 'up' : 'down';
+            elevatorState.v = 0;
+            elevatorState.a = 0;
+            elevatorState.history = [{t: 0, N: 600, v: 0}]; // 清空並重新紀錄軌跡
+            
+            ui.eBtn.disabled = true;
+            ui.eBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            ui.ePauseBtn.disabled = false;
+            ui.ePauseBtn.innerHTML = "暫停";
+            ui.ePauseBtn.className = "w-24 py-4 px-4 bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95";
+        }
+
+        function togglePause() {
+            if (!elevatorState.journeyActive) return;
+            
+            elevatorState.isPaused = !elevatorState.isPaused;
+            
+            if (elevatorState.isPaused) {
+                ui.ePauseBtn.innerHTML = "繼續";
+                ui.ePauseBtn.className = "w-24 py-4 px-4 bg-blue-500 hover:bg-blue-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95";
+            } else {
+                ui.ePauseBtn.innerHTML = "暫停";
+                ui.ePauseBtn.className = "w-24 py-4 px-4 bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95";
+            }
+        }
+
+        function getAngleDescription(deg) {
+            if (deg == 0 || deg == 360) return "向右拉";
+            if (deg > 0 && deg < 90) return "右上拉";
+            if (deg == 90) return "向上拉";
+            if (deg > 90 && deg < 180) return "左上拉";
+            if (deg == 180) return "向左拉";
+            if (deg > 180 && deg < 270) return "左下推";
+            if (deg == 270) return "向下壓";
+            if (deg > 270 && deg < 360) return "右下推";
+            return "";
+        }
+
+        function updatePhysics() {
+            // --- 模式一：方塊 ---
+            if (currentMode === 'block') {
+                blockState.mass = parseFloat(ui.bMassIn.value);
+                blockState.forceEnabled = ui.bForceToggle.checked;
+                blockState.W = blockState.mass * g;
+                
+                ui.bMassVal.textContent = `${blockState.mass} kg`;
+
+                if (blockState.forceEnabled) {
+                    ui.bForceWrapper.classList.remove('opacity-50', 'pointer-events-none');
+                    blockState.forceMag = parseFloat(ui.bForceIn.value);
+                    blockState.forceAngle = parseFloat(ui.bAngleIn.value);
+                    ui.bForceVal.textContent = `${blockState.forceMag} N`;
+                    ui.bAngleVal.textContent = `${blockState.forceAngle}° (${getAngleDescription(blockState.forceAngle)})`;
+
+                    const rad = blockState.forceAngle * Math.PI / 180;
+                    blockState.Fx = blockState.forceMag * Math.cos(rad);
+                    blockState.Fy = blockState.forceMag * Math.sin(rad);
+                } else {
+                    ui.bForceWrapper.classList.add('opacity-50', 'pointer-events-none');
+                    blockState.forceMag = 0;
+                    blockState.Fx = 0;
+                    blockState.Fy = 0;
+                }
+                
+                if (blockState.y > 0) {
+                    blockState.N = 0;
+                } else {
+                    blockState.N = Math.max(0, blockState.W - blockState.Fy);
+                }
+
+                ui.bTextW.textContent = blockState.W.toFixed(0);
+                ui.bTextFy.textContent = (blockState.Fy > 0 ? "+" : (blockState.Fy === 0 ? "" : "")) + blockState.Fy.toFixed(0);
+                ui.bTextN.textContent = blockState.N.toFixed(0);
+            }
+        }
+
+        function updateElevatorUI() {
+            ui.eScaleRead.innerHTML = `${Math.round(elevatorState.N)} <span class="text-3xl">N</span>`;
+            
+            const W = 600; // 鎖定重量 600N
+            if (elevatorState.N > W + 1) ui.eScaleRead.className = "text-5xl md:text-6xl font-mono font-bold text-red-600 tracking-tight"; 
+            else if (elevatorState.N < W - 1) ui.eScaleRead.className = "text-5xl md:text-6xl font-mono font-bold text-blue-600 tracking-tight"; 
+            else ui.eScaleRead.className = "text-5xl md:text-6xl font-mono font-bold text-green-600 tracking-tight"; 
+        }
+
+        // 精準控制箭頭與端點位置，並為文字加入白邊防止破圖
+        function drawArrow(ctx, fromx, fromy, tox, toy, color, text, textOffsetX, textOffsetY) {
+            const lineWidth = 10;
+            let headlen = 24; 
+            const dx = tox - fromx;
+            const dy = toy - fromy;
+            const angle = Math.atan2(dy, dx);
+            const length = Math.sqrt(dx*dx + dy*dy);
+            
+            if (length < 1) return;
+            if (length < headlen) headlen = length;
+
+            const lineEndX = tox - headlen * 0.5 * Math.cos(angle);
+            const lineEndY = toy - headlen * 0.5 * Math.sin(angle);
+
+            ctx.beginPath();
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(lineEndX, lineEndY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'butt'; 
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 7), toy - headlen * Math.sin(angle - Math.PI / 7));
+            ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 7), toy - headlen * Math.sin(angle + Math.PI / 7));
+            ctx.lineTo(tox, toy);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            if (text) {
+                ctx.font = 'bold 24px sans-serif'; 
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 5;
+                ctx.strokeText(text, tox + textOffsetX, toy + textOffsetY);
+                ctx.fillStyle = color;
+                ctx.fillText(text, tox + textOffsetX, toy + textOffsetY);
+            }
+        }
+
+        function drawBlockMode(cw, ch) {
+            const floorY = ch * 0.8;
+            const blockSize = 65 + blockState.mass * 1.0; 
+            const bx = cw / 2 - blockSize / 2;
+            const by = floorY - blockSize;
+            const cx = cw / 2;
+            const cy = by + blockSize / 2;
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(0, floorY, cw, ch - floorY);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(0, floorY);
+            ctx.lineTo(cw, floorY);
+            ctx.stroke();
+
+            ctx.font = 'bold 26px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 5;
+            ctx.strokeText(`方塊質量: ${blockState.mass} kg`, 30, 50);
+            ctx.fillStyle = '#1f2937';
+            ctx.fillText(`方塊質量: ${blockState.mass} kg`, 30, 50);
+
+            const actualBy = by - blockState.y;
+            const actualCy = cy - blockState.y;
+
+            ctx.fillStyle = '#fcd34d';
+            ctx.fillRect(bx, actualBy, blockSize, blockSize);
+            ctx.strokeStyle = '#b45309';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(bx, actualBy, blockSize, blockSize);
+            
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4;
+            ctx.strokeText(`${blockState.mass}kg`, cx, actualCy + 8);
+            ctx.fillStyle = '#92400e';
+            ctx.fillText(`${blockState.mass}kg`, cx, actualCy + 8);
+
+            const scale = 0.25; 
+            drawArrow(ctx, cx - 15, actualCy, cx - 15, actualCy + blockState.W * scale, '#4b5563', 'W', -35, 20);
+
+            if (blockState.N > 0 && blockState.y === 0) {
+                drawArrow(ctx, cx + 15, actualCy, cx + 15, actualCy - blockState.N * scale, '#2563eb', 'N', 30, -10);
+            }
+
+            if (blockState.forceEnabled && blockState.forceMag > 0) {
+                const rad = blockState.forceAngle * Math.PI / 180;
+                const fxEnd = cx + blockState.forceMag * scale * Math.cos(rad);
+                const fyEnd = actualCy - blockState.forceMag * scale * Math.sin(rad);
+                drawArrow(ctx, cx, actualCy, fxEnd, fyEnd, '#ea580c', 'F', 15, -15);
+            }
+        }
+
+        function drawElevatorMode(cw, ch) {
+            // 1. 繪製電梯井
+            const shaftW = 200;
+            const shaftX = cw / 2 - shaftW / 2;
+            
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillRect(shaftX, 0, shaftW, ch);
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(shaftX, 0, shaftW, ch);
+
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            for(let y = 50; y < ch; y += 150) {
+                ctx.beginPath();
+                ctx.moveTo(shaftX, y);
+                ctx.lineTo(shaftX + shaftW, y);
+                ctx.stroke();
+            }
+
+            // 2. 計算與繪製電梯位置
+            const ew = 100;
+            const eh = 120;
+            const ex = cw / 2 - ew / 2;
+            
+            // 最大位移對應 (4 * 2.5 * 3^2) / PI = 90 / PI = 28.648 m
+            const totalPhysicalDist = 28.64789;
+            const topMargin = 80;
+            const bottomMargin = 40;
+            const travelPixelDist = ch - topMargin - bottomMargin - eh;
+            const pixelPerMeter = travelPixelDist / totalPhysicalDist;
+
+            const groundY = ch - bottomMargin - eh;
+            const ey = groundY - (elevatorState.displacement * pixelPerMeter);
+
+            // 纜繩
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(cw / 2, 0);
+            ctx.lineTo(cw / 2, ey);
+            ctx.stroke();
+
+            // 電梯車廂
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(ex, ey, ew, eh);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(ex, ey, ew, eh);
+
+            // 畫人
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(cw/2 - 15, ey + eh - 50, 30, 50);
+            ctx.fillStyle = '#fcd34d';
+            ctx.beginPath();
+            ctx.arc(cw/2, ey + eh - 65, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 力圖箭頭
+            const fcy = ey + eh / 2;
+            const scale = 0.15; 
+            const W = 600; 
+            const N = elevatorState.N;
+
+            drawArrow(ctx, cw/2 - 25, fcy, cw/2 - 25, fcy + W * scale, '#4b5563', 'W', -45, 10);
+            drawArrow(ctx, cw/2 + 25, fcy, cw/2 + 25, fcy - N * scale, '#2563eb', 'N', 20, 0);
+
+            // 速度 v 箭頭 (動態伸長)
+            if (Math.abs(elevatorState.v) > 0.1) {
+                const vx = ex + ew + 40;
+                const vy = ey + eh / 2;
+                const vLen = 20 + Math.abs(elevatorState.v) * 8; // 根據速度動態調整長度
+                if (elevatorState.v > 0) { // 上升
+                    drawArrow(ctx, vx, vy + vLen/2, vx, vy - vLen/2, '#10b981', 'v', 20, -5);
+                } else { // 下降
+                    drawArrow(ctx, vx, vy - vLen/2, vx, vy + vLen/2, '#10b981', 'v', 20, 15);
+                }
+            }
+
+            // 加速度 a 箭頭 (動態伸長)
+            if (Math.abs(elevatorState.a) > 0.05) {
+                const ax = ex + ew + 90; // 放在更右邊避免與 v 重疊
+                const ay = ey + eh / 2;
+                const aLen = 20 + Math.abs(elevatorState.a) * 15; // 根據加速度動態調整長度
+                if (elevatorState.a > 0) {
+                    drawArrow(ctx, ax, ay + aLen/2, ax, ay - aLen/2, '#ef4444', 'a', 20, -5);
+                } else {
+                    drawArrow(ctx, ax, ay - aLen/2, ax, ay + aLen/2, '#ef4444', 'a', 20, 15);
+                }
+            }
+
+            // 3. 左上角狀態 UI 繪製 (字體加大)
+            drawStatusUI(ctx);
+
+            // 4. 左下角 v-t 圖形繪製
+            if (elevatorState.showVGraph) {
+                drawVtGraph(ctx, cw, ch);
+            }
+
+            // 5. 右下角 N-t 圖形繪製
+            if (elevatorState.showGraph) {
+                drawNtGraph(ctx, cw, ch);
+            }
+        }
+
+        function drawStatusUI(ctx) {
+            let statusText1 = elevatorState.location === 'bottom' ? "狀態：停在一樓" : "狀態：停在頂樓";
+            let statusText2 = "";
+            let color = '#475569';
+
+            if (elevatorState.journeyActive) {
+                let p = elevatorState.phase;
+                let dir = elevatorState.direction;
+                
+                if (elevatorState.isPaused) {
+                    statusText1 = "狀態：暫停中";
+                    color = '#f59e0b'; // 黃色
+                    // 根據當前加速度顯示暫停時的受力狀態
+                    if (elevatorState.a > 0) statusText2 = "N > W (超重)";
+                    else if (elevatorState.a < 0) statusText2 = "N < W (失重)";
+                    else statusText2 = "N = W (正常)";
+                } else {
+                    if (p === 'accel') {
+                        statusText1 = dir === 'up' ? "階段 1：漸進加速上升" : "階段 1：漸進加速下降";
+                        statusText2 = dir === 'up' ? "N > W (超重)" : "N < W (失重)";
+                        color = dir === 'up' ? '#ef4444' : '#3b82f6';
+                    } else if (p === 'const') {
+                        statusText1 = dir === 'up' ? "階段 2：等速上升" : "階段 2：等速下降";
+                        statusText2 = "N = W (正常)";
+                        color = '#10b981';
+                    } else if (p === 'decel') {
+                        statusText1 = dir === 'up' ? "階段 3：漸進減速上升" : "階段 3：漸進減速下降";
+                        statusText2 = dir === 'up' ? "N < W (失重)" : "N > W (超重)";
+                        color = dir === 'up' ? '#3b82f6' : '#ef4444';
+                    }
+                }
+            }
+
+            // 取消背景框，加上白色文字邊框確保在有背景線時也能清楚閱讀
+            const uiX = 20, uiY = 40;
+
+            ctx.textAlign = 'left';
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'white';
+
+            // 主狀態文字 (明顯放大至 28px)
+            ctx.font = 'bold 28px sans-serif';
+            ctx.strokeText(statusText1, uiX, uiY);
+            ctx.fillStyle = color;
+            ctx.fillText(statusText1, uiX, uiY);
+
+            // 副狀態文字 (放大至 22px)
+            if (statusText2) {
+                ctx.font = 'bold 22px sans-serif';
+                ctx.strokeText(statusText2, uiX, uiY + 35);
+                ctx.fillStyle = color;
+                ctx.fillText(statusText2, uiX, uiY + 35);
+            }
+        }
+
+        function drawVtGraph(ctx, cw, ch) {
+            // 與 N-t 圖尺寸一致，但放左下角
+            const gw = 240;
+            const gh = 140;
+            const gx = 20; 
+            const gy = ch - gh - 20;
+
+            // 背景
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(gx, gy, gw, gh);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(gx, gy, gw, gh);
+
+            // 標題
+            ctx.fillStyle = '#334155';
+            ctx.font = 'bold 14px sans-serif'; 
+            ctx.textAlign = 'center';
+            ctx.fillText('速度 - 時間 圖 (v-t)', gx + gw/2, gy + 20);
+
+            // 座標軸設定
+            const marginL = 45, marginR = 15, marginT = 35, marginB = 25;
+            const plotW = gw - marginL - marginR;
+            const plotH = gh - marginT - marginB;
+            const originX = gx + marginL;
+            
+            // v-t 圖需要容納正負值，所以 0 軸位於圖表中間
+            const originY_axis = gy + gh - marginB; // t 軸底線
+            const midY = gy + marginT + plotH / 2;  // v=0 基準線
+
+            // 畫邊界與時間軸(最底)
+            ctx.beginPath();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.moveTo(originX, originY_axis - plotH);
+            ctx.lineTo(originX, originY_axis);
+            ctx.lineTo(originX + plotW, originY_axis);
+            ctx.stroke();
+
+            // 畫 v=0 基準線
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(originX, midY);
+            ctx.lineTo(originX + plotW, midY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 軸標籤
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('v (m/s)', originX - 5, originY_axis - plotH + 5);
+            ctx.fillText('0', originX - 5, midY + 4);
+            ctx.textAlign = 'center';
+            ctx.fillText('t (秒)', originX + plotW - 10, originY_axis + 15);
+
+            const maxT = 9; // 總時間 9 秒
+            const maxV = 6; // Y軸上下限到 ±6m/s
+
+            // 畫 v 曲線歷史
+            if (elevatorState.history.length > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#10b981'; // 綠色代表速度
+                ctx.lineWidth = 2.5; 
+                elevatorState.history.forEach((pt, i) => {
+                    let px = originX + (pt.t / maxT) * plotW;
+                    let py = midY - (pt.v / maxV) * (plotH / 2);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                });
+                ctx.stroke();
+                
+                // 畫當前點
+                let lastPt = elevatorState.history[elevatorState.history.length - 1];
+                let px = originX + (lastPt.t / maxT) * plotW;
+                let py = midY - (lastPt.v / maxV) * (plotH / 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function drawNtGraph(ctx, cw, ch) {
+            // 縮小圖表尺寸
+            const gw = 240;
+            const gh = 140;
+            const gx = cw - gw - 20;
+            const gy = ch - gh - 20;
+
+            // 背景
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(gx, gy, gw, gh);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(gx, gy, gw, gh);
+
+            // 標題
+            ctx.fillStyle = '#334155';
+            ctx.font = 'bold 14px sans-serif'; // 縮小標題字體
+            ctx.textAlign = 'center';
+            ctx.fillText('正向力 - 時間 圖 (N-t)', gx + gw/2, gy + 20);
+
+            // 座標軸設定
+            const marginL = 45, marginR = 15, marginT = 35, marginB = 25;
+            const plotW = gw - marginL - marginR;
+            const plotH = gh - marginT - marginB;
+            const originX = gx + marginL;
+            const originY = gy + gh - marginB;
+
+            // 畫座標線
+            ctx.beginPath();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.moveTo(originX, originY - plotH);
+            ctx.lineTo(originX, originY);
+            ctx.lineTo(originX + plotW, originY);
+            ctx.stroke();
+
+            // 軸標籤
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('N (牛頓)', originX - 5, originY - plotH + 5);
+            ctx.textAlign = 'center';
+            ctx.fillText('t (秒)', originX + plotW - 10, originY + 15);
+
+            const maxT = 9; // 總時間 9 秒
+            const maxN = 1000; // Y軸上限到 1000N，方便觀看波動
+
+            // 畫 600N 基準線
+            const y600 = originY - (600 / maxN) * plotH;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(originX, y600);
+            ctx.lineTo(originX + plotW, y600);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'right';
+            ctx.fillText('600', originX - 5, y600 + 4);
+            ctx.fillText('0', originX - 5, originY + 4);
+
+            // 畫 N 曲線歷史
+            if (elevatorState.history.length > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#2563eb';
+                ctx.lineWidth = 2.5; // 稍微調細一點
+                elevatorState.history.forEach((pt, i) => {
+                    let px = originX + (pt.t / maxT) * plotW;
+                    let py = originY - (pt.N / maxN) * plotH;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                });
+                ctx.stroke();
+                
+                // 畫當前點
+                let lastPt = elevatorState.history[elevatorState.history.length - 1];
+                let px = originX + (lastPt.t / maxT) * plotW;
+                let py = originY - (lastPt.N / maxN) * plotH;
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            let dt = (timestamp - lastTime) / 1000; 
+            if (dt > 0.1) dt = 0.1; 
+            lastTime = timestamp;
+
+            const cw = canvas.parentElement.clientWidth;
+            const ch = canvas.parentElement.clientHeight;
+            ctx.clearRect(0, 0, cw, ch);
+
+            if (currentMode === 'block') {
+                let netF = blockState.Fy - blockState.W;
+                if (blockState.y === 0 && netF <= 0) {
+                    blockState.vy = 0;
+                } else {
+                    let a = netF / blockState.mass;
+                    blockState.vy += a * dt * 10; 
+                    blockState.y += blockState.vy * dt * 10;
+                    if (blockState.y < 0) {
+                        blockState.y = 0;
+                        blockState.vy = 0;
+                    }
+                }
+                updatePhysics(); 
+                drawBlockMode(cw, ch);
+
+            } else if (currentMode === 'elevator') {
+                if (elevatorState.journeyActive && !elevatorState.isPaused) {
+                    elevatorState.timer += dt;
+                    let t = elevatorState.timer;
+
+                    // 使用正弦波做平滑加速/減速模型
+                    // A = 2.5 (最大加速度), T_phase = 3s (每階段秒數)
+                    const A = 2.5;
+                    const T = 3;
+                    const vmax = (2 * A * T) / Math.PI; 
+                    let localDisp = 0;
+                    let a_val = 0;
+
+                    if (t <= T) {
+                        // 階段 1: 漸進加速 (Sine wave from 0 to A to 0)
+                        elevatorState.phase = 'accel';
+                        a_val = A * Math.sin((Math.PI * t) / T);
+                        localDisp = (A * T / Math.PI) * t - (A * T * T / (Math.PI * Math.PI)) * Math.sin(Math.PI * t / T);
+                    } else if (t <= 2 * T) {
+                        // 階段 2: 等速
+                        elevatorState.phase = 'const';
+                        a_val = 0;
+                        let s1 = (A * T * T / Math.PI);
+                        localDisp = s1 + vmax * (t - T);
+                    } else if (t <= 3 * T) {
+                        // 階段 3: 漸進減速 (Sine wave from 0 to -A to 0)
+                        elevatorState.phase = 'decel';
+                        let t_rel = t - 2 * T;
+                        a_val = -A * Math.sin((Math.PI * t_rel) / T);
+                        let s2 = (A * T * T / Math.PI) + vmax * T;
+                        localDisp = s2 + vmax * t_rel - ((A * T / Math.PI) * t_rel - (A * T * T / (Math.PI * Math.PI)) * Math.sin(Math.PI * t_rel / T));
+                    } else {
+                        // 旅程結束
+                        elevatorState.phase = 'idle';
+                        a_val = 0;
+                        localDisp = (4 * A * T * T) / Math.PI; // 理論總位移
+                        
+                        elevatorState.journeyActive = false;
+                        elevatorState.location = elevatorState.direction === 'up' ? 'top' : 'bottom';
+                        ui.eBtn.disabled = false;
+                        
+                        ui.ePauseBtn.disabled = true;
+                        ui.ePauseBtn.innerHTML = "暫停";
+                        ui.ePauseBtn.className = "w-24 py-4 px-4 bg-gray-400 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95 opacity-50 cursor-not-allowed";
+
+                        if (elevatorState.location === 'top') {
+                            ui.eBtn.className = "flex-1 py-4 px-4 bg-blue-500 hover:bg-blue-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95";
+                            ui.eBtn.innerHTML = "▼ 開始下降旅程";
+                        } else {
+                            ui.eBtn.className = "flex-1 py-4 px-4 bg-green-500 hover:bg-green-600 text-white text-lg font-bold rounded-lg shadow-lg transform transition-transform active:scale-95";
+                            ui.eBtn.innerHTML = "▲ 開始上升旅程";
+                        }
+                        // 修正結尾時間強制停在 9 秒以畫好最後的點
+                        t = 3 * T; 
+                    }
+
+                    // 將算出的相對物理量根據方向轉換
+                    let dir = elevatorState.direction === 'up' ? 1 : -1;
+                    elevatorState.a = dir * a_val;
+                    
+                    // 速度 v 也需根據方向轉換
+                    if (t <= T) elevatorState.v = dir * (A * T / Math.PI) * (1 - Math.cos(Math.PI * t / T));
+                    else if (t <= 2 * T) elevatorState.v = dir * vmax;
+                    else if (t <= 3 * T) elevatorState.v = dir * (vmax - (A * T / Math.PI) * (1 - Math.cos(Math.PI * (t - 2 * T) / T)));
+                    else elevatorState.v = 0;
+
+                    const totalPhysicalDist = (4 * A * T * T) / Math.PI;
+                    elevatorState.displacement = elevatorState.direction === 'up' ? localDisp : totalPhysicalDist - localDisp;
+
+                    elevatorState.N = 600 + elevatorState.mass * elevatorState.a;
+                    elevatorState.history.push({t: t, N: elevatorState.N, v: elevatorState.v});
+                }
+
+                updateElevatorUI();
+                drawElevatorMode(cw, ch);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // 事件監聽
+        ui.bMassIn.addEventListener('input', updatePhysics);
+        ui.bForceToggle.addEventListener('change', updatePhysics);
+        ui.bForceIn.addEventListener('input', updatePhysics);
+        ui.bAngleIn.addEventListener('input', updatePhysics);
+        
+        // 圖形開關
+        ui.eGraphToggle.addEventListener('change', (e) => {
+            elevatorState.showGraph = e.target.checked;
+        });
+        ui.eVGraphToggle.addEventListener('change', (e) => {
+            elevatorState.showVGraph = e.target.checked;
+        });
+
+        resizeCanvas();
+        switchMode('block');
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>
