@@ -150,6 +150,48 @@
             pointer-events: none;
             font-size: 0.9rem;
         }
+        
+        /* 浮動 UI (面板收起時顯示) */
+        #floating-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #floating-ui.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .float-btn {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #bdc3c7;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        .float-btn:hover { background: #fff; border-color: #3498db; }
+        .float-btn.laser-btn { border-color: #e74c3c; color: #d35400; }
+        
+        /* 面板收起動畫 */
+        #control-panel {
+            transition: transform 0.3s ease-in-out;
+        }
+        #control-panel.collapsed {
+            transform: translateX(100%);
+        }
     </style>
 </head>
 <body>
@@ -161,8 +203,20 @@
         滑鼠左鍵：旋轉視角 | 滑鼠右鍵：平移 | 滾輪：縮放
     </div>
 
+    <!-- 浮動控制列 (面板收起時顯示) -->
+    <div id="floating-ui">
+        <button class="float-btn" id="btn-show-panel">◀ 顯示面板</button>
+        <label class="float-btn laser-btn" style="cursor: pointer;">
+            <input type="checkbox" id="cb-laser-float" style="width: 20px; height: 20px; cursor: pointer;">
+            開啟雷射光束
+        </label>
+    </div>
+
     <div id="control-panel">
-        <h1>卡文迪西扭秤實驗 (3D)</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 5px;">
+            <h1 style="border: none; padding: 0; margin: 0;">卡文迪西扭秤實驗</h1>
+            <button id="btn-hide-panel" style="width: auto; margin: 0; padding: 6px 12px; background: #95a5a6; font-size: 0.85rem; border-radius: 4px;">收起 ➔</button>
+        </div>
         
         <div class="explanation">
             <p><strong>3D 物理核心：</strong>本模擬器精確計算空間中 4 個質點間的引力向量 <strong>F = G(Mm / r²)</strong>，並利用外積求出真實力矩。光線的反射亦遵守 3D 幾何法則。</p>
@@ -589,14 +643,36 @@ document.getElementById('btn-reset').addEventListener('click', () => {
     historyTheta.fill(0);
 });
 
-// 雷射光開關綁定
-document.getElementById('cb-laser').addEventListener('change', (e) => {
-    isLaserOn = e.target.checked;
+// 面板收起與展開邏輯
+const panel = document.getElementById('control-panel');
+const floatingUI = document.getElementById('floating-ui');
+
+document.getElementById('btn-hide-panel').addEventListener('click', () => {
+    panel.classList.add('collapsed');
+    floatingUI.classList.add('show');
+});
+
+document.getElementById('btn-show-panel').addEventListener('click', () => {
+    panel.classList.remove('collapsed');
+    floatingUI.classList.remove('show');
+});
+
+// 雷射光開關同步邏輯
+const cbLaserMain = document.getElementById('cb-laser');
+const cbLaserFloat = document.getElementById('cb-laser-float');
+
+function toggleLaser(isOn) {
+    isLaserOn = isOn;
+    cbLaserMain.checked = isOn;
+    cbLaserFloat.checked = isOn;
     incidentBeam.visible = isLaserOn;
     reflectedBeam.visible = isLaserOn;
     laserDot.visible = isLaserOn;
     pointLight.visible = isLaserOn;
-});
+}
+
+cbLaserMain.addEventListener('change', (e) => toggleLaser(e.target.checked));
+cbLaserFloat.addEventListener('change', (e) => toggleLaser(e.target.checked));
 
 window.addEventListener('resize', () => {
     const width = container.clientWidth;
