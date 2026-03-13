@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剛體動力學模擬器 | 物理教學工具</title>
+    <!-- 引入 p5.js 與 Matter.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f8f9fa;
+            --panel-bg: #ffffff;
+            --text-color: #333333;
+            --border-radius: 8px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        #main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            flex-direction: row;
+        }
+
+        #sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 5;
+        }
+
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #e9ecef;
+            position: relative;
+        }
+
+        /* 右下角縮放按鈕樣式 */
+        #zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        #zoom-controls button {
+            width: 36px;
+            height: 36px;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        #zoom-controls button:hover {
+            background: #e9ecef;
+        }
+
+        .control-group {
+            background: var(--bg-color);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            border: 1px solid #dee2e6;
+        }
+
+        .control-group h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 5px;
+            display: inline-block;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .slider-row button {
+            margin: 0;
+            width: 40px;
+            height: 35px;
+            font-size: 1.2rem;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #7f8c8d;
+        }
+        
+        .slider-row button:hover {
+            background-color: #95a5a6;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 15px;
+            accent-color: var(--accent-color);
+        }
+        
+        .slider-row input[type="range"] {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ccc;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .preset-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .preset-row button {
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            padding: 8px 5px;
+            background-color: #e67e22;
+        }
+        .preset-row button:hover {
+            background-color: #d35400;
+        }
+
+        .instruction-box {
+            background-color: #e8f4f8;
+            border-left: 4px solid var(--accent-color);
+            padding: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+        }
+
+        .mode-controls {
+            display: none;
+        }
+
+        .mode-controls.active {
+            display: block;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #main-container {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: 40%;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            }
+            #canvas-container {
+                height: 60%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>⚛️ 剛體動力學模擬器</h1>
+    </header>
+
+    <div id="main-container">
+        <div id="sidebar">
+            <div class="control-group">
+                <h3>模擬模式選擇</h3>
+                <select id="mode-selector">
+                    <option value="1" selected>模式一：保齡球瓶斜拋 (拋體與旋轉)</option>
+                    <option value="2">模式二：尋找重心 (力矩與平衡)</option>
+                    <option value="3">模式三：方塊翻轉 (幾何中心與平衡)</option>
+                    <option value="4">模式四：斜面物體 (滑動與轉動)</option>
+                    <option value="5">模式五：質心 VS 重心 (重力梯度)</option>
+                </select>
+            </div>
+
+            <div id="instruction-panel" class="instruction-box">
+                <!-- 教學文字由 JS 動態更新 -->
+            </div>
+
+            <!-- 模式一控制項 -->
+            <div id="controls-1" class="control-group mode-controls active">
+                <h3>拋射參數</h3>
+                <label>拋出角度 (θ): <span id="val-angle1">45</span>°</label>
+                <input type="range" id="slider-angle1" min="0" max="90" value="45">
+
+                <label>初始速率 (v₀): <span id="val-v0">25</span> m/s</label>
+                <input type="range" id="slider-v0" min="5" max="40" value="25">
+                
+                <label>初始角速度 (ω₀): <span id="val-w0">5</span> rad/s</label>
+                <input type="range" id="slider-w0" min="-30" max="30" value="5">
+                
+                <!-- 合併了顯示質心與虛線描邊的選項 -->
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-assist" style="width: auto; margin: 0;"> 
+                    <span>顯示質心軌跡與虛線描邊</span>
+                </label>
+                
+                <button id="btn-throw" style="margin-top: 15px;">🎳 拋出球瓶</button>
+            </div>
+
+            <!-- 模式二控制項 (槓桿平衡) -->
+            <div id="controls-2" class="control-group mode-controls">
+                <h3>物體與支撐參數</h3>
+                <label>左側球體大小 (質量): <span id="val-m1">30</span></label>
+                <input type="range" id="slider-m1" min="10" max="80" value="30">
+                
+                <label>右側球體大小 (質量): <span id="val-m2">50</span></label>
+                <input type="range" id="slider-m2" min="10" max="80" value="50">
+                
+                <label>支撐位置 (手指): <span id="val-finger">50</span>%</label>
+                <div class="slider-row">
+                    <button id="btn-minus-finger">-</button>
+                    <input type="range" id="slider-finger" min="0" max="100" value="50">
+                    <button id="btn-plus-finger">+</button>
+                </div>
+                
+                <button id="btn-reset-2">🔄 重置桿子</button>
+            </div>
+
+            <!-- 模式三控制項 (方塊翻轉) -->
+            <div id="controls-3" class="control-group mode-controls">
+                <h3>受力與物體參數</h3>
+                <label>方塊傾斜角度 (θ): <span id="val-angle3">0</span>°</label>
+                <div class="slider-row">
+                    <button id="btn-minus-angle3">-</button>
+                    <input type="range" id="slider-angle3" min="0" max="90" value="0">
+                    <button id="btn-plus-angle3">+</button>
+                </div>
+                
+                <label>物體高度 (h): <span id="val-h3">150</span> px</label>
+                <input type="range" id="slider-h3" min="50" max="250" value="150">
+                
+                <button id="btn-reset-3">🔄 重置方塊</button>
+            </div>
+
+            <!-- 模式四控制項 (斜面物體) -->
+            <div id="controls-4" class="control-group mode-controls">
+                <h3>斜面與物體參數</h3>
+                
+                <label>設定情境 (自動調整為完美參數並歸零)：</label>
+                <div class="preset-row">
+                    <button id="btn-preset-tip">先翻倒</button>
+                    <button id="btn-preset-slide">先滑動</button>
+                </div>
+
+                <label>斜面傾角 (θ): <span id="val-angle4">0</span>°</label>
+                <div class="slider-row">
+                    <button id="btn-minus-angle4">-</button>
+                    <input type="range" id="slider-angle4" min="0" max="60" value="0" step="0.5">
+                    <button id="btn-plus-angle4">+</button>
+                </div>
+                
+                <label>靜摩擦係數 (μs): <span id="val-mu4">0.8</span></label>
+                <input type="range" id="slider-mu4" min="0" max="1.0" step="0.1" value="0.8">
+                
+                <label>物體寬度 (w): <span id="val-w4">100</span> px</label>
+                <input type="range" id="slider-w4" min="60" max="300" value="100">
+                
+                <label>物體高度 (h): <span id="val-h4">250</span> px</label>
+                <input type="range" id="slider-h4" min="60" max="600" value="250">
+                
+                <button id="btn-reset-4">🔄 重置位置</button>
+            </div>
+
+            <!-- 模式五控制項 (質心VS重心) -->
+            <div id="controls-5" class="control-group mode-controls">
+                <h3>堆疊與環境參數</h3>
+                <label>樓層數 (10m/層): <span id="val-floors">1</span></label>
+                <div class="slider-row">
+                    <button id="btn-minus-floors">-</button>
+                    <input type="range" id="slider-floors" min="1" max="200" value="1">
+                    <button id="btn-plus-floors">+</button>
+                </div>
+                <div style="font-size:0.85rem; color:#7f8c8d; margin-top:10px;">
+                    💡 註：為凸顯教學效果，模擬中的星球半徑被縮小至 1000m，藉此放大重力隨高度遞減的梯度效應。
+                </div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <!-- 右下角視角縮放控制項 -->
+            <div id="zoom-controls">
+                <button id="btn-zoom-in" title="放大視角">➕</button>
+                <button id="btn-zoom-out" title="縮小視角">➖</button>
+                <button id="btn-zoom-reset" title="重置視角" style="font-size:14px;">1x</button>
+            </div>
+            <!-- p5.js Canvas 將自動插入於此 -->
+        </div>
+    </div>
+
+<script>
+// ==========================================
+// 物理引擎與全域變數設定 (Matter.js & p5.js)
+// ==========================================
+const Engine = Matter.Engine,
+      Bodies = Matter.Bodies,
+      Body = Matter.Body,
+      Composite = Matter.Composite,
+      Vector = Matter.Vector;
+
+let engine;
+let world;
+let currentMode = 1; 
+let canvasWidth, canvasHeight;
+
+// 視角縮放參數
+window.viewScale = 1.0;
+
+// 物理物件參照
+let ground;
+let activeBody;
+let inclinePlane; 
+let fulcrum; 
+let flightTrail = []; 
+
+// 拖拉狀態變數
+window.isDraggingFinger = false;
+window.isDraggingAngle3 = false;
+
+// 教學文字資料庫
+const instructions = {
+    1: "<b>【保齡球瓶斜拋】</b><br>1. <b>抽象的質心</b>：勾選「顯示質心軌跡與虛線描邊」，觀察紅點(質心)是如何畫出完美的拋物線的。<br>2. <b>繞質心旋轉</b>：瓶身會穩穩地繞質心旋轉。",
+    2: "<b>【尋找重心與力矩平衡】</b><br><b>請拖拉或用+/-微調「支撐位置」</b>。<br>提示：調整時系統會托住桿子；<b>放開後</b>，如果手指(支點)沒有精準對齊「質心(重心)」，兩側不平衡的重力矩就會讓桿子傾倒！",
+    3: "<b>【幾何中心與翻轉】</b><br><b>請拖拉或用+/-鈕調整「方塊傾斜角度」</b>。<br>💡 在拖拉按住時物理定律會暫停。<b>放開後</b>，物理引擎接管：當質心垂直線超越右下角支點時，方塊便會失去平衡倒下。",
+    4: "<b>【斜面上的平衡】</b><br><b>請拖拉或用+/-鈕調整「斜面傾角」</b>。<br>👉 物理模擬會即時進行，觀察結果是否符合：<br>1. <b>滑動：</b> tan(θ) > 靜摩擦係數(μs)<br>2. <b>轉動：</b> 質心超越底面積 tan(θ) > (寬度/高度)",
+    5: "<b>【質心 VS 重心】</b><br><b>請慢慢增加「樓層數」</b>。<br>💡 <b>質心(幾何中心)</b> 只看形狀質量分布；但 <b>重心(等效受力點)</b> 會受重力場影響。<br>當物體極高時，上方受到星球的重力較弱，下方受力較強，重心低於質心！"
+};
+
+// ==========================================
+// p5.js 核心生命週期
+// ==========================================
+function setup() {
+    let container = document.getElementById('canvas-container');
+    canvasWidth = container.clientWidth;
+    canvasHeight = container.clientHeight;
+    let canvas = createCanvas(canvasWidth, canvasHeight);
+    canvas.parent('canvas-container');
+
+    engine = Engine.create({ positionIterations: 32, velocityIterations: 32 });
+    world = engine.world;
+    
+    setupUI();
+    updateInstructions();
+    initMode(currentMode);
+}
+
+function draw() {
+    background(233, 236, 239);
+    
+    let shouldUpdatePhysics = (currentMode !== 5);
+    if (shouldUpdatePhysics) Engine.update(engine, 1000 / 60);
+
+    push();
+    translate(canvasWidth / 2, canvasHeight);
+    scale(window.viewScale);
+    translate(-canvasWidth / 2, -canvasHeight);
+
+    if (currentMode !== 5) drawGround();
+
+    if (currentMode == 1) drawMode1();
+    else if (currentMode == 2) { handleMode2Logic(); drawMode2(); }
+    else if (currentMode == 3) { handleMode3Logic(); drawMode3(); }
+    else if (currentMode == 4) { handleMode4Logic(); drawMode4(); }
+    else if (currentMode == 5) drawMode5(); 
+
+    pop();
+}
+
+function windowResized() {
+    let container = document.getElementById('canvas-container');
+    canvasWidth = container.clientWidth;
+    canvasHeight = container.clientHeight;
+    resizeCanvas(canvasWidth, canvasHeight);
+    initMode(currentMode);
+}
+
+// ==========================================
+// UI 控制與事件
+// ==========================================
+function setupUI() {
+    const modeSelector = document.getElementById('mode-selector');
+    modeSelector.addEventListener('change', (e) => {
+        currentMode = parseInt(e.target.value);
+        document.querySelectorAll('.mode-controls').forEach(el => el.classList.remove('active'));
+        document.getElementById('controls-' + currentMode).classList.add('active');
+        updateInstructions();
+        initMode(currentMode);
+    });
+
+    document.getElementById('btn-zoom-in').addEventListener('click', () => { window.viewScale *= 1.2; });
+    document.getElementById('btn-zoom-out').addEventListener('click', () => { window.viewScale /= 1.2; });
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => { window.viewScale = 1.0; });
+
+    const setupDragFlag = (id, flagName) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => { window[flagName] = true; });
+            el.addEventListener('change', () => { window[flagName] = false; });
+            el.addEventListener('mouseup', () => { window[flagName] = false; });
+            el.addEventListener('touchend', () => { window[flagName] = false; });
+        }
+    };
+    setupDragFlag('slider-finger', 'isDraggingFinger');
+    setupDragFlag('slider-angle3', 'isDraggingAngle3');
+
+    const sliders = ['angle1', 'v0', 'w0', 'm1', 'm2', 'finger', 'angle3', 'h3', 'angle4', 'mu4', 'w4', 'h4', 'floors'];
+    sliders.forEach(id => {
+        const slider = document.getElementById('slider-' + id);
+        const display = document.getElementById('val-' + id);
+        if (slider && display) {
+            slider.addEventListener('input', (e) => {
+                display.innerText = e.target.value;
+                if (currentMode == 2 && ['m1', 'm2'].includes(id)) initMode(2);
+                if (currentMode == 3 && id == 'h3') initMode(3);
+                if (currentMode == 4 && ['h4', 'w4', 'mu4'].includes(id)) initMode(4);
+            });
+        }
+    });
+
+    const setupPlusMinus = (sliderId, displayId, minusBtnId, plusBtnId, step, dragFlagName = null) => {
+        const slider = document.getElementById(sliderId);
+        const display = document.getElementById(displayId);
+        const updateVal = (amount) => {
+            let newVal = parseFloat(slider.value) + amount;
+            newVal = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), newVal));
+            slider.value = newVal;
+            display.innerText = newVal;
+            slider.dispatchEvent(new Event('input')); 
+        };
+        const bindHold = (btn, amount) => {
+            let interval;
+            btn.addEventListener('mousedown', () => { if(dragFlagName) window[dragFlagName]=true; updateVal(amount); interval=setInterval(()=>updateVal(amount), 80); });
+            btn.addEventListener('mouseup', () => { if(dragFlagName) window[dragFlagName]=false; clearInterval(interval); });
+            btn.addEventListener('mouseleave', () => { if(dragFlagName) window[dragFlagName]=false; clearInterval(interval); });
+        };
+        if(document.getElementById(minusBtnId)) bindHold(document.getElementById(minusBtnId), -step);
+        if(document.getElementById(plusBtnId)) bindHold(document.getElementById(plusBtnId), step);
+    };
+
+    setupPlusMinus('slider-finger', 'val-finger', 'btn-minus-finger', 'btn-plus-finger', 1, 'isDraggingFinger');
+    setupPlusMinus('slider-angle3', 'val-angle3', 'btn-minus-angle3', 'btn-plus-angle3', 1, 'isDraggingAngle3');
+    setupPlusMinus('slider-angle4', 'val-angle4', 'btn-minus-angle4', 'btn-plus-angle4', 0.5, null); 
+    setupPlusMinus('slider-floors', 'val-floors', 'btn-minus-floors', 'btn-plus-floors', 1, null); 
+
+    document.getElementById('btn-throw').addEventListener('click', () => throwBowlingPin());
+    document.getElementById('btn-reset-2').addEventListener('click', () => initMode(2));
+    document.getElementById('btn-reset-3').addEventListener('click', () => initMode(3));
+    document.getElementById('btn-reset-4').addEventListener('click', () => initMode(4));
+    
+    // 綁定模式四「先翻倒」與「先滑動」按鈕事件
+    document.getElementById('btn-preset-tip').addEventListener('click', () => applyMode4Preset(100, 250, 0.8)); // 預設：先翻倒 (0.4 < 0.8)
+    document.getElementById('btn-preset-slide').addEventListener('click', () => applyMode4Preset(200, 100, 0.2)); // 預設：先滑動 (0.2 < 2.0)
+}
+
+function updateInstructions() { document.getElementById('instruction-panel').innerHTML = instructions[currentMode]; }
+
+function applyMode4Preset(w, h, mu) {
+    document.getElementById('slider-w4').value = w;
+    document.getElementById('val-w4').innerText = w;
+    document.getElementById('slider-h4').value = h;
+    document.getElementById('val-h4').innerText = h;
+    document.getElementById('slider-mu4').value = mu;
+    document.getElementById('val-mu4').innerText = mu;
+    // 將傾角歸零
+    document.getElementById('slider-angle4').value = 0;
+    document.getElementById('val-angle4').innerText = "0";
+    
+    initMode(4);
+}
+
+// ==========================================
+// 物理場景與各模式邏輯
+// ==========================================
+function clearWorld() {
+    Composite.clear(world); Engine.clear(engine);
+    activeBody = null; inclinePlane = null; fulcrum = null; ground = null;
+    flightTrail = [];
+}
+
+function initMode(mode) {
+    clearWorld();
+    if (mode == 1 || mode == 3) {
+        ground = Bodies.rectangle(canvasWidth/2, canvasHeight - 50, canvasWidth * 10, 100, { isStatic: true, friction: 1.0 });
+        Composite.add(world, ground);
+    }
+    if (mode == 1) {
+        activeBody = Bodies.fromVertices(100, canvasHeight - 150, [[{x:-10,y:-45},{x:10,y:-45},{x:22,y:20},{x:15,y:45},{x:-15,y:45},{x:-22,y:20}]], { restitution: 0.5, friction: 0.5, frictionAir: 0, density: 0.01 }, true);
+        Composite.add(world, activeBody);
+    } else if (mode == 2) {
+        let cx = canvasWidth/2, cy = canvasHeight-200, r1 = parseInt(document.getElementById('slider-m1').value), r2 = parseInt(document.getElementById('slider-m2').value);
+        activeBody = Body.create({ parts: [Bodies.rectangle(cx, cy, 400, 20, {label:'bar'}), Bodies.circle(cx-200, cy, r1, {label:'leftBall'}), Bodies.circle(cx+200, cy, r2, {label:'rightBall'})], friction: 1.0 });
+        window.initialCmPosMode2 = { x: activeBody.position.x, y: activeBody.position.y };
+        // 將支點寬度從 4 稍微放寬到 10，確保滑桿的 1% 步進值 (4px) 能夠踩中平衡點
+        fulcrum = Bodies.rectangle(cx-200 + (parseFloat(document.getElementById('slider-finger').value)/100)*400, cy+60, 10, 100, { isStatic: true, friction: 1.0 });
+        Composite.add(world, [activeBody, fulcrum]);
+    } else if (mode == 3) {
+        let h = parseInt(document.getElementById('slider-h3').value);
+        activeBody = Bodies.rectangle(canvasWidth/2, canvasHeight-100-h/2, 60, h, { friction: 1.0, frictionStatic: Infinity, density: 0.005 });
+        Composite.add(world, activeBody);
+    } else if (mode == 4) {
+        let angle = radians(parseFloat(document.getElementById('slider-angle4').value)), mu = parseFloat(document.getElementById('slider-mu4').value), w = parseInt(document.getElementById('slider-w4').value), h = parseInt(document.getElementById('slider-h4').value);
+        inclinePlane = Bodies.rectangle(canvasWidth/2, canvasHeight-100, canvasWidth*10, 50, { isStatic: true, angle: angle, friction: mu });
+        let p = Vector.rotate(Vector.create(0, -(25+h/2)), angle);
+        activeBody = Bodies.rectangle(canvasWidth/2+p.x, canvasHeight-100+p.y, w, h, { angle: angle, friction: mu, frictionStatic: mu, density: 0.001 });
+        Composite.add(world, [inclinePlane, activeBody]);
+    }
+}
+
+function throwBowlingPin() {
+    if (currentMode !== 1 || !activeBody) return;
+    let angle = radians(parseFloat(document.getElementById('slider-angle1').value)), v0 = parseFloat(document.getElementById('slider-v0').value);
+    Body.setPosition(activeBody, {x: 100, y: canvasHeight - 150}); Body.setAngle(activeBody, 0);
+    Body.setVelocity(activeBody, { x: v0 * cos(angle)*0.5, y: -v0 * sin(angle)*0.5 });
+    Body.setAngularVelocity(activeBody, parseFloat(document.getElementById('slider-w0').value)*0.03); flightTrail = [];
+}
+
+// ----- 輔助繪圖函數 -----
+function drawGround() {
+    fill(149, 165, 166); noStroke();
+    if (ground) { rectMode(CENTER); rect(ground.position.x, ground.position.y, canvasWidth * 10, 100); rectMode(CORNER); }
+    if (inclinePlane) drawVertices(inclinePlane.vertices);
+}
+
+function drawVertices(vertices) { beginShape(); for(let v of vertices) vertex(v.x, v.y); endShape(CLOSE); }
+
+function drawArrow(base, vec, myColor, weight = 2) {
+    push(); stroke(myColor); strokeWeight(weight); fill(myColor);
+    translate(base.x, base.y); line(0,0, vec.x, vec.y); rotate(vec.heading());
+    let s = 7; translate(vec.mag()-s, 0); triangle(0, s/2, 0, -s/2, s, 0); pop();
+}
+
+function drawMode1() {
+    let showAssist = document.getElementById('chk-assist') ? document.getElementById('chk-assist').checked : false;
+    let showCom = showAssist;
+    let isTransparent = showAssist;
+
+    if (activeBody.speed > 0.1) flightTrail.push({x:activeBody.position.x, y:activeBody.position.y});
+    if (showCom) { stroke(231,76,60,150); noFill(); beginShape(); for(let p of flightTrail) vertex(p.x,p.y); endShape(); fill(231,76,60); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale); }
+    fill(255); stroke(192,57,43); strokeWeight(3/window.viewScale);
+    if(isTransparent) { fill(255,60); drawingContext.setLineDash([5,5]); }
+    drawVertices(activeBody.vertices); drawingContext.setLineDash([]);
+}
+
+function handleMode2Logic() {
+    if(window.isDraggingFinger) {
+        Body.setPosition(activeBody, window.initialCmPosMode2); Body.setAngle(activeBody, 0); Body.setVelocity(activeBody, {x:0,y:0});
+        Body.setPosition(fulcrum, {x: (canvasWidth/2-200)+(parseFloat(document.getElementById('slider-finger').value)/100)*400, y: (canvasHeight-200)+60});
+    }
+}
+
+function drawMode2() {
+    let m1 = parseInt(document.getElementById('slider-m1').value);
+    let m2 = parseInt(document.getElementById('slider-m2').value);
+
+    for(let i=1; i<activeBody.parts.length; i++){
+        let p = activeBody.parts[i]; 
+        fill(p.label==='bar'?241:p.label==='leftBall'?231:52, p.label==='bar'?196:76, p.label==='bar'?15:(p.label==='leftBall'?60:219));
+        stroke(0); strokeWeight(2/window.viewScale); drawVertices(p.vertices);
+        
+        // 將物體重量(質量)寫在球上
+        if (p.label === 'leftBall' || p.label === 'rightBall') {
+            push();
+            fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(16/window.viewScale); textStyle(BOLD);
+            let mText = p.label === 'leftBall' ? m1 : m2;
+            text(mText, p.position.x, p.position.y);
+            pop();
+        }
+    }
+    fill(46,204,113); drawVertices(fulcrum.vertices); fill(255,255,0); circle(activeBody.position.x, activeBody.position.y, 12/window.viewScale);
+
+    let diff = Math.abs(activeBody.position.x - fulcrum.position.x);
+    // 既然可以微調到 0.1%，我們將容許誤差縮小，讓找到的平衡點與比例更精準吻合
+    let isBalanced = diff < 4;
+
+    if (isBalanced && !window.isDraggingFinger) {
+        let leftBall = activeBody.parts.find(p => p.label === 'leftBall');
+        let rightBall = activeBody.parts.find(p => p.label === 'rightBall');
+        let cx = activeBody.position.x;
+        let cy = activeBody.position.y;
+        
+        let d1 = Math.abs(leftBall.position.x - cx);
+        let d2 = Math.abs(rightBall.position.x - cx);
+
+        push();
+        // 將距離標示線移至裝置上方 (cy - 110 確保不被最大半徑80的球擋住)
+        let lineY = cy - 110;
+        stroke(255, 255, 255, 200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+        line(leftBall.position.x, lineY, cx, lineY);
+        line(cx, lineY, rightBall.position.x, lineY);
+        
+        fill(0); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD);
+        text(`d1 = ${d1.toFixed(1)}`, (leftBall.position.x + cx)/2, lineY - 5);
+        text(`d2 = ${d2.toFixed(1)}`, (rightBall.position.x + cx)/2, lineY - 5);
+        
+        // 顯示比例關係 (與各重反比)，移至最上方並加粗
+        fill(231, 76, 60); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        let ratioD = (d1/d2).toFixed(2);
+        let ratioM = (m2/m1).toFixed(2);
+        
+        // 加上中文提示規律 (移除 Emoji)
+        textSize(20/window.viewScale);
+        text(`發現規律：距離與質量成反比`, cx, lineY - 60);
+        
+        // 顯示數值比例
+        textSize(24/window.viewScale);
+        text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, cx, lineY - 30);
+        pop();
+    }
+
+    push();
+    resetMatrix(); // 重置縮放，確保文字大小不變
+    if (window.isDraggingFinger) {
+        fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
+        text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 20, 30);
+    } else {
+        if (isBalanced) {
+            fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
+            text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 20, 30);
+            
+            // 加入顯眼的提示字樣 (移除 Emoji)
+            fill(231, 76, 60); textSize(32); textAlign(CENTER, CENTER);
+            text("平衡成功，你找到了質(重)心！", canvasWidth/2, 80);
+        } else {
+            fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
+            text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 20, 30);
+        }
+    }
+    pop();
+}
+
+function handleMode3Logic() {
+    if(window.isDraggingAngle3) {
+        let a = radians(parseFloat(document.getElementById('slider-angle3').value)), h = parseInt(document.getElementById('slider-h3').value), w = 60;
+        let px = canvasWidth/2+w/2, py = canvasHeight-100;
+        Body.setPosition(activeBody, {x: px-(w/2*cos(a)-h/2*sin(a)), y: py-(w/2*sin(a)+h/2*cos(a))});
+        Body.setAngle(activeBody, a); Body.setVelocity(activeBody,{x:0,y:0});
+    }
+}
+
+function drawMode3() {
+    fill(241,196,15); stroke(243,156,18); strokeWeight(2/window.viewScale); drawVertices(activeBody.vertices);
+    
+    // 畫對角線虛線，輔助判斷幾何中心
+    stroke(255,255,255,200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+    line(activeBody.vertices[0].x, activeBody.vertices[0].y, activeBody.vertices[2].x, activeBody.vertices[2].y);
+    line(activeBody.vertices[1].x, activeBody.vertices[1].y, activeBody.vertices[3].x, activeBody.vertices[3].y);
+    drawingContext.setLineDash([]);
+    
+    fill(231,76,60); noStroke(); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale);
+    drawArrow(createVector(activeBody.position.x, activeBody.position.y), createVector(0, 60), color(41,128,185), 3/window.viewScale);
+    
+    // 修正莫名的綠點，改用絕對環境座標來標示支點 (右下角)
+    let w = 60;
+    let px = canvasWidth/2 + w/2;
+    let py = canvasHeight - 100;
+    fill(46, 204, 113); noStroke(); circle(px, py, 8/window.viewScale);
+
+    push();
+    resetMatrix();
+    fill(0); noStroke(); textSize(18);
+    let isTipping = activeBody.position.x > px;
+    if (window.isDraggingAngle3) {
+        fill(41, 128, 185); text("✋ 目前暫停物理作用，請放開滑鼠/按鈕以觀察結果", 20, 30);
+    } else if (isTipping) {
+        fill(231, 76, 60); text("⚠️ 質心垂直線越過支點！重力產生順時針力矩，方塊倒下！", 20, 30);
+    } else {
+        fill(39, 174, 96); text("✅ 質心垂直線在支點內側，重力產生逆時針恢復力矩，保持平衡。", 20, 30);
+    }
+    pop();
+}
+
+function handleMode4Logic() {
+    if (!inclinePlane || !activeBody || currentMode !== 4) return;
+    let target = radians(parseFloat(document.getElementById('slider-angle4').value)), diff = target - inclinePlane.angle;
+    Body.setAngle(inclinePlane, inclinePlane.angle + diff*0.15);
+    
+    let mu = parseFloat(document.getElementById('slider-mu4').value);
+    let w = parseInt(document.getElementById('slider-w4').value);
+    let h = parseInt(document.getElementById('slider-h4').value);
+    let currentTan = Math.abs(Math.tan(inclinePlane.angle));
+    let whRatio = w / h;
+
+    // 精確數學判定是否發生滑動與翻倒
+    let shouldSlide = currentTan > mu + 0.005;
+    let shouldTip = currentTan > whRatio + 0.005;
+
+    if (!shouldSlide && !shouldTip) {
+        // 未達門檻，將方塊精確吸附在斜面上
+        let p = Vector.rotate(Vector.create(0, -(25+h/2)), inclinePlane.angle);
+        Body.setPosition(activeBody, {x: canvasWidth/2+p.x, y: canvasHeight-100+p.y}); 
+        Body.setAngle(activeBody, inclinePlane.angle); 
+        Body.setVelocity(activeBody, {x:0,y:0});
+        Body.setAngularVelocity(activeBody, 0);
+        inclinePlane.friction = 10;
+        activeBody.friction = 10;
+    } else {
+        if (!shouldSlide) {
+            // 只翻不滑：鎖死摩擦力，強迫引擎只產生純翻轉，不偷偷往下滑
+            inclinePlane.friction = 10;
+            activeBody.friction = 10;
+        } else {
+            // 滑動發生：恢復真實摩擦力，並限制最高速讓學生來得及看
+            inclinePlane.friction = mu;
+            activeBody.friction = mu;
+            let maxSpeed = 6.0; 
+            if (activeBody.speed > maxSpeed) {
+                let ratio = maxSpeed / activeBody.speed;
+                Body.setVelocity(activeBody, {
+                    x: activeBody.velocity.x * ratio,
+                    y: activeBody.velocity.y * ratio
+                });
+            }
+        }
+    }
+}
+
+function drawMode4() {
+    fill(241,196,15); stroke(243,156,18); strokeWeight(2/window.viewScale); drawVertices(activeBody.vertices);
+    
+    // 畫對角線虛線，輔助判斷幾何中心
+    stroke(255,255,255,200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+    line(activeBody.vertices[0].x, activeBody.vertices[0].y, activeBody.vertices[2].x, activeBody.vertices[2].y);
+    line(activeBody.vertices[1].x, activeBody.vertices[1].y, activeBody.vertices[3].x, activeBody.vertices[3].y);
+    drawingContext.setLineDash([]);
+
+    fill(231,76,60); noStroke(); circle(activeBody.position.x, activeBody.position.y, 8/window.viewScale);
+    drawArrow(createVector(activeBody.position.x, activeBody.position.y), createVector(0, 120), color(41,128,185), 3/window.viewScale);
+    
+    push();
+    resetMatrix();
+    fill(0); noStroke(); textSize(16);
+    let theta = inclinePlane.angle;
+    let mu = parseFloat(document.getElementById('slider-mu4').value);
+    let w = parseFloat(document.getElementById('slider-w4').value);
+    let h = parseFloat(document.getElementById('slider-h4').value);
+    let tanTheta = Math.abs(Math.tan(theta)).toFixed(3);
+    let whRatio = (w/h).toFixed(3);
+    
+    text(`目前 tan(θ) = ${tanTheta}`, 20, 30); 
+    text(`滑動門檻 (μs) = ${mu}`, 20, 55);
+    text(`翻轉門檻 (w/h) = ${whRatio}`, 20, 80);
+    
+    let statusY = 110;
+    let absTan = parseFloat(tanTheta);
+    if (absTan > mu && absTan <= parseFloat(whRatio)) {
+        fill(230, 126, 34); text("現象：物體向下滑動 (無翻轉)", 20, statusY);
+    } else if (absTan > parseFloat(whRatio) && absTan <= mu) {
+        fill(231, 76, 60); text("現象：物體向前翻轉 (未滑動)", 20, statusY);
+    } else if (absTan > mu && absTan > parseFloat(whRatio)) {
+        fill(192, 57, 43); text("現象：物體同時滑動與翻轉", 20, statusY);
+    } else {
+        fill(39, 174, 96); text("現象：靜止平衡", 20, statusY);
+    }
+    pop();
+}
+
+function drawMode5() {
+    let N = parseInt(document.getElementById('slider-floors').value), R = 1000, sumW=0, sumWy=0;
+    for(let i=0; i<N; i++){ let y=i*10+5, g=1/Math.pow(R+y, 2); sumW+=g; sumWy+=g*y; }
+    let com = N*5, cog = sumW===0?0:sumWy/sumW, scale = Math.min((canvasHeight-200)/(N*10||10), 4), bx = canvasWidth/2, by = canvasHeight-50;
+    fill(149,165,166); noStroke(); ellipse(bx, by+2000, 4000, 4000);
+    for(let i=0; i<N; i++){ fill(200+(i%2)*20); rect(bx-40, by-(i+1)*10*scale, 80, 10*scale); }
+    fill(231,76,60); circle(bx, by-com*scale, 12); fill(41,128,185); circle(bx, by-cog*scale, 12);
+}
+</script>
+</body>
+</html>
