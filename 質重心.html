@@ -656,7 +656,7 @@ function setupUI() {
             let ballR = 14;
             let effR = R - trackThickness/2 - ballR;
             
-            // 計算點擊開始(t=0)時的起始絕對座標
+            // 計算點擊開始(t=0)時的起點位移
             let angle = -Math.PI/2 * Math.cos(mode7State.time);
             let Xp_rel = effR * Math.sin(angle);
             let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
@@ -774,10 +774,8 @@ function drawArrow(base, vec, myColor, weight = 2) {
     push(); 
     let oldDash = drawingContext.getLineDash();
     drawingContext.setLineDash([]); 
-    
     stroke(myColor); strokeWeight(weight); fill(myColor);
     translate(base.x, base.y); 
-    
     let mag = vec.mag();
     if (mag > 0) {
         line(0,0, vec.x, vec.y); 
@@ -796,7 +794,6 @@ function drawMode1() {
     let showAssist = document.getElementById('chk-assist') ? document.getElementById('chk-assist').checked : false;
     let showCom = showAssist;
     let isTransparent = showAssist;
-
     if (activeBody.speed > 0.1) flightTrail.push({x:activeBody.position.x, y:activeBody.position.y});
     if (showCom) { stroke(231,76,60,150); noFill(); beginShape(); for(let p of flightTrail) vertex(p.x,p.y); endShape(); fill(231,76,60); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale); }
     fill(255); stroke(192,57,43); strokeWeight(3/window.viewScale);
@@ -814,61 +811,34 @@ function handleMode2Logic() {
 function drawMode2() {
     let m1 = parseInt(document.getElementById('slider-m1').value);
     let m2 = parseInt(document.getElementById('slider-m2').value);
-
     for(let i=1; i<activeBody.parts.length; i++){
         let p = activeBody.parts[i]; 
         fill(p.label==='bar'?241:p.label==='leftBall'?231:52, p.label==='bar'?196:76, p.label==='bar'?15:(p.label==='leftBall'?60:219));
         stroke(0); strokeWeight(2/window.viewScale); drawVertices(p.vertices);
-        
         if (p.label === 'leftBall' || p.label === 'rightBall') {
-            push();
-            fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(16/window.viewScale); textStyle(BOLD);
+            push(); fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(16/window.viewScale); textStyle(BOLD);
             let mText = p.label === 'leftBall' ? m1 : m2;
-            text(mText, p.position.x, p.position.y);
-            pop();
+            text(mText, p.position.x, p.position.y); pop();
         }
     }
     fill(46,204,113); drawVertices(fulcrum.vertices); fill(255,255,0); circle(activeBody.position.x, activeBody.position.y, 12/window.viewScale);
-
     let diff = Math.abs(activeBody.position.x - fulcrum.position.x);
     let isBalanced = diff < 4;
-
     if (isBalanced && !window.isDraggingFinger) {
         let leftBall = activeBody.parts.find(p => p.label === 'leftBall');
         let rightBall = activeBody.parts.find(p => p.label === 'rightBall');
-        let cx = activeBody.position.x;
-        let cy = activeBody.position.y;
-        
-        let d1 = Math.abs(leftBall.position.x - cx);
-        let d2 = Math.abs(rightBall.position.x - cx);
-
-        push();
-        let maxR = Math.max(m1, m2);
-        let lineY = cy - maxR - 20;
-        
+        let cx = activeBody.position.x; let cy = activeBody.position.y;
+        let d1 = Math.abs(leftBall.position.x - cx); let d2 = Math.abs(rightBall.position.x - cx);
+        push(); let maxR = Math.max(m1, m2); let lineY = cy - maxR - 20;
         stroke(255, 255, 255, 200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
-        line(leftBall.position.x, lineY, cx, lineY);
-        line(cx, lineY, rightBall.position.x, lineY);
-        
+        line(leftBall.position.x, lineY, cx, lineY); line(cx, lineY, rightBall.position.x, lineY);
         fill(0); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD);
-        text(`d1 = ${d1.toFixed(1)}`, (leftBall.position.x + cx)/2, lineY - 5);
-        text(`d2 = ${d2.toFixed(1)}`, (rightBall.position.x + cx)/2, lineY - 5);
-        
-        fill(231, 76, 60); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        let ratioD = (d1/d2).toFixed(2);
-        let ratioM = (m2/m1).toFixed(2);
-        
-        textSize(20/window.viewScale);
-        noStroke(); // 確保文字沒有邊框
-        text(`發現規律：距離與質量成反比`, cx, lineY - 60);
-        
-        textSize(24/window.viewScale);
-        text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, cx, lineY - 30);
-        pop();
+        text(`d1 = ${d1.toFixed(1)}`, (leftBall.position.x + cx)/2, lineY - 5); text(`d2 = ${d2.toFixed(1)}`, (rightBall.position.x + cx)/2, lineY - 5);
+        fill(231, 76, 60); textAlign(CENTER, BOTTOM); textStyle(BOLD); let ratioD = (d1/d2).toFixed(2); let ratioM = (m2/m1).toFixed(2);
+        textSize(20/window.viewScale); noStroke(); text(`發現規律：距離與質量成反比`, cx, lineY - 60);
+        textSize(24/window.viewScale); text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, cx, lineY - 30); pop();
     }
-
-    push();
-    resetMatrix(); 
+    push(); resetMatrix(); 
     if (window.isDraggingFinger) {
         fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
         text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 20, 30);
@@ -876,15 +846,13 @@ function drawMode2() {
         if (isBalanced) {
             fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
             text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 20, 30);
-            
             fill(231, 76, 60); textSize(32); textAlign(CENTER, CENTER);
             text("平衡成功，你找到了質(重)心！", canvasWidth/2, 80);
         } else {
             fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
             text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 20, 30);
         }
-    }
-    pop();
+    } pop();
 }
 
 function handleMode3Logic() {
@@ -898,23 +866,15 @@ function handleMode3Logic() {
 
 function drawMode3() {
     fill(241,196,15); stroke(243,156,18); strokeWeight(2/window.viewScale); drawVertices(activeBody.vertices);
-    
     stroke(255,255,255,200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
     line(activeBody.vertices[0].x, activeBody.vertices[0].y, activeBody.vertices[2].x, activeBody.vertices[2].y);
     line(activeBody.vertices[1].x, activeBody.vertices[1].y, activeBody.vertices[3].x, activeBody.vertices[3].y);
     drawingContext.setLineDash([]);
-    
     fill(231,76,60); noStroke(); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale);
     drawArrow(createVector(activeBody.position.x, activeBody.position.y), createVector(0, 60), color(41,128,185), 3/window.viewScale);
-    
-    let w = 60;
-    let px = canvasWidth/2 + w/2;
-    let py = canvasHeight - 100;
+    let w = 60; let px = canvasWidth/2 + w/2; let py = canvasHeight - 100;
     fill(46, 204, 113); noStroke(); circle(px, py, 8/window.viewScale);
-
-    push();
-    resetMatrix();
-    fill(0); noStroke(); textSize(18);
+    push(); resetMatrix(); fill(0); noStroke(); textSize(18);
     let isTipping = activeBody.position.x > px;
     if (window.isDraggingAngle3) {
         fill(41, 128, 185); text("提示：目前暫停物理作用，請放開滑鼠/按鈕以觀察結果", 20, 30);
@@ -922,46 +882,29 @@ function drawMode3() {
         fill(231, 76, 60); text("不平衡！質心垂直線越過支點！重力產生順時針力矩，方塊倒下！", 20, 30);
     } else {
         fill(39, 174, 96); text("平衡！質心垂直線在支點內側，重力產生逆時針恢復力矩，保持平衡。", 20, 30);
-    }
-    pop();
+    } pop();
 }
 
 function handleMode4Logic() {
     if (!inclinePlane || !activeBody || currentMode !== 4) return;
     let target = radians(parseFloat(document.getElementById('slider-angle4').value)), diff = target - inclinePlane.angle;
     Body.setAngle(inclinePlane, inclinePlane.angle + diff*0.15);
-    
-    let mu = parseFloat(document.getElementById('slider-mu4').value);
-    let w = parseInt(document.getElementById('slider-w4').value);
-    let h = parseInt(document.getElementById('slider-h4').value);
-    let currentTan = Math.abs(Math.tan(inclinePlane.angle));
-    let whRatio = w / h;
-
-    let shouldSlide = currentTan > mu + 0.005;
-    let shouldTip = currentTan > whRatio + 0.005;
-
+    let mu = parseFloat(document.getElementById('slider-mu4').value), w = parseInt(document.getElementById('slider-w4').value), h = parseInt(document.getElementById('slider-h4').value);
+    let currentTan = Math.abs(Math.tan(inclinePlane.angle)), whRatio = w / h;
+    let shouldSlide = currentTan > mu + 0.005, shouldTip = currentTan > whRatio + 0.005;
     if (!shouldSlide && !shouldTip) {
         let p = Vector.rotate(Vector.create(0, -(25+h/2)), inclinePlane.angle);
         Body.setPosition(activeBody, {x: canvasWidth/2+p.x, y: canvasHeight-100+p.y}); 
-        Body.setAngle(activeBody, inclinePlane.angle); 
-        Body.setVelocity(activeBody, {x:0,y:0});
-        Body.setAngularVelocity(activeBody, 0);
-        inclinePlane.friction = 10;
-        activeBody.friction = 10;
+        Body.setAngle(activeBody, inclinePlane.angle); Body.setVelocity(activeBody, {x:0,y:0}); Body.setAngularVelocity(activeBody, 0);
+        inclinePlane.friction = 10; activeBody.friction = 10;
     } else {
-        if (!shouldSlide) {
-            inclinePlane.friction = 10;
-            activeBody.friction = 10;
-        } else {
-            inclinePlane.friction = mu;
-            activeBody.friction = mu;
+        if (!shouldSlide) { inclinePlane.friction = 10; activeBody.friction = 10; }
+        else {
+            inclinePlane.friction = mu; activeBody.friction = mu;
             let maxSpeed = 6.0; 
             if (activeBody.speed > maxSpeed) {
                 let ratio = maxSpeed / activeBody.speed;
-                Body.setVelocity(activeBody, {
-                    x: activeBody.velocity.x * ratio,
-                    y: activeBody.velocity.y * ratio
-                });
+                Body.setVelocity(activeBody, { x: activeBody.velocity.x * ratio, y: activeBody.velocity.y * ratio });
             }
         }
     }
@@ -969,41 +912,21 @@ function handleMode4Logic() {
 
 function drawMode4() {
     fill(241,196,15); stroke(243,156,18); strokeWeight(2/window.viewScale); drawVertices(activeBody.vertices);
-    
     stroke(255,255,255,200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
     line(activeBody.vertices[0].x, activeBody.vertices[0].y, activeBody.vertices[2].x, activeBody.vertices[2].y);
     line(activeBody.vertices[1].x, activeBody.vertices[1].y, activeBody.vertices[3].x, activeBody.vertices[3].y);
     drawingContext.setLineDash([]);
-
     fill(231,76,60); noStroke(); circle(activeBody.position.x, activeBody.position.y, 8/window.viewScale);
     drawArrow(createVector(activeBody.position.x, activeBody.position.y), createVector(0, 120), color(41,128,185), 3/window.viewScale);
-    
-    push();
-    resetMatrix();
-    fill(0); noStroke(); textSize(16);
-    let theta = inclinePlane.angle;
-    let mu = parseFloat(document.getElementById('slider-mu4').value);
-    let w = parseFloat(document.getElementById('slider-w4').value);
-    let h = parseFloat(document.getElementById('slider-h4').value);
-    let tanTheta = Math.abs(Math.tan(theta)).toFixed(3);
-    let whRatio = (w/h).toFixed(3);
-    
-    text(`目前 tan(θ) = ${tanTheta}`, 20, 30); 
-    text(`滑動門檻 (μs) = ${mu}`, 20, 55);
-    text(`翻轉門檻 (w/h) = ${whRatio}`, 20, 80);
-    
-    let statusY = 110;
-    let absTan = parseFloat(tanTheta);
-    if (absTan > mu && absTan <= parseFloat(whRatio)) {
-        fill(230, 126, 34); text("現象：物體向下滑動 (無翻轉)", 20, statusY);
-    } else if (absTan > parseFloat(whRatio) && absTan <= mu) {
-        fill(231, 76, 60); text("現象：物體向前翻轉 (未滑動)", 20, statusY);
-    } else if (absTan > mu && absTan > parseFloat(whRatio)) {
-        fill(192, 57, 43); text("現象：物體同時滑動與翻轉", 20, statusY);
-    } else {
-        fill(39, 174, 96); text("現象：靜止平衡", 20, statusY);
-    }
-    pop();
+    push(); resetMatrix(); fill(0); noStroke(); textSize(16);
+    let theta = inclinePlane.angle; let mu = parseFloat(document.getElementById('slider-mu4').value), w = parseFloat(document.getElementById('slider-w4').value), h = parseFloat(document.getElementById('slider-h4').value);
+    let tanTheta = Math.abs(Math.tan(theta)).toFixed(3), whRatio = (w/h).toFixed(3);
+    text(`目前 tan(θ) = ${tanTheta}`, 20, 30); text(`滑動門檻 (μs) = ${mu}`, 20, 55); text(`翻轉門檻 (w/h) = ${whRatio}`, 20, 80);
+    let statusY = 110, absTan = parseFloat(tanTheta);
+    if (absTan > mu && absTan <= parseFloat(whRatio)) { fill(230, 126, 34); text("現象：物體向下滑動 (無翻轉)", 20, statusY); }
+    else if (absTan > parseFloat(whRatio) && absTan <= mu) { fill(231, 76, 60); text("現象：物體向前翻轉 (未滑動)", 20, statusY); }
+    else if (absTan > mu && absTan > parseFloat(whRatio)) { fill(192, 57, 43); text("現象：物體同時滑動與翻轉", 20, statusY); }
+    else { fill(39, 174, 96); text("現象：靜止平衡", 20, statusY); } pop();
 }
 
 function drawMode5() {
@@ -1020,15 +943,12 @@ function handleMode6Logic() {
     if (mode6State.isWalking && !mode6State.isPaused) {
         let speed = 0.005; 
         mode6State.relPos += speed * mode6State.direction;
-        
         if (mode6State.direction === 1 && mode6State.relPos >= 0.5) {
-            mode6State.relPos = 0.5;
-            mode6State.isWalking = false;
+            mode6State.relPos = 0.5; mode6State.isWalking = false;
             let btn = document.getElementById('btn-start-6');
             if (btn) { btn.innerText = "往回走"; btn.disabled = false; }
         } else if (mode6State.direction === -1 && mode6State.relPos <= -0.5) {
-            mode6State.relPos = -0.5;
-            mode6State.isWalking = false;
+            mode6State.relPos = -0.5; mode6State.isWalking = false;
             let btn = document.getElementById('btn-start-6');
             if (btn) { btn.innerText = "開始行走"; btn.disabled = false; }
         }
@@ -1039,11 +959,10 @@ function drawStickman(x, y, isMoving, moveProgress, dir, s) {
     stroke(231, 76, 60);
     strokeWeight(3 / s);
     noFill();
-    
     let time = moveProgress * 0.1; 
     let swing = isMoving ? Math.sin(time) * 0.8 : 0;
-    
-    circle(x, y - 40, 14 / s);
+    // 修正縮放：直接使用物理單位，不除以 s，讓它與環境同步放大
+    circle(x, y - 40, 14);
     line(x, y - 33, x, y - 15);
     line(x, y - 15, x + Math.sin(swing) * 15 * dir, y);
     line(x, y - 15, x - Math.sin(swing) * 15 * dir, y);
@@ -1052,202 +971,98 @@ function drawStickman(x, y, isMoving, moveProgress, dir, s) {
 }
 
 function drawMode6() {
-    let m = parseFloat(document.getElementById('slider-m6').value);
-    let M = parseFloat(document.getElementById('slider-M6').value);
-    let L = parseFloat(document.getElementById('slider-L6').value);
-    
-    let showCom = document.getElementById('chk-com6').checked;
-    let showRatio = document.getElementById('chk-ratio6').checked;
-
-    let Xp_rel = mode6State.relPos * L;
-    let xc = mode6State.initialComX - (m * Xp_rel) / (m + M);
-    let xp = xc + Xp_rel;
-
-    let groundY = canvasHeight - 100;
-    let wheelR = 12;
-    let cartH = 40;
+    let m = parseFloat(document.getElementById('slider-m6').value), M = parseFloat(document.getElementById('slider-M6').value), L = parseFloat(document.getElementById('slider-L6').value);
+    let showCom = document.getElementById('chk-com6').checked, showRatio = document.getElementById('chk-ratio6').checked;
+    let Xp_rel = mode6State.relPos * L, xc = mode6State.initialComX - (m * Xp_rel) / (m + M), xp = xc + Xp_rel;
+    // 精確高度校準：輪子貼地，車身在輪子上，人踩在車上
+    let groundY = canvasHeight - 100, wheelR = 12, cartH = 40;
     let wheelY = groundY - wheelR;          
-    let cartY = wheelY - cartH/2 - 5;       
+    let cartY = wheelY - wheelR - cartH/2; // 車廂緊貼輪頂
     let stickmanBaseY = cartY - cartH/2;    
-
-    // 計算實際位移
-    let dxp = Math.abs(xp - mode6State.startXp);
-    let dxc = Math.abs(xc - mode6State.startXc);
-
-    fill(149, 165, 166); noStroke();
-    rectMode(CENTER);
-    rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100);
-    rectMode(CORNER);
-
-    fill(52, 152, 219); stroke(41, 128, 185); strokeWeight(2/window.viewScale);
-    rectMode(CENTER);
-    rect(xc, cartY, L, cartH, 5);
-    rectMode(CORNER);
-    
+    let dxp = Math.abs(xp - mode6State.startXp), dxc = Math.abs(xc - mode6State.startXc);
+    fill(149, 165, 166); noStroke(); rectMode(CENTER); rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100); rectMode(CORNER);
+    fill(52, 152, 219); stroke(41, 128, 185); strokeWeight(2/window.viewScale); rectMode(CENTER);
+    rect(xc, cartY, L, cartH, 5); rectMode(CORNER);
     fill(44, 62, 80); noStroke();
-    circle(xc - L/2 + 30, wheelY, wheelR * 2 / window.viewScale);
-    circle(xc + L/2 - 30, wheelY, wheelR * 2 / window.viewScale);
-
-    fill(255); textAlign(CENTER, CENTER); textSize(20/window.viewScale); textStyle(BOLD);
-    text(`M`, xc, cartY);
-
+    circle(xc - L/2 + 30, wheelY, wheelR * 2); // 移除除以縮放，確保緊貼
+    circle(xc + L/2 - 30, wheelY, wheelR * 2);
+    fill(255); textAlign(CENTER, CENTER); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, cartY);
     let isAnimMoving = mode6State.isWalking && !mode6State.isPaused;
     drawStickman(xp, stickmanBaseY, isAnimMoving, xp, mode6State.direction, window.viewScale);
-    
-    fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD);
-    text("m", xp, stickmanBaseY - 55);
-
+    fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD); text("m", xp, stickmanBaseY - 55);
     if (showCom) {
         stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
-        line(mode6State.initialComX, groundY - 220, mode6State.initialComX, groundY + 30);
-        drawingContext.setLineDash([]);
-        
-        fill(39, 174, 96); noStroke();
-        circle(mode6State.initialComX, cartY, 14/window.viewScale);
-        
-        push(); resetMatrix();
-        fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
-        let screenTextY = (groundY - 230 - canvasHeight) * window.viewScale + canvasHeight;
+        line(mode6State.initialComX, groundY - 220, mode6State.initialComX, groundY + 30); drawingContext.setLineDash([]);
+        fill(39, 174, 96); noStroke(); circle(mode6State.initialComX, cartY, 14/window.viewScale);
+        push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 230 - canvasHeight) * window.viewScale + canvasHeight;
         text("系統水平質心 (不動)", screenComX, screenTextY);
-        
         if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
-            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-            text(`人移動距離 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
-            fill(52, 152, 219);
-            text(`車退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
-        }
-        pop();
-
+            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); text(`人移動距離 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
+            fill(52, 152, 219); text(`車退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
+        } pop();
         if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
             stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
-            line(mode6State.startXp, stickmanBaseY - 25, mode6State.startXp, groundY - 160);
-            line(xp, stickmanBaseY - 25, xp, groundY - 160);
+            line(mode6State.startXp, stickmanBaseY - 25, mode6State.startXp, groundY - 160); line(xp, stickmanBaseY - 25, xp, groundY - 160);
             drawArrow(createVector(mode6State.startXp, groundY - 150), createVector(xp - mode6State.startXp, 0), color(231, 76, 60), 2/window.viewScale);
-
-            stroke(52, 152, 219, 150);
-            line(mode6State.startXc, cartY, mode6State.startXc, groundY - 110);
-            line(xc, cartY, xc, groundY - 110);
-            drawArrow(createVector(mode6State.startXc, groundY - 100), createVector(xc - mode6State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
-            drawingContext.setLineDash([]);
+            stroke(52, 152, 219, 150); line(mode6State.startXc, cartY, mode6State.startXc, groundY - 110); line(xc, cartY, xc, groundY - 110);
+            drawArrow(createVector(mode6State.startXc, groundY - 100), createVector(xc - startXc, 0), color(52, 152, 219), 2/window.viewScale); drawingContext.setLineDash([]);
         }
     }
-
     if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
-        push(); resetMatrix();
-        fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        textSize(20);
-        text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
-        
-        textSize(24);
-        let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
-        let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130);
-        pop();
+        push(); resetMatrix(); fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        textSize(20); text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
+        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00", ratioM = (M / m).toFixed(2);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130); pop();
     }
 }
 
 // ----- 模式七 邏輯 (半圓槽與小球) -----
 function handleMode7Logic() {
-    if (mode7State.isSliding && !mode7State.isPaused) {
-        mode7State.time += 0.02; 
-    }
+    if (mode7State.isSliding && !mode7State.isPaused) { mode7State.time += 0.02; }
 }
 
 function drawMode7() {
-    let m = parseFloat(document.getElementById('slider-m7').value);
-    let M = parseFloat(document.getElementById('slider-M7').value);
-    let R = parseFloat(document.getElementById('slider-R7').value);
-    
-    let showCom = document.getElementById('chk-com7').checked;
-    let showRatio = document.getElementById('chk-ratio7').checked;
-
-    let trackThickness = 16;
-    let ballR = 14;
-    let effR = R - trackThickness/2 - ballR;
-
+    let m = parseFloat(document.getElementById('slider-m7').value), M = parseFloat(document.getElementById('slider-M7').value), R = parseFloat(document.getElementById('slider-R7').value);
+    let showCom = document.getElementById('chk-com7').checked, showRatio = document.getElementById('chk-ratio7').checked;
+    let trackThickness = 16, ballR = 14, effR = R - trackThickness/2 - ballR;
     let angle = -Math.PI/2 * Math.cos(mode7State.time);
-    
-    let Xp_rel = effR * Math.sin(angle);
-    let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
-    let xb = xc + Xp_rel; 
-    
-    let yCenter = canvasHeight - 100 - R - trackThickness/2; 
-    let yb = yCenter + effR * Math.cos(angle); 
-
-    // 計算實際位移 (從點擊開始那一刻的座標起算)
-    let dxp = Math.abs(xb - mode7State.startXb);
-    let dxc = Math.abs(xc - mode7State.startXc);
-
+    let Xp_rel = effR * Math.sin(angle), xc = mode7State.initialComX - (m * Xp_rel) / (m + M), xb = xc + Xp_rel; 
+    let yCenter = canvasHeight - 100 - R - trackThickness/2, yb = yCenter + effR * Math.cos(angle); 
+    let dxp = Math.abs(xb - mode7State.startXb), dxc = Math.abs(xc - mode7State.startXc);
     let groundY = yCenter + R + trackThickness/2;
-    fill(149, 165, 166); noStroke();
-    rectMode(CENTER);
-    rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100);
-    rectMode(CORNER);
-
-    stroke(52, 152, 219);
-    strokeWeight(trackThickness / window.viewScale);
-    noFill();
-    strokeCap(SQUARE); 
-    arc(xc, yCenter, R*2, R*2, 0, Math.PI);
-    strokeCap(ROUND); 
-    
-    fill(52, 152, 219); noStroke(); textAlign(CENTER, TOP); textSize(20/window.viewScale); textStyle(BOLD);
-    text(`M`, xc, groundY + 15);
-
+    fill(149, 165, 166); noStroke(); rectMode(CENTER); rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100); rectMode(CORNER);
+    stroke(52, 152, 219); strokeWeight(trackThickness / window.viewScale); noFill(); strokeCap(SQUARE); 
+    arc(xc, yCenter, R*2, R*2, 0, Math.PI); strokeCap(ROUND); 
+    fill(52, 152, 219); noStroke(); textAlign(CENTER, TOP); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, groundY + 15);
     fill(231, 76, 60); stroke(192, 57, 43); strokeWeight(2 / window.viewScale);
-    circle(xb, yb, ballR * 2 / window.viewScale);
-    
-    fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(14/window.viewScale); textStyle(BOLD);
-    text("m", xb, yb);
-
+    // 移除除以縮放，確保小球直徑跟隨視野正確放大
+    circle(xb, yb, ballR * 2);
+    fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(14/window.viewScale); textStyle(BOLD); text("m", xb, yb);
     if (showCom) {
         stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
-        line(mode7State.initialComX, groundY - 250, mode7State.initialComX, groundY + 30);
-        drawingContext.setLineDash([]);
-        
-        fill(39, 174, 96); noStroke();
-        circle(mode7State.initialComX, groundY - 10, 14/window.viewScale);
-        
-        push(); resetMatrix();
-        fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
-        let screenTextY = (groundY - 260 - canvasHeight) * window.viewScale + canvasHeight;
+        line(mode7State.initialComX, groundY - 250, mode7State.initialComX, groundY + 30); drawingContext.setLineDash([]);
+        fill(39, 174, 96); noStroke(); circle(mode7State.initialComX, groundY - 10, 14/window.viewScale);
+        push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 260 - canvasHeight) * window.viewScale + canvasHeight;
         text("系統水平質心 (不動)", screenComX, screenTextY);
-
         if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
-            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-            text(`小球水平位移 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
-            fill(52, 152, 219);
-            text(`半圓槽退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
-        }
-        pop();
-
+            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); text(`小球水平位移 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
+            fill(52, 152, 219); text(`半圓槽退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
+        } pop();
         if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
             stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
-            line(mode7State.startXb, yCenter - 40, mode7State.startXb, groundY - 180);
-            line(xb, yb - ballR, xb, groundY - 180);
+            line(mode7State.startXb, yCenter - 40, mode7State.startXb, groundY - 180); line(xb, yb - ballR, xb, groundY - 180);
             drawArrow(createVector(mode7State.startXb, groundY - 170), createVector(xb - mode7State.startXb, 0), color(231, 76, 60), 2/window.viewScale);
-
-            stroke(52, 152, 219, 150);
-            line(mode7State.startXc, yCenter, mode7State.startXc, groundY - 130);
-            line(xc, yCenter, xc, groundY - 130);
-            drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - startXc, 0), color(52, 152, 219), 2/window.viewScale);
-            drawingContext.setLineDash([]);
+            stroke(52, 152, 219, 150); line(mode7State.startXc, yCenter, mode7State.startXc, groundY - 130); line(xc, yCenter, xc, groundY - 130);
+            drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - startXc, 0), color(52, 152, 219), 2/window.viewScale); drawingContext.setLineDash([]);
         }
     }
-
     if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
-        push(); resetMatrix();
-        fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        textSize(20);
-        text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
-        
-        textSize(24);
-        let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
-        let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130);
-        pop();
+        push(); resetMatrix(); fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        textSize(20); text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
+        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00", ratioM = (M / m).toFixed(2);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130); pop();
     }
 }
 </script>
