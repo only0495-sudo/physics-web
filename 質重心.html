@@ -243,6 +243,8 @@
                     <option value="3">模式三：方塊翻轉 (幾何中心與平衡)</option>
                     <option value="4">模式四：斜面物體 (滑動與轉動)</option>
                     <option value="5">模式五：質心 VS 重心 (重力梯度)</option>
+                    <option value="6">模式六：滑車與人 (系統質心守恆)</option>
+                    <option value="7">模式七：半圓槽與小球 (系統質心守恆)</option>
                 </select>
             </div>
 
@@ -262,7 +264,6 @@
                 <label>初始角速度 (ω₀): <span id="val-w0">5</span> rad/s</label>
                 <input type="range" id="slider-w0" min="-30" max="30" value="5">
                 
-                <!-- 合併了顯示質心與虛線描邊的選項 -->
                 <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
                     <input type="checkbox" id="chk-assist" style="width: auto; margin: 0;"> 
                     <span>顯示質心軌跡與虛線描邊</span>
@@ -271,7 +272,7 @@
                 <button id="btn-throw" style="margin-top: 15px;">拋出球瓶</button>
             </div>
 
-            <!-- 模式二控制項 (槓桿平衡) -->
+            <!-- 模式二控制項 -->
             <div id="controls-2" class="control-group mode-controls">
                 <h3>物體與支撐參數</h3>
                 <label>左側球體大小 (質量): <span id="val-m1">30</span></label>
@@ -290,7 +291,7 @@
                 <button id="btn-reset-2">重置桿子</button>
             </div>
 
-            <!-- 模式三控制項 (方塊翻轉) -->
+            <!-- 模式三控制項 -->
             <div id="controls-3" class="control-group mode-controls">
                 <h3>受力與物體參數</h3>
                 <label>方塊傾斜角度 (θ): <span id="val-angle3">0</span>°</label>
@@ -306,7 +307,7 @@
                 <button id="btn-reset-3">重置方塊</button>
             </div>
 
-            <!-- 模式四控制項 (斜面物體) -->
+            <!-- 模式四控制項 -->
             <div id="controls-4" class="control-group mode-controls">
                 <h3>斜面與物體參數</h3>
                 
@@ -335,7 +336,7 @@
                 <button id="btn-reset-4">重置位置</button>
             </div>
 
-            <!-- 模式五控制項 (質心VS重心) -->
+            <!-- 模式五控制項 -->
             <div id="controls-5" class="control-group mode-controls">
                 <h3>堆疊與環境參數</h3>
                 <label>樓層數 (10m/層): <span id="val-floors">1</span></label>
@@ -346,6 +347,64 @@
                 </div>
                 <div style="font-size:0.85rem; color:#7f8c8d; margin-top:10px;">
                     註：為凸顯教學效果，模擬中的星球半徑被縮小至 1000m，藉此放大重力隨高度遞減的梯度效應。
+                </div>
+            </div>
+
+            <!-- 模式六控制項 -->
+            <div id="controls-6" class="control-group mode-controls">
+                <h3>系統參數</h3>
+                <label>人的質量 (m): <span id="val-m6">50</span> kg</label>
+                <input type="range" id="slider-m6" min="20" max="150" value="50">
+
+                <label>滑車質量 (M): <span id="val-M6">150</span> kg</label>
+                <input type="range" id="slider-M6" min="50" max="400" value="150">
+
+                <label>滑車長度 (L): <span id="val-L6">300</span> px</label>
+                <input type="range" id="slider-L6" min="200" max="500" value="300">
+
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-com6" style="width: auto; margin: 0;"> 
+                    <span>顯示質心與輔助線</span>
+                </label>
+
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-ratio6" style="width: auto; margin: 0;"> 
+                    <span>顯示距離比例 (反比規律)</span>
+                </label>
+                
+                <div class="preset-row" style="margin-top: 15px;">
+                    <button id="btn-start-6">開始行走</button>
+                    <button id="btn-pause-6">暫停</button>
+                    <button id="btn-reset-6">重置狀態</button>
+                </div>
+            </div>
+
+            <!-- 模式七控制項 -->
+            <div id="controls-7" class="control-group mode-controls">
+                <h3>系統參數</h3>
+                <label>小球質量 (m): <span id="val-m7">20</span> kg</label>
+                <input type="range" id="slider-m7" min="5" max="100" value="20">
+
+                <label>半圓槽質量 (M): <span id="val-M7">100</span> kg</label>
+                <input type="range" id="slider-M7" min="50" max="400" value="100">
+
+                <label>半圓槽半徑 (R): <span id="val-R7">150</span> px</label>
+                <input type="range" id="slider-R7" min="80" max="250" value="150">
+
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-com7" style="width: auto; margin: 0;"> 
+                    <span>顯示質心與輔助線</span>
+                </label>
+
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-ratio7" style="width: auto; margin: 0;"> 
+                    <span>顯示距離比例 (反比規律)</span>
+                </label>
+                
+                <div class="preset-row" style="margin-top: 15px;">
+                    <button id="btn-start-7">開始滑動</button>
+                    <button id="btn-pause-7">暫停</button>
+                    <button id="btn-reset-7">重置狀態</button>
                 </div>
             </div>
         </div>
@@ -390,13 +449,38 @@ let flightTrail = [];
 window.isDraggingFinger = false;
 window.isDraggingAngle3 = false;
 
+// 模式六狀態變數
+let mode6State = {
+    relPos: -0.5,     
+    direction: 1,     
+    isWalking: false,
+    isPaused: false,
+    initialComX: 0,   
+    startXp: 0,       
+    startXc: 0,       
+    hasWalked: false  
+};
+
+// 模式七狀態變數
+let mode7State = {
+    time: 0,
+    isSliding: false,
+    isPaused: false,
+    initialComX: 0,
+    hasSlid: false,
+    startXc: 0,
+    startXb: 0
+};
+
 // 教學文字資料庫
 const instructions = {
     1: "<b>【保齡球瓶斜拋】</b><br>1. <b>抽象的質心</b>：勾選「顯示質心軌跡與虛線描邊」，觀察紅點(質心)是如何畫出完美的拋物線的。<br>2. <b>繞質心旋轉</b>：瓶身會穩穩地繞質心旋轉。",
     2: "<b>【尋找重心與力矩平衡】</b><br><b>請拖拉或用+/-微調「支撐位置」</b>。<br>提示：調整時系統會托住桿子；<b>放開後</b>，如果手指(支點)沒有精準對齊「質心(重心)」，兩側不平衡的重力矩就會讓桿子傾倒！",
     3: "<b>【幾何中心與翻轉】</b><br><b>請拖拉或用+/-鈕調整「方塊傾斜角度」</b>。<br>提示：在拖拉按住時物理定律會暫停。<b>放開後</b>，物理引擎接管：當質心垂直線超越右下角支點時，方塊便會失去平衡倒下。",
     4: "<b>【斜面上的平衡】</b><br><b>請拖拉或用+/-鈕調整「斜面傾角」</b>。<br>提示：物理模擬會即時進行，觀察結果是否符合：<br>1. <b>滑動：</b> tan(θ) > 靜摩擦係數(μs)<br>2. <b>轉動：</b> 質心超越底面積 tan(θ) > (寬度/高度)",
-    5: "<b>【質心 VS 重心】</b><br><b>請慢慢增加「樓層數」</b>。<br>提示：<b>質心(幾何中心)</b> 只看形狀質量分布；但 <b>重心(等效受力點)</b> 會受重力場影響。<br>當物體極高時，上方受到星球的重力較弱，下方受力較強，重心低於質心！"
+    5: "<b>【質心 VS 重心】</b><br><b>請慢慢增加「樓層數」</b>。<br>提示：<b>質心(幾何中心)</b> 只看形狀質量分布；但 <b>重心(等效受力點)</b> 會受重力場影響。<br>當物體極高時，上方受到星球的重力較弱，下方受力較強，重心低於質心！",
+    6: "<b>【滑車與人 (系統質心守恆)】</b><br><b>按下「開始行走」</b>。<br>提示：人在無摩擦力的車上移動屬於「系統內力」。由於水平方向不受外力，<b>系統總質心位置必定保持不變！</b><br>觀察火柴人往前走的同時，滑車是如何往後退的，並驗證雙方移動距離與質量的反比關係。",
+    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：當小球在半圓槽內滑動時，由於水平面光滑沒有外力，<b>系統水平質心永遠保持不動</b>。<br>您可以看到當球往右滑，半圓槽會自動向左退，來抵銷質心的位移！"
 };
 
 // ==========================================
@@ -420,7 +504,7 @@ function setup() {
 function draw() {
     background(233, 236, 239);
     
-    let shouldUpdatePhysics = (currentMode !== 5);
+    let shouldUpdatePhysics = (currentMode !== 5 && currentMode !== 6 && currentMode !== 7);
     if (shouldUpdatePhysics) Engine.update(engine, 1000 / 60);
 
     push();
@@ -428,13 +512,15 @@ function draw() {
     scale(window.viewScale);
     translate(-canvasWidth / 2, -canvasHeight);
 
-    if (currentMode !== 5) drawGround();
+    if (currentMode !== 5 && currentMode !== 6 && currentMode !== 7) drawGround();
 
     if (currentMode == 1) drawMode1();
     else if (currentMode == 2) { handleMode2Logic(); drawMode2(); }
     else if (currentMode == 3) { handleMode3Logic(); drawMode3(); }
     else if (currentMode == 4) { handleMode4Logic(); drawMode4(); }
     else if (currentMode == 5) drawMode5(); 
+    else if (currentMode == 6) { handleMode6Logic(); drawMode6(); }
+    else if (currentMode == 7) { handleMode7Logic(); drawMode7(); }
 
     pop();
 }
@@ -476,7 +562,7 @@ function setupUI() {
     setupDragFlag('slider-finger', 'isDraggingFinger');
     setupDragFlag('slider-angle3', 'isDraggingAngle3');
 
-    const sliders = ['angle1', 'v0', 'w0', 'm1', 'm2', 'finger', 'angle3', 'h3', 'angle4', 'mu4', 'w4', 'h4', 'floors'];
+    const sliders = ['angle1', 'v0', 'w0', 'm1', 'm2', 'finger', 'angle3', 'h3', 'angle4', 'mu4', 'w4', 'h4', 'floors', 'm6', 'M6', 'L6', 'm7', 'M7', 'R7'];
     sliders.forEach(id => {
         const slider = document.getElementById('slider-' + id);
         const display = document.getElementById('val-' + id);
@@ -486,6 +572,8 @@ function setupUI() {
                 if (currentMode == 2 && ['m1', 'm2'].includes(id)) initMode(2);
                 if (currentMode == 3 && id == 'h3') initMode(3);
                 if (currentMode == 4 && ['h4', 'w4', 'mu4'].includes(id)) initMode(4);
+                if (currentMode == 6 && ['m6', 'M6', 'L6'].includes(id)) initMode(6);
+                if (currentMode == 7 && ['m7', 'M7', 'R7'].includes(id)) initMode(7);
             });
         }
     });
@@ -523,6 +611,71 @@ function setupUI() {
     
     document.getElementById('btn-preset-tip').addEventListener('click', () => applyMode4Preset(100, 250, 0.8)); 
     document.getElementById('btn-preset-slide').addEventListener('click', () => applyMode4Preset(200, 100, 0.2)); 
+
+    // 模式六按鈕 (開始/往回走、暫停、重置)
+    document.getElementById('btn-start-6').addEventListener('click', () => { 
+        if (currentMode === 6 && !mode6State.isWalking) { 
+            mode6State.isWalking = true; 
+            mode6State.isPaused = false;
+            mode6State.direction = mode6State.relPos < 0 ? 1 : -1;
+            mode6State.hasWalked = true;
+            
+            let L = parseFloat(document.getElementById('slider-L6').value);
+            let m = parseFloat(document.getElementById('slider-m6').value);
+            let M = parseFloat(document.getElementById('slider-M6').value);
+            let xc = mode6State.initialComX - (m * (mode6State.relPos * L)) / (m + M);
+            let xp = xc + mode6State.relPos * L;
+            
+            mode6State.startXc = xc;
+            mode6State.startXp = xp;
+
+            document.getElementById('btn-start-6').innerText = "行走中...";
+            document.getElementById('btn-start-6').disabled = true;
+            document.getElementById('btn-pause-6').innerText = "暫停";
+        } 
+    });
+    document.getElementById('btn-pause-6').addEventListener('click', () => {
+        if (currentMode === 6 && mode6State.isWalking) {
+            mode6State.isPaused = !mode6State.isPaused;
+            document.getElementById('btn-pause-6').innerText = mode6State.isPaused ? "繼續" : "暫停";
+        }
+    });
+    document.getElementById('btn-reset-6').addEventListener('click', () => { if (currentMode === 6) initMode(6); });
+
+    // 模式七按鈕 (開始、暫停、重置)
+    document.getElementById('btn-start-7').addEventListener('click', () => { 
+        if (currentMode === 7 && !mode7State.isSliding) {
+            mode7State.isSliding = true;
+            mode7State.isPaused = false;
+            mode7State.hasSlid = true;
+
+            let m = parseFloat(document.getElementById('slider-m7').value);
+            let M = parseFloat(document.getElementById('slider-M7').value);
+            let R = parseFloat(document.getElementById('slider-R7').value);
+            let trackThickness = 16;
+            let ballR = 14;
+            let effR = R - trackThickness/2 - ballR;
+            
+            // 計算點擊開始(t=0)時的起始絕對座標
+            let angle = -Math.PI/2 * Math.cos(mode7State.time);
+            let Xp_rel = effR * Math.sin(angle);
+            let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
+            
+            mode7State.startXc = xc;
+            mode7State.startXb = xc + Xp_rel;
+
+            document.getElementById('btn-start-7').innerText = "滑動中...";
+            document.getElementById('btn-start-7').disabled = true;
+            document.getElementById('btn-pause-7').innerText = "暫停";
+        }
+    });
+    document.getElementById('btn-pause-7').addEventListener('click', () => {
+        if (currentMode === 7 && mode7State.isSliding) {
+            mode7State.isPaused = !mode7State.isPaused;
+            document.getElementById('btn-pause-7').innerText = mode7State.isPaused ? "繼續" : "暫停";
+        }
+    });
+    document.getElementById('btn-reset-7').addEventListener('click', () => { if (currentMode === 7) initMode(7); });
 }
 
 function updateInstructions() { document.getElementById('instruction-panel').innerHTML = instructions[currentMode]; }
@@ -574,6 +727,29 @@ function initMode(mode) {
         let p = Vector.rotate(Vector.create(0, -(25+h/2)), angle);
         activeBody = Bodies.rectangle(canvasWidth/2+p.x, canvasHeight-100+p.y, w, h, { angle: angle, friction: mu, frictionStatic: mu, density: 0.001 });
         Composite.add(world, [inclinePlane, activeBody]);
+    } else if (mode == 6) {
+        mode6State.relPos = -0.5;
+        mode6State.direction = 1;
+        mode6State.isWalking = false;
+        mode6State.isPaused = false;
+        mode6State.hasWalked = false;
+        mode6State.initialComX = canvasWidth / 2; 
+        
+        let btnStart = document.getElementById('btn-start-6');
+        if (btnStart) { btnStart.innerText = "開始行走"; btnStart.disabled = false; }
+        let btnPause = document.getElementById('btn-pause-6');
+        if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
+    } else if (mode == 7) {
+        mode7State.time = 0;
+        mode7State.isSliding = false;
+        mode7State.isPaused = false;
+        mode7State.hasSlid = false;
+        mode7State.initialComX = canvasWidth / 2;
+        
+        let btnStart = document.getElementById('btn-start-7');
+        if (btnStart) { btnStart.innerText = "開始滑動"; btnStart.disabled = false; }
+        let btnPause = document.getElementById('btn-pause-7');
+        if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
     }
 }
 
@@ -595,9 +771,25 @@ function drawGround() {
 function drawVertices(vertices) { beginShape(); for(let v of vertices) vertex(v.x, v.y); endShape(CLOSE); }
 
 function drawArrow(base, vec, myColor, weight = 2) {
-    push(); stroke(myColor); strokeWeight(weight); fill(myColor);
-    translate(base.x, base.y); line(0,0, vec.x, vec.y); rotate(vec.heading());
-    let s = 7; translate(vec.mag()-s, 0); triangle(0, s/2, 0, -s/2, s, 0); pop();
+    push(); 
+    let oldDash = drawingContext.getLineDash();
+    drawingContext.setLineDash([]); 
+    
+    stroke(myColor); strokeWeight(weight); fill(myColor);
+    translate(base.x, base.y); 
+    
+    let mag = vec.mag();
+    if (mag > 0) {
+        line(0,0, vec.x, vec.y); 
+        rotate(vec.heading());
+        let s = 8; 
+        if (mag > s) {
+            translate(mag - s, 0); 
+            triangle(0, s/2, 0, -s/2, s, 0); 
+        }
+    }
+    drawingContext.setLineDash(oldDash);
+    pop();
 }
 
 function drawMode1() {
@@ -628,7 +820,6 @@ function drawMode2() {
         fill(p.label==='bar'?241:p.label==='leftBall'?231:52, p.label==='bar'?196:76, p.label==='bar'?15:(p.label==='leftBall'?60:219));
         stroke(0); strokeWeight(2/window.viewScale); drawVertices(p.vertices);
         
-        // 將物體重量(質量)寫在球上
         if (p.label === 'leftBall' || p.label === 'rightBall') {
             push();
             fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(16/window.viewScale); textStyle(BOLD);
@@ -652,7 +843,6 @@ function drawMode2() {
         let d2 = Math.abs(rightBall.position.x - cx);
 
         push();
-        // 動態計算最大球的半徑，讓標示線貼齊最大那顆球的頂部
         let maxR = Math.max(m1, m2);
         let lineY = cy - maxR - 20;
         
@@ -664,12 +854,12 @@ function drawMode2() {
         text(`d1 = ${d1.toFixed(1)}`, (leftBall.position.x + cx)/2, lineY - 5);
         text(`d2 = ${d2.toFixed(1)}`, (rightBall.position.x + cx)/2, lineY - 5);
         
-        // 顯示比例關係 (與各重反比)
         fill(231, 76, 60); textAlign(CENTER, BOTTOM); textStyle(BOLD);
         let ratioD = (d1/d2).toFixed(2);
         let ratioM = (m2/m1).toFixed(2);
         
         textSize(20/window.viewScale);
+        noStroke(); // 確保文字沒有邊框
         text(`發現規律：距離與質量成反比`, cx, lineY - 60);
         
         textSize(24/window.viewScale);
@@ -678,7 +868,7 @@ function drawMode2() {
     }
 
     push();
-    resetMatrix(); // 重置縮放，確保文字大小不變
+    resetMatrix(); 
     if (window.isDraggingFinger) {
         fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
         text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 20, 30);
@@ -709,7 +899,6 @@ function handleMode3Logic() {
 function drawMode3() {
     fill(241,196,15); stroke(243,156,18); strokeWeight(2/window.viewScale); drawVertices(activeBody.vertices);
     
-    // 畫對角線虛線，輔助判斷幾何中心
     stroke(255,255,255,200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
     line(activeBody.vertices[0].x, activeBody.vertices[0].y, activeBody.vertices[2].x, activeBody.vertices[2].y);
     line(activeBody.vertices[1].x, activeBody.vertices[1].y, activeBody.vertices[3].x, activeBody.vertices[3].y);
@@ -718,7 +907,6 @@ function drawMode3() {
     fill(231,76,60); noStroke(); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale);
     drawArrow(createVector(activeBody.position.x, activeBody.position.y), createVector(0, 60), color(41,128,185), 3/window.viewScale);
     
-    // 修正莫名的綠點，改用絕對環境座標來標示支點 (右下角)
     let w = 60;
     let px = canvasWidth/2 + w/2;
     let py = canvasHeight - 100;
@@ -749,12 +937,10 @@ function handleMode4Logic() {
     let currentTan = Math.abs(Math.tan(inclinePlane.angle));
     let whRatio = w / h;
 
-    // 精確數學判定是否發生滑動與翻倒
     let shouldSlide = currentTan > mu + 0.005;
     let shouldTip = currentTan > whRatio + 0.005;
 
     if (!shouldSlide && !shouldTip) {
-        // 未達門檻，將方塊精確吸附在斜面上
         let p = Vector.rotate(Vector.create(0, -(25+h/2)), inclinePlane.angle);
         Body.setPosition(activeBody, {x: canvasWidth/2+p.x, y: canvasHeight-100+p.y}); 
         Body.setAngle(activeBody, inclinePlane.angle); 
@@ -764,11 +950,9 @@ function handleMode4Logic() {
         activeBody.friction = 10;
     } else {
         if (!shouldSlide) {
-            // 只翻不滑：鎖死摩擦力，強迫引擎只產生純翻轉，不偷偷往下滑
             inclinePlane.friction = 10;
             activeBody.friction = 10;
         } else {
-            // 滑動發生：恢復真實摩擦力，並限制最高速讓學生來得及看
             inclinePlane.friction = mu;
             activeBody.friction = mu;
             let maxSpeed = 6.0; 
@@ -786,7 +970,6 @@ function handleMode4Logic() {
 function drawMode4() {
     fill(241,196,15); stroke(243,156,18); strokeWeight(2/window.viewScale); drawVertices(activeBody.vertices);
     
-    // 畫對角線虛線，輔助判斷幾何中心
     stroke(255,255,255,200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
     line(activeBody.vertices[0].x, activeBody.vertices[0].y, activeBody.vertices[2].x, activeBody.vertices[2].y);
     line(activeBody.vertices[1].x, activeBody.vertices[1].y, activeBody.vertices[3].x, activeBody.vertices[3].y);
@@ -830,6 +1013,242 @@ function drawMode5() {
     fill(149,165,166); noStroke(); ellipse(bx, by+2000, 4000, 4000);
     for(let i=0; i<N; i++){ fill(200+(i%2)*20); rect(bx-40, by-(i+1)*10*scale, 80, 10*scale); }
     fill(231,76,60); circle(bx, by-com*scale, 12); fill(41,128,185); circle(bx, by-cog*scale, 12);
+}
+
+// ----- 模式六 邏輯 (滑車與人) -----
+function handleMode6Logic() {
+    if (mode6State.isWalking && !mode6State.isPaused) {
+        let speed = 0.005; 
+        mode6State.relPos += speed * mode6State.direction;
+        
+        if (mode6State.direction === 1 && mode6State.relPos >= 0.5) {
+            mode6State.relPos = 0.5;
+            mode6State.isWalking = false;
+            let btn = document.getElementById('btn-start-6');
+            if (btn) { btn.innerText = "往回走"; btn.disabled = false; }
+        } else if (mode6State.direction === -1 && mode6State.relPos <= -0.5) {
+            mode6State.relPos = -0.5;
+            mode6State.isWalking = false;
+            let btn = document.getElementById('btn-start-6');
+            if (btn) { btn.innerText = "開始行走"; btn.disabled = false; }
+        }
+    }
+}
+
+function drawStickman(x, y, isMoving, moveProgress, dir, s) {
+    stroke(231, 76, 60);
+    strokeWeight(3 / s);
+    noFill();
+    
+    let time = moveProgress * 0.1; 
+    let swing = isMoving ? Math.sin(time) * 0.8 : 0;
+    
+    circle(x, y - 40, 14 / s);
+    line(x, y - 33, x, y - 15);
+    line(x, y - 15, x + Math.sin(swing) * 15 * dir, y);
+    line(x, y - 15, x - Math.sin(swing) * 15 * dir, y);
+    line(x, y - 28, x + Math.sin(swing) * 12 * dir, y - 15);
+    line(x, y - 28, x - Math.sin(swing) * 12 * dir, y - 15);
+}
+
+function drawMode6() {
+    let m = parseFloat(document.getElementById('slider-m6').value);
+    let M = parseFloat(document.getElementById('slider-M6').value);
+    let L = parseFloat(document.getElementById('slider-L6').value);
+    
+    let showCom = document.getElementById('chk-com6').checked;
+    let showRatio = document.getElementById('chk-ratio6').checked;
+
+    let Xp_rel = mode6State.relPos * L;
+    let xc = mode6State.initialComX - (m * Xp_rel) / (m + M);
+    let xp = xc + Xp_rel;
+
+    let groundY = canvasHeight - 100;
+    let wheelR = 12;
+    let cartH = 40;
+    let wheelY = groundY - wheelR;          
+    let cartY = wheelY - cartH/2 - 5;       
+    let stickmanBaseY = cartY - cartH/2;    
+
+    // 計算實際位移
+    let dxp = Math.abs(xp - mode6State.startXp);
+    let dxc = Math.abs(xc - mode6State.startXc);
+
+    fill(149, 165, 166); noStroke();
+    rectMode(CENTER);
+    rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100);
+    rectMode(CORNER);
+
+    fill(52, 152, 219); stroke(41, 128, 185); strokeWeight(2/window.viewScale);
+    rectMode(CENTER);
+    rect(xc, cartY, L, cartH, 5);
+    rectMode(CORNER);
+    
+    fill(44, 62, 80); noStroke();
+    circle(xc - L/2 + 30, wheelY, wheelR * 2 / window.viewScale);
+    circle(xc + L/2 - 30, wheelY, wheelR * 2 / window.viewScale);
+
+    fill(255); textAlign(CENTER, CENTER); textSize(20/window.viewScale); textStyle(BOLD);
+    text(`M`, xc, cartY);
+
+    let isAnimMoving = mode6State.isWalking && !mode6State.isPaused;
+    drawStickman(xp, stickmanBaseY, isAnimMoving, xp, mode6State.direction, window.viewScale);
+    
+    fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD);
+    text("m", xp, stickmanBaseY - 55);
+
+    if (showCom) {
+        stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
+        line(mode6State.initialComX, groundY - 220, mode6State.initialComX, groundY + 30);
+        drawingContext.setLineDash([]);
+        
+        fill(39, 174, 96); noStroke();
+        circle(mode6State.initialComX, cartY, 14/window.viewScale);
+        
+        push(); resetMatrix();
+        fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
+        let screenTextY = (groundY - 230 - canvasHeight) * window.viewScale + canvasHeight;
+        text("系統水平質心 (不動)", screenComX, screenTextY);
+        
+        if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
+            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
+            text(`人移動距離 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
+            fill(52, 152, 219);
+            text(`車退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
+        }
+        pop();
+
+        if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
+            stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+            line(mode6State.startXp, stickmanBaseY - 25, mode6State.startXp, groundY - 160);
+            line(xp, stickmanBaseY - 25, xp, groundY - 160);
+            drawArrow(createVector(mode6State.startXp, groundY - 150), createVector(xp - mode6State.startXp, 0), color(231, 76, 60), 2/window.viewScale);
+
+            stroke(52, 152, 219, 150);
+            line(mode6State.startXc, cartY, mode6State.startXc, groundY - 110);
+            line(xc, cartY, xc, groundY - 110);
+            drawArrow(createVector(mode6State.startXc, groundY - 100), createVector(xc - mode6State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
+            drawingContext.setLineDash([]);
+        }
+    }
+
+    if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
+        push(); resetMatrix();
+        fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        textSize(20);
+        text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
+        
+        textSize(24);
+        let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
+        let ratioM = (M / m).toFixed(2);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130);
+        pop();
+    }
+}
+
+// ----- 模式七 邏輯 (半圓槽與小球) -----
+function handleMode7Logic() {
+    if (mode7State.isSliding && !mode7State.isPaused) {
+        mode7State.time += 0.02; 
+    }
+}
+
+function drawMode7() {
+    let m = parseFloat(document.getElementById('slider-m7').value);
+    let M = parseFloat(document.getElementById('slider-M7').value);
+    let R = parseFloat(document.getElementById('slider-R7').value);
+    
+    let showCom = document.getElementById('chk-com7').checked;
+    let showRatio = document.getElementById('chk-ratio7').checked;
+
+    let trackThickness = 16;
+    let ballR = 14;
+    let effR = R - trackThickness/2 - ballR;
+
+    let angle = -Math.PI/2 * Math.cos(mode7State.time);
+    
+    let Xp_rel = effR * Math.sin(angle);
+    let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
+    let xb = xc + Xp_rel; 
+    
+    let yCenter = canvasHeight - 100 - R - trackThickness/2; 
+    let yb = yCenter + effR * Math.cos(angle); 
+
+    // 計算實際位移 (從點擊開始那一刻的座標起算)
+    let dxp = Math.abs(xb - mode7State.startXb);
+    let dxc = Math.abs(xc - mode7State.startXc);
+
+    let groundY = yCenter + R + trackThickness/2;
+    fill(149, 165, 166); noStroke();
+    rectMode(CENTER);
+    rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100);
+    rectMode(CORNER);
+
+    stroke(52, 152, 219);
+    strokeWeight(trackThickness / window.viewScale);
+    noFill();
+    strokeCap(SQUARE); 
+    arc(xc, yCenter, R*2, R*2, 0, Math.PI);
+    strokeCap(ROUND); 
+    
+    fill(52, 152, 219); noStroke(); textAlign(CENTER, TOP); textSize(20/window.viewScale); textStyle(BOLD);
+    text(`M`, xc, groundY + 15);
+
+    fill(231, 76, 60); stroke(192, 57, 43); strokeWeight(2 / window.viewScale);
+    circle(xb, yb, ballR * 2 / window.viewScale);
+    
+    fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(14/window.viewScale); textStyle(BOLD);
+    text("m", xb, yb);
+
+    if (showCom) {
+        stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
+        line(mode7State.initialComX, groundY - 250, mode7State.initialComX, groundY + 30);
+        drawingContext.setLineDash([]);
+        
+        fill(39, 174, 96); noStroke();
+        circle(mode7State.initialComX, groundY - 10, 14/window.viewScale);
+        
+        push(); resetMatrix();
+        fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
+        let screenTextY = (groundY - 260 - canvasHeight) * window.viewScale + canvasHeight;
+        text("系統水平質心 (不動)", screenComX, screenTextY);
+
+        if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
+            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
+            text(`小球水平位移 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
+            fill(52, 152, 219);
+            text(`半圓槽退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
+        }
+        pop();
+
+        if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
+            stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+            line(mode7State.startXb, yCenter - 40, mode7State.startXb, groundY - 180);
+            line(xb, yb - ballR, xb, groundY - 180);
+            drawArrow(createVector(mode7State.startXb, groundY - 170), createVector(xb - mode7State.startXb, 0), color(231, 76, 60), 2/window.viewScale);
+
+            stroke(52, 152, 219, 150);
+            line(mode7State.startXc, yCenter, mode7State.startXc, groundY - 130);
+            line(xc, yCenter, xc, groundY - 130);
+            drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - startXc, 0), color(52, 152, 219), 2/window.viewScale);
+            drawingContext.setLineDash([]);
+        }
+    }
+
+    if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
+        push(); resetMatrix();
+        fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+        textSize(20);
+        text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
+        
+        textSize(24);
+        let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
+        let ratioM = (M / m).toFixed(2);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130);
+        pop();
+    }
 }
 </script>
 </body>
