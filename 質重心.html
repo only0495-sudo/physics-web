@@ -391,6 +391,14 @@
                 <label>半圓槽半徑 (R): <span id="val-R7">150</span> px</label>
                 <input type="range" id="slider-R7" min="80" max="250" value="150">
 
+                <!-- 新增：分析方向選擇 -->
+                <label>分析方向：</label>
+                <select id="select-analysis-7" style="margin-bottom: 10px;">
+                    <option value="x" selected>x方向分析 (預設)</option>
+                    <option value="y">y方向分析</option>
+                    <option value="xy">同時分析</option>
+                </select>
+
                 <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
                     <input type="checkbox" id="chk-com7" style="width: auto; margin: 0;"> 
                     <span>顯示質心與輔助線</span>
@@ -480,7 +488,7 @@ const instructions = {
     4: "<b>【斜面上的平衡】</b><br><b>請拖拉或用+/-鈕調整「斜面傾角」</b>。<br>提示：物理模擬會即時進行，觀察結果是否符合：<br>1. <b>滑動：</b> tan(θ) > 靜摩擦係數(μs)<br>2. <b>轉動：</b> 質心超越底面積 tan(θ) > (寬度/高度)",
     5: "<b>【質心 VS 重心】</b><br><b>請慢慢增加「樓層數」</b>。<br>提示：<b>質心(幾何中心)</b> 只看形狀質量分布；但 <b>重心(等效受力點)</b> 會受重力場影響。<br>當物體極高時，上方受到星球的重力較弱，下方受力較強，重心低於質心！",
     6: "<b>【滑車與人 (系統質心守恆)】</b><br><b>按下「開始行走」</b>。<br>提示：人在無摩擦力的車上移動屬於「系統內力」。由於水平方向不受外力，<b>系統總質心位置必定保持不變！</b><br>觀察火柴人往前走的同時，滑車是如何往後退的，並驗證雙方移動距離與質量的反比關係。",
-    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：當小球在半圓槽內滑動時，由於水平面光滑沒有外力，<b>系統水平質心永遠保持不動</b>。<br>您可以看到當球往右滑，半圓槽會自動向左退，來抵銷質心的位移！"
+    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：當小球在半圓槽內滑動時，水平方向無外力（水平質心不動）；但垂直方向受重力與正向力影響（垂直質心不守恆，會上下移動）。可透過選單切換分析方向！"
 };
 
 // ==========================================
@@ -656,7 +664,6 @@ function setupUI() {
             let ballR = 14;
             let effR = R - trackThickness/2 - ballR;
             
-            // 計算點擊開始(t=0)時的起點位移
             let angle = -Math.PI/2 * Math.cos(mode7State.time);
             let Xp_rel = effR * Math.sin(angle);
             let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
@@ -772,7 +779,6 @@ function drawVertices(vertices) { beginShape(); for(let v of vertices) vertex(v.
 
 function drawArrow(base, vec, myColor, weight = 2) {
     push(); 
-    let oldDash = drawingContext.getLineDash();
     drawingContext.setLineDash([]); 
     stroke(myColor); strokeWeight(weight); fill(myColor);
     translate(base.x, base.y); 
@@ -786,7 +792,6 @@ function drawArrow(base, vec, myColor, weight = 2) {
             triangle(0, s/2, 0, -s/2, s, 0); 
         }
     }
-    drawingContext.setLineDash(oldDash);
     pop();
 }
 
@@ -961,7 +966,6 @@ function drawStickman(x, y, isMoving, moveProgress, dir, s) {
     noFill();
     let time = moveProgress * 0.1; 
     let swing = isMoving ? Math.sin(time) * 0.8 : 0;
-    // 修正縮放：直接使用物理單位，不除以 s，讓它與環境同步放大
     circle(x, y - 40, 14);
     line(x, y - 33, x, y - 15);
     line(x, y - 15, x + Math.sin(swing) * 15 * dir, y);
@@ -974,47 +978,65 @@ function drawMode6() {
     let m = parseFloat(document.getElementById('slider-m6').value), M = parseFloat(document.getElementById('slider-M6').value), L = parseFloat(document.getElementById('slider-L6').value);
     let showCom = document.getElementById('chk-com6').checked, showRatio = document.getElementById('chk-ratio6').checked;
     let Xp_rel = mode6State.relPos * L, xc = mode6State.initialComX - (m * Xp_rel) / (m + M), xp = xc + Xp_rel;
-    // 精確高度校準：輪子貼地，車身在輪子上，人踩在車上
     let groundY = canvasHeight - 100, wheelR = 12, cartH = 40;
     let wheelY = groundY - wheelR;          
-    let cartY = wheelY - wheelR - cartH/2; // 車廂緊貼輪頂
+    let cartY = wheelY - wheelR - cartH/2; 
     let stickmanBaseY = cartY - cartH/2;    
     let dxp = Math.abs(xp - mode6State.startXp), dxc = Math.abs(xc - mode6State.startXc);
+    
     fill(149, 165, 166); noStroke(); rectMode(CENTER); rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100); rectMode(CORNER);
     fill(52, 152, 219); stroke(41, 128, 185); strokeWeight(2/window.viewScale); rectMode(CENTER);
     rect(xc, cartY, L, cartH, 5); rectMode(CORNER);
     fill(44, 62, 80); noStroke();
-    circle(xc - L/2 + 30, wheelY, wheelR * 2); // 移除除以縮放，確保緊貼
+    circle(xc - L/2 + 30, wheelY, wheelR * 2);
     circle(xc + L/2 - 30, wheelY, wheelR * 2);
     fill(255); textAlign(CENTER, CENTER); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, cartY);
+    
     let isAnimMoving = mode6State.isWalking && !mode6State.isPaused;
     drawStickman(xp, stickmanBaseY, isAnimMoving, xp, mode6State.direction, window.viewScale);
     fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD); text("m", xp, stickmanBaseY - 55);
+    
     if (showCom) {
         stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
         line(mode6State.initialComX, groundY - 220, mode6State.initialComX, groundY + 30); drawingContext.setLineDash([]);
         fill(39, 174, 96); noStroke(); circle(mode6State.initialComX, cartY, 14/window.viewScale);
+        
         push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
         let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 230 - canvasHeight) * window.viewScale + canvasHeight;
         text("系統水平質心 (不動)", screenComX, screenTextY);
-        if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
-            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); text(`人移動距離 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
-            fill(52, 152, 219); text(`車退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
-        } pop();
+        pop();
+
         if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
             stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
             line(mode6State.startXp, stickmanBaseY - 25, mode6State.startXp, groundY - 160); line(xp, stickmanBaseY - 25, xp, groundY - 160);
+            drawingContext.setLineDash([]); 
             drawArrow(createVector(mode6State.startXp, groundY - 150), createVector(xp - mode6State.startXp, 0), color(231, 76, 60), 2/window.viewScale);
-            stroke(52, 152, 219, 150); line(mode6State.startXc, cartY, mode6State.startXc, groundY - 110); line(xc, cartY, xc, groundY - 110);
-            drawArrow(createVector(mode6State.startXc, groundY - 100), createVector(xc - startXc, 0), color(52, 152, 219), 2/window.viewScale); drawingContext.setLineDash([]);
+            
+            stroke(52, 152, 219, 150); drawingContext.setLineDash([5,5]);
+            line(mode6State.startXc, cartY, mode6State.startXc, groundY - 110); line(xc, cartY, xc, groundY - 110);
+            drawingContext.setLineDash([]); 
+            drawArrow(createVector(mode6State.startXc, groundY - 100), createVector(xc - mode6State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
         }
     }
-    if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
-        push(); resetMatrix(); fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        textSize(20); text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
-        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00", ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130); pop();
+    
+    // 統一在左上角動態排版繪製文字資訊，避免字體重疊
+    push(); resetMatrix();
+    let textY = 20;
+    if (showCom && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
+        fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); 
+        text(`人移動距離 (Δx₁) = ${dxp.toFixed(1)} px`, 20, textY); textY += 30;
+        fill(52, 152, 219); 
+        text(`車退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, textY); textY += 30;
     }
+    if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
+        textY += 10;
+        fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
+        textSize(20); text(`發現規律：距離與質量成反比`, 20, textY); textY += 25;
+        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
+        let ratioM = (M / m).toFixed(2);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 20, textY);
+    }
+    pop();
 }
 
 // ----- 模式七 邏輯 (半圓槽與小球) -----
@@ -1025,45 +1047,107 @@ function handleMode7Logic() {
 function drawMode7() {
     let m = parseFloat(document.getElementById('slider-m7').value), M = parseFloat(document.getElementById('slider-M7').value), R = parseFloat(document.getElementById('slider-R7').value);
     let showCom = document.getElementById('chk-com7').checked, showRatio = document.getElementById('chk-ratio7').checked;
+    let analysis = document.getElementById('select-analysis-7').value; // 讀取選擇的分析方向
+
     let trackThickness = 16, ballR = 14, effR = R - trackThickness/2 - ballR;
     let angle = -Math.PI/2 * Math.cos(mode7State.time);
+    
+    // X方向 (水平) 計算
     let Xp_rel = effR * Math.sin(angle), xc = mode7State.initialComX - (m * Xp_rel) / (m + M), xb = xc + Xp_rel; 
-    let yCenter = canvasHeight - 100 - R - trackThickness/2, yb = yCenter + effR * Math.cos(angle); 
     let dxp = Math.abs(xb - mode7State.startXb), dxc = Math.abs(xc - mode7State.startXc);
+    
+    // Y方向 (垂直) 計算
+    let yCenter = canvasHeight - 100 - R - trackThickness/2, yb = yCenter + effR * Math.cos(angle); 
+    let yc = yCenter + R * (2 / Math.PI); // 粗略假設半圓槽在垂直方向的重心
+    let yCom = (m * yb + M * yc) / (m + M); // 計算系統垂直總質心
+
     let groundY = yCenter + R + trackThickness/2;
+    
     fill(149, 165, 166); noStroke(); rectMode(CENTER); rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100); rectMode(CORNER);
     stroke(52, 152, 219); strokeWeight(trackThickness / window.viewScale); noFill(); strokeCap(SQUARE); 
     arc(xc, yCenter, R*2, R*2, 0, Math.PI); strokeCap(ROUND); 
     fill(52, 152, 219); noStroke(); textAlign(CENTER, TOP); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, groundY + 15);
+    
     fill(231, 76, 60); stroke(192, 57, 43); strokeWeight(2 / window.viewScale);
-    // 移除除以縮放，確保小球直徑跟隨視野正確放大
     circle(xb, yb, ballR * 2);
     fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(14/window.viewScale); textStyle(BOLD); text("m", xb, yb);
+    
     if (showCom) {
-        stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
-        line(mode7State.initialComX, groundY - 250, mode7State.initialComX, groundY + 30); drawingContext.setLineDash([]);
-        fill(39, 174, 96); noStroke(); circle(mode7State.initialComX, groundY - 10, 14/window.viewScale);
-        push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 260 - canvasHeight) * window.viewScale + canvasHeight;
-        text("系統水平質心 (不動)", screenComX, screenTextY);
-        if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
-            fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); text(`小球水平位移 (Δx₁) = ${dxp.toFixed(1)} px`, 20, 20);
-            fill(52, 152, 219); text(`半圓槽退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, 50);
-        } pop();
-        if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
-            stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
-            line(mode7State.startXb, yCenter - 40, mode7State.startXb, groundY - 180); line(xb, yb - ballR, xb, groundY - 180);
-            drawArrow(createVector(mode7State.startXb, groundY - 170), createVector(xb - mode7State.startXb, 0), color(231, 76, 60), 2/window.viewScale);
-            stroke(52, 152, 219, 150); line(mode7State.startXc, yCenter, mode7State.startXc, groundY - 130); line(xc, yCenter, xc, groundY - 130);
-            drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - startXc, 0), color(52, 152, 219), 2/window.viewScale); drawingContext.setLineDash([]);
+        let showX = analysis === 'x' || analysis === 'xy';
+        let showY = analysis === 'y' || analysis === 'xy';
+
+        // 畫 Y 方向質心 (紫色水平虛線)
+        if (showY) {
+            stroke(142, 68, 173); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
+            line(xc - R - 60, yCom, xc + R + 60, yCom);
+            drawingContext.setLineDash([]);
+
+            push(); resetMatrix(); fill(142, 68, 173); noStroke(); textSize(16); textAlign(LEFT, BOTTOM); textStyle(BOLD);
+            let screenYCom = (yCom - canvasHeight) * window.viewScale + canvasHeight;
+            let screenXLeft = ((xc - R - 60) - canvasWidth/2) * window.viewScale + canvasWidth/2;
+            text("系統垂直質心 (隨小球上下移動)", screenXLeft, screenYCom - 5);
+            pop();
+        }
+
+        // 畫 X 方向質心 (綠色鉛垂虛線)
+        if (showX) {
+            stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
+            line(mode7State.initialComX, groundY - 250, mode7State.initialComX, groundY + 30); drawingContext.setLineDash([]);
+            
+            push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
+            let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 260 - canvasHeight) * window.viewScale + canvasHeight;
+            text("系統水平質心 (不動)", screenComX, screenTextY);
+            pop();
+
+            if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
+                stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+                line(mode7State.startXb, yCenter - 40, mode7State.startXb, groundY - 180); line(xb, yb - ballR, xb, groundY - 180);
+                drawingContext.setLineDash([]); 
+                drawArrow(createVector(mode7State.startXb, groundY - 170), createVector(xb - mode7State.startXb, 0), color(231, 76, 60), 2/window.viewScale);
+                
+                stroke(52, 152, 219, 150); drawingContext.setLineDash([5,5]);
+                line(mode7State.startXc, yCenter, mode7State.startXc, groundY - 130); line(xc, yCenter, xc, groundY - 130);
+                drawingContext.setLineDash([]); 
+                drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - mode7State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
+            }
+        }
+
+        // 繪製系統 2D 質心交點
+        if (showX && !showY) {
+            fill(39, 174, 96); noStroke(); circle(mode7State.initialComX, groundY - 10, 14/window.viewScale);
+        } else if (showY && !showX) {
+            fill(142, 68, 173); noStroke(); circle(xc, yCom, 14/window.viewScale);
+        } else if (showX && showY) {
+            fill(243, 156, 18); noStroke(); circle(mode7State.initialComX, yCom, 16/window.viewScale); // 同時分析時用橘色標示交點
         }
     }
-    if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
-        push(); resetMatrix(); fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        textSize(20); text(`發現規律：距離與質量成反比`, canvasWidth/2, 100);
-        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00", ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, canvasWidth/2, 130); pop();
+    
+    // 統一在左上角動態排版繪製文字資訊，避免字體重疊
+    push(); resetMatrix();
+    let textY = 20;
+    let showX = analysis === 'x' || analysis === 'xy';
+    let showY = analysis === 'y' || analysis === 'xy';
+
+    if (showCom && showX && mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
+        fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); 
+        text(`小球水平位移 (Δx₁) = ${dxp.toFixed(1)} px`, 20, textY); textY += 30;
+        fill(52, 152, 219); 
+        text(`半圓槽退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, textY); textY += 30;
     }
+    if (showCom && showY && mode7State.hasSlid) {
+        fill(142, 68, 173); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
+        text(`y方向有重力作用 (外力不為零)`, 20, textY); textY += 25;
+        text(`因此垂直質心不守恆`, 20, textY); textY += 30;
+    }
+    if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1) && showX) {
+        textY += 10;
+        fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
+        textSize(20); text(`水平方向發現規律：位移與質量成反比`, 20, textY); textY += 25;
+        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
+        let ratioM = (M / m).toFixed(2);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 20, textY);
+    }
+    pop();
 }
 </script>
 </body>
