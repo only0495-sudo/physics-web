@@ -17,6 +17,10 @@
             --border-radius: 8px;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -47,10 +51,12 @@
             flex: 1;
             overflow: hidden;
             flex-direction: row;
+            position: relative;
         }
 
         #sidebar {
             width: 380px;
+            min-width: 380px;
             background-color: var(--panel-bg);
             padding: 20px;
             box-shadow: 2px 0 10px rgba(0,0,0,0.05);
@@ -59,6 +65,42 @@
             flex-direction: column;
             gap: 20px;
             z-index: 5;
+            transition: margin-left 0.3s ease, transform 0.3s ease;
+        }
+
+        /* 側邊欄隱藏狀態 */
+        #sidebar.collapsed {
+            margin-left: -380px;
+        }
+
+        /* 收合/展開按鈕樣式 */
+        #toggle-sidebar-btn {
+            position: absolute;
+            left: 380px;
+            top: 10px;
+            z-index: 10;
+            width: 30px;
+            height: 40px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: left 0.3s ease, background-color 0.2s;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        }
+
+        #toggle-sidebar-btn:hover {
+            background-color: var(--accent-color);
+        }
+
+        /* 當側邊欄隱藏時，按鈕靠左 */
+        #sidebar.collapsed ~ #toggle-sidebar-btn {
+            left: 0;
         }
 
         #canvas-container {
@@ -218,11 +260,36 @@
             }
             #sidebar {
                 width: 100%;
+                min-width: 100%;
                 height: 40%;
+                min-height: 40%;
                 box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+                transition: transform 0.3s ease;
+            }
+            #sidebar.collapsed {
+                margin-left: 0;
+                transform: translateY(-100%);
+                position: absolute;
+                height: auto;
+            }
+            #toggle-sidebar-btn {
+                left: 50%;
+                top: 40%;
+                transform: translateX(-50%);
+                width: 40px;
+                height: 20px;
+                border-radius: 0 0 5px 5px;
+                transition: top 0.3s ease;
+            }
+            #sidebar.collapsed ~ #toggle-sidebar-btn {
+                top: 0;
+                left: 50%;
             }
             #canvas-container {
                 height: 60%;
+            }
+            #sidebar.collapsed ~ #canvas-container {
+                height: 100%;
             }
         }
     </style>
@@ -417,6 +484,8 @@
             </div>
         </div>
 
+        <button id="toggle-sidebar-btn" title="收合/展開選單">◀</button>
+
         <div id="canvas-container">
             <!-- 右下角視角縮放控制項 -->
             <div id="zoom-controls">
@@ -488,7 +557,7 @@ const instructions = {
     4: "<b>【斜面上的平衡】</b><br><b>請拖拉或用+/-鈕調整「斜面傾角」</b>。<br>提示：物理模擬會即時進行，觀察結果是否符合：<br>1. <b>滑動：</b> tan(θ) > 靜摩擦係數(μs)<br>2. <b>轉動：</b> 質心超越底面積 tan(θ) > (寬度/高度)",
     5: "<b>【質心 VS 重心】</b><br><b>請慢慢增加「樓層數」</b>。<br>提示：<b>質心(幾何中心)</b> 只看形狀質量分布；但 <b>重心(等效受力點)</b> 會受重力場影響。<br>當物體極高時，上方受到星球的重力較弱，下方受力較強，重心低於質心！",
     6: "<b>【滑車與人 (系統質心守恆)】</b><br><b>按下「開始行走」</b>。<br>提示：人在無摩擦力的車上移動屬於「系統內力」。由於水平方向不受外力，<b>系統總質心位置必定保持不變！</b><br>觀察火柴人往前走的同時，滑車是如何往後退的，並驗證雙方移動距離與質量的反比關係。",
-    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：當小球在半圓槽內滑動時，水平方向無外力（水平質心不動）；但垂直方向受重力與正向力影響（垂直質心不守恆，會上下移動）。可透過選單切換分析方向！"
+    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：水平方向無外力，<b>水平質心不動</b>。<br>垂直方向受「重力」與「地板對半圓槽的正向力」這兩個<b>外力</b>作用（且合力不恆為零），因此<b>垂直質心不守恆</b>。"
 };
 
 // ==========================================
@@ -533,12 +602,52 @@ function draw() {
     pop();
 }
 
+let resizeTimeout;
 function windowResized() {
-    let container = document.getElementById('canvas-container');
-    canvasWidth = container.clientWidth;
-    canvasHeight = container.clientHeight;
-    resizeCanvas(canvasWidth, canvasHeight);
-    initMode(currentMode);
+    // 使用 debounce 防止短時間內頻繁觸發，並平移物件保持物理狀態不被破壞
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        let container = document.getElementById('canvas-container');
+        let oldW = canvasWidth;
+        let oldH = canvasHeight;
+        
+        canvasWidth = container.clientWidth;
+        canvasHeight = container.clientHeight;
+        
+        // 避免微小抖動觸發重算
+        if (Math.abs(canvasWidth - oldW) < 1 && Math.abs(canvasHeight - oldH) < 1) return;
+        
+        resizeCanvas(canvasWidth, canvasHeight);
+        
+        // 計算中心點平移量
+        let dx = (canvasWidth - oldW) / 2;
+        let dy = canvasHeight - oldH;
+
+        if (currentMode === 6) {
+            mode6State.initialComX += dx;
+            mode6State.startXc += dx;
+            mode6State.startXp += dx;
+        } else if (currentMode === 7) {
+            mode7State.initialComX += dx;
+            mode7State.startXc += dx;
+            mode7State.startXb += dx;
+        } else if (currentMode !== 5) {
+            // 將所有 Matter.js 剛體平移到新畫布對應位置，確保實驗中斷不被重置
+            if (ground) Body.translate(ground, {x: dx, y: dy});
+            if (inclinePlane) Body.translate(inclinePlane, {x: dx, y: dy});
+            if (fulcrum) Body.translate(fulcrum, {x: dx, y: dy});
+            if (activeBody) Body.translate(activeBody, {x: dx, y: dy});
+            
+            if (window.initialCmPosMode2) {
+                window.initialCmPosMode2.x += dx;
+                window.initialCmPosMode2.y += dy;
+            }
+            for (let p of flightTrail) {
+                p.x += dx;
+                p.y += dy;
+            }
+        }
+    }, 350);
 }
 
 // ==========================================
@@ -557,6 +666,20 @@ function setupUI() {
     document.getElementById('btn-zoom-in').addEventListener('click', () => { window.viewScale *= 1.2; });
     document.getElementById('btn-zoom-out').addEventListener('click', () => { window.viewScale /= 1.2; });
     document.getElementById('btn-zoom-reset').addEventListener('click', () => { window.viewScale = 1.0; });
+
+    // 側邊欄收合邏輯
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('toggle-sidebar-btn');
+    toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        if (sidebar.classList.contains('collapsed')) {
+            toggleBtn.innerText = '▶';
+            toggleBtn.title = "展開選單";
+        } else {
+            toggleBtn.innerText = '◀';
+            toggleBtn.title = "收合選單";
+        }
+    });
 
     const setupDragFlag = (id, flagName) => {
         const el = document.getElementById(id);
@@ -620,7 +743,7 @@ function setupUI() {
     document.getElementById('btn-preset-tip').addEventListener('click', () => applyMode4Preset(100, 250, 0.8)); 
     document.getElementById('btn-preset-slide').addEventListener('click', () => applyMode4Preset(200, 100, 0.2)); 
 
-    // 模式六按鈕 (開始/往回走、暫停、重置)
+    // 模式六按鈕
     document.getElementById('btn-start-6').addEventListener('click', () => { 
         if (currentMode === 6 && !mode6State.isWalking) { 
             mode6State.isWalking = true; 
@@ -650,7 +773,7 @@ function setupUI() {
     });
     document.getElementById('btn-reset-6').addEventListener('click', () => { if (currentMode === 6) initMode(6); });
 
-    // 模式七按鈕 (開始、暫停、重置)
+    // 模式七按鈕
     document.getElementById('btn-start-7').addEventListener('click', () => { 
         if (currentMode === 7 && !mode7State.isSliding) {
             mode7State.isSliding = true;
@@ -829,35 +952,48 @@ function drawMode2() {
     fill(46,204,113); drawVertices(fulcrum.vertices); fill(255,255,0); circle(activeBody.position.x, activeBody.position.y, 12/window.viewScale);
     let diff = Math.abs(activeBody.position.x - fulcrum.position.x);
     let isBalanced = diff < 4;
+    
+    let cx = activeBody.position.x; 
+    let cy = activeBody.position.y;
+    let leftBall = activeBody.parts.find(p => p.label === 'leftBall');
+    let rightBall = activeBody.parts.find(p => p.label === 'rightBall');
+
+    // 繪製標示線與距離
     if (isBalanced && !window.isDraggingFinger) {
-        let leftBall = activeBody.parts.find(p => p.label === 'leftBall');
-        let rightBall = activeBody.parts.find(p => p.label === 'rightBall');
-        let cx = activeBody.position.x; let cy = activeBody.position.y;
         let d1 = Math.abs(leftBall.position.x - cx); let d2 = Math.abs(rightBall.position.x - cx);
         push(); let maxR = Math.max(m1, m2); let lineY = cy - maxR - 20;
         stroke(255, 255, 255, 200); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
         line(leftBall.position.x, lineY, cx, lineY); line(cx, lineY, rightBall.position.x, lineY);
         fill(0); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD);
         text(`d1 = ${d1.toFixed(1)}`, (leftBall.position.x + cx)/2, lineY - 5); text(`d2 = ${d2.toFixed(1)}`, (rightBall.position.x + cx)/2, lineY - 5);
-        fill(231, 76, 60); textAlign(CENTER, BOTTOM); textStyle(BOLD); let ratioD = (d1/d2).toFixed(2); let ratioM = (m2/m1).toFixed(2);
-        textSize(20/window.viewScale); noStroke(); text(`發現規律：距離與質量成反比`, cx, lineY - 60);
-        textSize(24/window.viewScale); text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, cx, lineY - 30); pop();
+        pop();
     }
+    
+    // 將解說與規律文字全部靠左上角對齊，避免和天平圖形重疊
     push(); resetMatrix(); 
+    let textY2 = 30;
     if (window.isDraggingFinger) {
-        fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
-        text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 20, 30);
+        fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, TOP);
+        text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 20, textY2);
     } else {
         if (isBalanced) {
-            fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
-            text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 20, 30);
-            fill(231, 76, 60); textSize(32); textAlign(CENTER, CENTER);
-            text("平衡成功，你找到了質(重)心！", canvasWidth/2, 80);
+            fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, TOP);
+            text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 20, textY2); textY2 += 30;
+            
+            fill(231, 76, 60); textSize(32); textStyle(BOLD); textAlign(LEFT, TOP);
+            text("平衡成功，你找到了質(重)心！", 20, textY2); textY2 += 50;
+
+            let d1 = Math.abs(leftBall.position.x - cx); let d2 = Math.abs(rightBall.position.x - cx);
+            let ratioD = (d1/d2).toFixed(2); let ratioM = (m2/m1).toFixed(2);
+            
+            textSize(20); text(`發現規律：距離與質量成反比`, 20, textY2); textY2 += 30;
+            textSize(24); text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, 20, textY2);
         } else {
-            fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, BASELINE);
-            text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 20, 30);
+            fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, TOP);
+            text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 20, textY2);
         }
-    } pop();
+    } 
+    pop();
 }
 
 function handleMode3Logic() {
@@ -998,12 +1134,23 @@ function drawMode6() {
     
     if (showCom) {
         stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
-        line(mode6State.initialComX, groundY - 220, mode6State.initialComX, groundY + 30); drawingContext.setLineDash([]);
+        line(mode6State.initialComX, groundY - 175, mode6State.initialComX, groundY + 30); drawingContext.setLineDash([]);
         fill(39, 174, 96); noStroke(); circle(mode6State.initialComX, cartY, 14/window.viewScale);
         
-        push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-        let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 230 - canvasHeight) * window.viewScale + canvasHeight;
-        text("系統水平質心 (不動)", screenComX, screenTextY);
+        push(); resetMatrix();
+        let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
+        let screenTextY = (groundY + 45 - canvasHeight) * window.viewScale + canvasHeight;
+        textSize(18); textStyle(BOLD);
+        let txt = "系統水平質心 (不動)";
+        let tw = textWidth(txt);
+        
+        // 繪製白色半透明底框
+        fill(255, 255, 255, 240); noStroke(); rectMode(CENTER);
+        rect(screenComX, screenTextY, tw + 16, 28, 5);
+        
+        // 繪製綠色文字
+        fill(39, 174, 96); textAlign(CENTER, CENTER);
+        text(txt, screenComX, screenTextY);
         pop();
 
         if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
@@ -1022,14 +1169,8 @@ function drawMode6() {
     // 統一在左上角動態排版繪製文字資訊，避免字體重疊
     push(); resetMatrix();
     let textY = 20;
-    if (showCom && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
-        fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); 
-        text(`人移動距離 (Δx₁) = ${dxp.toFixed(1)} px`, 20, textY); textY += 30;
-        fill(52, 152, 219); 
-        text(`車退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, textY); textY += 30;
-    }
+
     if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
-        textY += 10;
         fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
         textSize(20); text(`發現規律：距離與質量成反比`, 20, textY); textY += 25;
         textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
@@ -1047,7 +1188,7 @@ function handleMode7Logic() {
 function drawMode7() {
     let m = parseFloat(document.getElementById('slider-m7').value), M = parseFloat(document.getElementById('slider-M7').value), R = parseFloat(document.getElementById('slider-R7').value);
     let showCom = document.getElementById('chk-com7').checked, showRatio = document.getElementById('chk-ratio7').checked;
-    let analysis = document.getElementById('select-analysis-7').value; // 讀取選擇的分析方向
+    let analysis = document.getElementById('select-analysis-7').value;
 
     let trackThickness = 16, ballR = 14, effR = R - trackThickness/2 - ballR;
     let angle = -Math.PI/2 * Math.cos(mode7State.time);
@@ -1092,11 +1233,22 @@ function drawMode7() {
         // 畫 X 方向質心 (綠色鉛垂虛線)
         if (showX) {
             stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
-            line(mode7State.initialComX, groundY - 250, mode7State.initialComX, groundY + 30); drawingContext.setLineDash([]);
+            line(mode7State.initialComX, groundY - 195, mode7State.initialComX, groundY + 30); drawingContext.setLineDash([]);
             
-            push(); resetMatrix(); fill(39, 174, 96); noStroke(); textSize(18); textAlign(CENTER, BOTTOM); textStyle(BOLD);
-            let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2, screenTextY = (groundY - 260 - canvasHeight) * window.viewScale + canvasHeight;
-            text("系統水平質心 (不動)", screenComX, screenTextY);
+            push(); resetMatrix();
+            let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
+            let screenTextY = (groundY + 45 - canvasHeight) * window.viewScale + canvasHeight;
+            textSize(18); textStyle(BOLD);
+            let txt = "系統水平質心 (不動)";
+            let tw = textWidth(txt);
+            
+            // 繪製白色半透明底框
+            fill(255, 255, 255, 240); noStroke(); rectMode(CENTER);
+            rect(screenComX, screenTextY, tw + 16, 28, 5);
+            
+            // 繪製綠色文字
+            fill(39, 174, 96); textAlign(CENTER, CENTER);
+            text(txt, screenComX, screenTextY);
             pop();
 
             if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
@@ -1128,19 +1280,12 @@ function drawMode7() {
     let showX = analysis === 'x' || analysis === 'xy';
     let showY = analysis === 'y' || analysis === 'xy';
 
-    if (showCom && showX && mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
-        fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD); 
-        text(`小球水平位移 (Δx₁) = ${dxp.toFixed(1)} px`, 20, textY); textY += 30;
-        fill(52, 152, 219); 
-        text(`半圓槽退後距離 (Δx₂) = ${dxc.toFixed(1)} px`, 20, textY); textY += 30;
-    }
     if (showCom && showY && mode7State.hasSlid) {
         fill(142, 68, 173); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-        text(`y方向有重力作用 (外力不為零)`, 20, textY); textY += 25;
-        text(`因此垂直質心不守恆`, 20, textY); textY += 30;
+        text(`y方向受「重力」與「地板正向力」(皆為外力)作用`, 20, textY); textY += 25;
+        text(`合力不為零，因此系統垂直質心會上下移動`, 20, textY); textY += 30;
     }
     if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1) && showX) {
-        textY += 10;
         fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
         textSize(20); text(`水平方向發現規律：位移與質量成反比`, 20, textY); textY += 25;
         textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
