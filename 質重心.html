@@ -971,26 +971,26 @@ function drawMode2() {
     
     // 將解說與規律文字全部靠左上角對齊，避免和天平圖形重疊
     push(); resetMatrix(); 
-    let textY2 = 30;
+    let textY2 = 15; // 往上移動到頂端
     if (window.isDraggingFinger) {
         fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, TOP);
-        text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 20, textY2);
+        text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 15, textY2);
     } else {
         if (isBalanced) {
             fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, TOP);
-            text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 20, textY2); textY2 += 30;
+            text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 15, textY2); textY2 += 30;
             
             fill(231, 76, 60); textSize(32); textStyle(BOLD); textAlign(LEFT, TOP);
-            text("平衡成功，你找到了質(重)心！", 20, textY2); textY2 += 50;
+            text("平衡成功，你找到了質(重)心！", 15, textY2); textY2 += 45;
 
             let d1 = Math.abs(leftBall.position.x - cx); let d2 = Math.abs(rightBall.position.x - cx);
             let ratioD = (d1/d2).toFixed(2); let ratioM = (m2/m1).toFixed(2);
             
-            textSize(20); text(`發現規律：距離與質量成反比`, 20, textY2); textY2 += 30;
-            textSize(24); text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, 20, textY2);
+            textSize(20); text(`發現規律：距離與質量成反比`, 15, textY2); textY2 += 30;
+            textSize(24); text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, 15, textY2);
         } else {
             fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, TOP);
-            text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 20, textY2);
+            text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 15, textY2);
         }
     } 
     pop();
@@ -1168,14 +1168,20 @@ function drawMode6() {
     
     // 統一在左上角動態排版繪製文字資訊，避免字體重疊
     push(); resetMatrix();
-    let textY = 20;
+    let textY = 15; // 往上移動到頂端
+
+    // 新增：顯示質心不變的提示
+    if (showCom) {
+        fill(39, 174, 96); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
+        text(`水平方向不受外力，因此水平質心位置不變`, 15, textY); textY += 30;
+    }
 
     if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
         fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
-        textSize(20); text(`發現規律：距離與質量成反比`, 20, textY); textY += 25;
+        textSize(20); text(`發現規律：距離與質量成反比`, 15, textY); textY += 25;
         textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
         let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 20, textY);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY);
     }
     pop();
 }
@@ -1276,21 +1282,27 @@ function drawMode7() {
     
     // 統一在左上角動態排版繪製文字資訊，避免字體重疊
     push(); resetMatrix();
-    let textY = 20;
+    let textY = 15; // 往上移動到頂端
     let showX = analysis === 'x' || analysis === 'xy';
     let showY = analysis === 'y' || analysis === 'xy';
 
+    // 新增：顯示質心不變的提示 (只要有顯示水平分析且勾選質心)
+    if (showCom && showX) {
+        fill(39, 174, 96); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
+        text(`水平方向不受外力，因此水平質心位置不變`, 15, textY); textY += 30;
+    }
+
     if (showCom && showY && mode7State.hasSlid) {
         fill(142, 68, 173); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-        text(`y方向受「重力」與「地板正向力」(皆為外力)作用`, 20, textY); textY += 25;
-        text(`合力不為零，因此系統垂直質心會上下移動`, 20, textY); textY += 30;
+        text(`y方向受「重力」與「地板正向力」(皆為外力)作用`, 15, textY); textY += 25;
+        text(`合力不為零，因此系統垂直質心會上下移動`, 15, textY); textY += 30;
     }
     if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1) && showX) {
         fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
-        textSize(20); text(`水平方向發現規律：位移與質量成反比`, 20, textY); textY += 25;
+        textSize(20); text(`水平方向發現規律：位移與質量成反比`, 15, textY); textY += 25;
         textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
         let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 20, textY);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY);
     }
     pop();
 }
