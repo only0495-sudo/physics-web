@@ -540,7 +540,8 @@ let mode6State = {
 
 // 模式七狀態變數
 let mode7State = {
-    time: 0,
+    progress: 0,       // 0 到 Math.PI
+    direction: 1,      // 1 或 -1
     isSliding: false,
     isPaused: false,
     initialComX: 0,
@@ -748,7 +749,7 @@ function setupUI() {
         if (currentMode === 6 && !mode6State.isWalking) { 
             mode6State.isWalking = true; 
             mode6State.isPaused = false;
-            mode6State.direction = mode6State.relPos < 0 ? 1 : -1;
+            mode6State.direction = mode6State.relPos <= 0 ? 1 : -1;
             mode6State.hasWalked = true;
             
             let L = parseFloat(document.getElementById('slider-L6').value);
@@ -773,11 +774,14 @@ function setupUI() {
     });
     document.getElementById('btn-reset-6').addEventListener('click', () => { if (currentMode === 6) initMode(6); });
 
-    // 模式七按鈕
+    // 模式七按鈕 (修改：支援單側停止與折返)
     document.getElementById('btn-start-7').addEventListener('click', () => { 
         if (currentMode === 7 && !mode7State.isSliding) {
             mode7State.isSliding = true;
             mode7State.isPaused = false;
+            
+            // 根據目前位置決定方向 (如果在左端就往右，如果在右端就往左)
+            mode7State.direction = mode7State.progress <= 0 ? 1 : -1;
             mode7State.hasSlid = true;
 
             let m = parseFloat(document.getElementById('slider-m7').value);
@@ -787,7 +791,7 @@ function setupUI() {
             let ballR = 14;
             let effR = R - trackThickness/2 - ballR;
             
-            let angle = -Math.PI/2 * Math.cos(mode7State.time);
+            let angle = -Math.PI/2 * Math.cos(mode7State.progress);
             let Xp_rel = effR * Math.sin(angle);
             let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
             
@@ -870,7 +874,8 @@ function initMode(mode) {
         let btnPause = document.getElementById('btn-pause-6');
         if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
     } else if (mode == 7) {
-        mode7State.time = 0;
+        mode7State.progress = 0;
+        mode7State.direction = 1;
         mode7State.isSliding = false;
         mode7State.isPaused = false;
         mode7State.hasSlid = false;
@@ -1181,14 +1186,36 @@ function drawMode6() {
         textSize(20); text(`發現規律：距離與質量成反比`, 15, textY); textY += 25;
         textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
         let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY); textY += 35;
+        
+        // 新增終點提示
+        if (Math.abs(mode6State.relPos) >= 0.495) {
+            fill(211, 84, 0); textSize(20);
+            text(`|人的位移| + |滑車位移| = 滑車長 (L)`, 15, textY); textY += 30;
+        }
     }
     pop();
 }
 
 // ----- 模式七 邏輯 (半圓槽與小球) -----
 function handleMode7Logic() {
-    if (mode7State.isSliding && !mode7State.isPaused) { mode7State.time += 0.02; }
+    if (mode7State.isSliding && !mode7State.isPaused) {
+        let speed = 0.02;
+        mode7State.progress += speed * mode7State.direction;
+        
+        // 控制小球單趟滑動，碰到邊緣就停止並切換狀態
+        if (mode7State.direction === 1 && mode7State.progress >= Math.PI) {
+            mode7State.progress = Math.PI;
+            mode7State.isSliding = false;
+            let btn = document.getElementById('btn-start-7');
+            if (btn) { btn.innerText = "往回滑"; btn.disabled = false; }
+        } else if (mode7State.direction === -1 && mode7State.progress <= 0) {
+            mode7State.progress = 0;
+            mode7State.isSliding = false;
+            let btn = document.getElementById('btn-start-7');
+            if (btn) { btn.innerText = "開始滑動"; btn.disabled = false; }
+        }
+    }
 }
 
 function drawMode7() {
@@ -1197,7 +1224,9 @@ function drawMode7() {
     let analysis = document.getElementById('select-analysis-7').value;
 
     let trackThickness = 16, ballR = 14, effR = R - trackThickness/2 - ballR;
-    let angle = -Math.PI/2 * Math.cos(mode7State.time);
+    
+    // 這裡改用進度 progress 來控制擺動
+    let angle = -Math.PI/2 * Math.cos(mode7State.progress);
     
     // X方向 (水平) 計算
     let Xp_rel = effR * Math.sin(angle), xc = mode7State.initialComX - (m * Xp_rel) / (m + M), xb = xc + Xp_rel; 
@@ -1302,7 +1331,13 @@ function drawMode7() {
         textSize(20); text(`水平方向發現規律：位移與質量成反比`, 15, textY); textY += 25;
         textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
         let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY);
+        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY); textY += 35;
+        
+        // 新增終點提示 (使用 progress 判斷是否抵達兩端點)
+        if (mode7State.progress >= Math.PI || (mode7State.hasSlid && mode7State.progress <= 0)) {
+            fill(211, 84, 0); textSize(20);
+            text(`|小球位移| + |半圓槽位移| = 2R`, 15, textY); textY += 30;
+        }
     }
     pop();
 }
