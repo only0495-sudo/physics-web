@@ -312,6 +312,7 @@
                     <option value="5">模式五：質心 VS 重心 (重力梯度)</option>
                     <option value="6">模式六：滑車與人 (系統質心守恆)</option>
                     <option value="7">模式七：半圓槽與小球 (系統質心守恆)</option>
+                    <option value="8">模式八：雙人滑車換位 (系統質心守恆)</option>
                 </select>
             </div>
 
@@ -458,7 +459,6 @@
                 <label>半圓槽半徑 (R): <span id="val-R7">150</span> px</label>
                 <input type="range" id="slider-R7" min="80" max="250" value="150">
 
-                <!-- 新增：分析方向選擇 -->
                 <label>分析方向：</label>
                 <select id="select-analysis-7" style="margin-bottom: 10px;">
                     <option value="x" selected>x方向分析 (預設)</option>
@@ -480,6 +480,38 @@
                     <button id="btn-start-7">開始滑動</button>
                     <button id="btn-pause-7">暫停</button>
                     <button id="btn-reset-7">重置狀態</button>
+                </div>
+            </div>
+
+            <!-- 模式八控制項 -->
+            <div id="controls-8" class="control-group mode-controls">
+                <h3>系統參數</h3>
+                <label>左側人質量 (m₁): <span id="val-m1_8">50</span> kg</label>
+                <input type="range" id="slider-m1_8" min="20" max="150" value="50">
+
+                <label>右側人質量 (m₂): <span id="val-m2_8">30</span> kg</label>
+                <input type="range" id="slider-m2_8" min="20" max="150" value="30">
+
+                <label>滑車質量 (M): <span id="val-M8">150</span> kg</label>
+                <input type="range" id="slider-M8" min="50" max="400" value="150">
+
+                <label>滑車長度 (L): <span id="val-L8">300</span> px</label>
+                <input type="range" id="slider-L8" min="200" max="500" value="300">
+
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-com8" style="width: auto; margin: 0;"> 
+                    <span>顯示質心與輔助線</span>
+                </label>
+
+                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 10px; background: #eef2f5; padding: 10px; border-radius: 5px;">
+                    <input type="checkbox" id="chk-ratio8" style="width: auto; margin: 0;"> 
+                    <span>顯示位移關係式</span>
+                </label>
+                
+                <div class="preset-row" style="margin-top: 15px;">
+                    <button id="btn-start-8">開始交換</button>
+                    <button id="btn-pause-8">暫停</button>
+                    <button id="btn-reset-8">重置狀態</button>
                 </div>
             </div>
         </div>
@@ -540,8 +572,8 @@ let mode6State = {
 
 // 模式七狀態變數
 let mode7State = {
-    progress: 0,       // 0 到 Math.PI
-    direction: 1,      // 1 或 -1
+    progress: 0,       
+    direction: 1,      
     isSliding: false,
     isPaused: false,
     initialComX: 0,
@@ -550,16 +582,95 @@ let mode7State = {
     startXb: 0
 };
 
-// 教學文字資料庫
+// 模式八狀態變數
+let mode8State = {
+    progress: 0,      
+    direction: 1,     
+    isWalking: false,
+    isPaused: false,
+    initialComX: 0,
+    startXc: 0,
+    startXp1: 0,
+    startXp2: 0,
+    hasWalked: false
+};
+
+// 教學文字資料庫 (加入 X_CM 提示標籤)
 const instructions = {
     1: "<b>【保齡球瓶斜拋】</b><br>1. <b>抽象的質心</b>：勾選「顯示質心軌跡與虛線描邊」，觀察紅點(質心)是如何畫出完美的拋物線的。<br>2. <b>繞質心旋轉</b>：瓶身會穩穩地繞質心旋轉。",
     2: "<b>【尋找重心與力矩平衡】</b><br><b>請拖拉或用+/-微調「支撐位置」</b>。<br>提示：調整時系統會托住桿子；<b>放開後</b>，如果手指(支點)沒有精準對齊「質心(重心)」，兩側不平衡的重力矩就會讓桿子傾倒！",
     3: "<b>【幾何中心與翻轉】</b><br><b>請拖拉或用+/-鈕調整「方塊傾斜角度」</b>。<br>提示：在拖拉按住時物理定律會暫停。<b>放開後</b>，物理引擎接管：當質心垂直線超越右下角支點時，方塊便會失去平衡倒下。",
     4: "<b>【斜面上的平衡】</b><br><b>請拖拉或用+/-鈕調整「斜面傾角」</b>。<br>提示：物理模擬會即時進行，觀察結果是否符合：<br>1. <b>滑動：</b> tan(θ) > 靜摩擦係數(μs)<br>2. <b>轉動：</b> 質心超越底面積 tan(θ) > (寬度/高度)",
     5: "<b>【質心 VS 重心】</b><br><b>請慢慢增加「樓層數」</b>。<br>提示：<b>質心(幾何中心)</b> 只看形狀質量分布；但 <b>重心(等效受力點)</b> 會受重力場影響。<br>當物體極高時，上方受到星球的重力較弱，下方受力較強，重心低於質心！",
-    6: "<b>【滑車與人 (系統質心守恆)】</b><br><b>按下「開始行走」</b>。<br>提示：人在無摩擦力的車上移動屬於「系統內力」。由於水平方向不受外力，<b>系統總質心位置必定保持不變！</b><br>觀察火柴人往前走的同時，滑車是如何往後退的，並驗證雙方移動距離與質量的反比關係。",
-    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：水平方向無外力，<b>水平質心不動</b>。<br>垂直方向受「重力」與「地板對半圓槽的正向力」這兩個<b>外力</b>作用（且合力不恆為零），因此<b>垂直質心不守恆</b>。"
+    6: "<b>【滑車與人 (系統質心守恆)】</b><br><b>按下「開始行走」</b>。<br>提示：人在無摩擦力的車上移動屬於「系統內力」。由於水平方向不受外力，<b>系統總質心 (X<sub>CM</sub>) 位置必定保持不變！</b><br>觀察火柴人往前走的同時，滑車是如何往後退的，並驗證雙方移動距離與質量的反比關係。",
+    7: "<b>【半圓槽與小球 (系統質心守恆)】</b><br><b>按下「開始滑動」</b>。<br>提示：水平方向無外力，<b>水平質心 (X<sub>CM</sub>) 不動</b>。<br>垂直方向受「重力」與「地板對半圓槽的正向力」這兩個<b>外力</b>作用（且合力不恆為零），因此<b>垂直質心 (Y<sub>CM</sub>) 不守恆</b>。",
+    8: "<b>【雙人滑車換位 (系統質心守恆)】</b><br><b>按下「開始交換」</b>。<br>提示：當左端與右端的人同時向對面移動時，系統水平方向不受外力，<b>系統總水平質心 (X<sub>CM</sub>) 不變</b>。<br>觀察當兩人質量不同時，滑車會向哪邊移動來抵銷質心的偏移！"
 };
+
+// ==========================================
+// 繪製下標文字專用輔助函數 (X_CM / Y_CM)
+// ==========================================
+function drawSubscriptTextCenter(preText, mainChar, subText, postText, cx, cy, baseSize, clr) {
+    push();
+    textStyle(BOLD);
+    textSize(baseSize);
+    let w1 = textWidth(preText + mainChar);
+    textSize(baseSize * 0.7);
+    let w2 = textWidth(subText);
+    textSize(baseSize);
+    let w3 = textWidth(postText);
+    let totalW = w1 + w2 + w3;
+
+    // 繪製白色半透明底框
+    fill(255, 255, 255, 240); noStroke(); rectMode(CENTER);
+    rect(cx, cy, totalW + 20, baseSize + 14, 5);
+
+    // 繪製文字 (利用 LEFT, CENTER 對齊)
+    fill(clr); textAlign(LEFT, CENTER);
+    let startX = cx - totalW / 2;
+    textSize(baseSize);
+    text(preText + mainChar, startX, cy);
+    textSize(baseSize * 0.7);
+    text(subText, startX + w1, cy + baseSize * 0.25);
+    textSize(baseSize);
+    text(postText, startX + w1 + w2, cy);
+    pop();
+}
+
+function drawSubscriptTextLeft(preText, mainChar, subText, postText, x, y, baseSize, clr) {
+    push();
+    fill(clr); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
+    textSize(baseSize);
+    text(preText + mainChar, x, y);
+    let w1 = textWidth(preText + mainChar);
+    
+    textSize(baseSize * 0.7);
+    text(subText, x + w1, y + baseSize * 0.35); // 下標字體微幅往下
+    let w2 = textWidth(subText);
+    
+    textSize(baseSize);
+    text(postText, x + w1 + w2, y);
+    pop();
+}
+
+function drawRichTextLeft(x, y, parts, baseSize, defaultColor) {
+    push();
+    textAlign(LEFT, TOP);
+    textStyle(BOLD);
+    let currentX = x;
+    for (let p of parts) {
+        fill(p.clr || defaultColor);
+        textSize(baseSize);
+        text(p.t, currentX, y);
+        currentX += textWidth(p.t);
+        if (p.sub) {
+            textSize(baseSize * 0.7);
+            text(p.sub, currentX, y + baseSize * 0.35);
+            currentX += textWidth(p.sub);
+        }
+    }
+    pop();
+}
 
 // ==========================================
 // p5.js 核心生命週期
@@ -582,7 +693,7 @@ function setup() {
 function draw() {
     background(233, 236, 239);
     
-    let shouldUpdatePhysics = (currentMode !== 5 && currentMode !== 6 && currentMode !== 7);
+    let shouldUpdatePhysics = (currentMode !== 5 && currentMode !== 6 && currentMode !== 7 && currentMode !== 8);
     if (shouldUpdatePhysics) Engine.update(engine, 1000 / 60);
 
     push();
@@ -590,7 +701,7 @@ function draw() {
     scale(window.viewScale);
     translate(-canvasWidth / 2, -canvasHeight);
 
-    if (currentMode !== 5 && currentMode !== 6 && currentMode !== 7) drawGround();
+    if (currentMode !== 5 && currentMode !== 6 && currentMode !== 7 && currentMode !== 8) drawGround();
 
     if (currentMode == 1) drawMode1();
     else if (currentMode == 2) { handleMode2Logic(); drawMode2(); }
@@ -599,13 +710,13 @@ function draw() {
     else if (currentMode == 5) drawMode5(); 
     else if (currentMode == 6) { handleMode6Logic(); drawMode6(); }
     else if (currentMode == 7) { handleMode7Logic(); drawMode7(); }
+    else if (currentMode == 8) { handleMode8Logic(); drawMode8(); }
 
     pop();
 }
 
 let resizeTimeout;
 function windowResized() {
-    // 使用 debounce 防止短時間內頻繁觸發，並平移物件保持物理狀態不被破壞
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         let container = document.getElementById('canvas-container');
@@ -615,38 +726,26 @@ function windowResized() {
         canvasWidth = container.clientWidth;
         canvasHeight = container.clientHeight;
         
-        // 避免微小抖動觸發重算
         if (Math.abs(canvasWidth - oldW) < 1 && Math.abs(canvasHeight - oldH) < 1) return;
         
         resizeCanvas(canvasWidth, canvasHeight);
         
-        // 計算中心點平移量
         let dx = (canvasWidth - oldW) / 2;
         let dy = canvasHeight - oldH;
 
         if (currentMode === 6) {
-            mode6State.initialComX += dx;
-            mode6State.startXc += dx;
-            mode6State.startXp += dx;
+            mode6State.initialComX += dx; mode6State.startXc += dx; mode6State.startXp += dx;
         } else if (currentMode === 7) {
-            mode7State.initialComX += dx;
-            mode7State.startXc += dx;
-            mode7State.startXb += dx;
+            mode7State.initialComX += dx; mode7State.startXc += dx; mode7State.startXb += dx;
+        } else if (currentMode === 8) {
+            mode8State.initialComX += dx; mode8State.startXc += dx; mode8State.startXp1 += dx; mode8State.startXp2 += dx;
         } else if (currentMode !== 5) {
-            // 將所有 Matter.js 剛體平移到新畫布對應位置，確保實驗中斷不被重置
             if (ground) Body.translate(ground, {x: dx, y: dy});
             if (inclinePlane) Body.translate(inclinePlane, {x: dx, y: dy});
             if (fulcrum) Body.translate(fulcrum, {x: dx, y: dy});
             if (activeBody) Body.translate(activeBody, {x: dx, y: dy});
-            
-            if (window.initialCmPosMode2) {
-                window.initialCmPosMode2.x += dx;
-                window.initialCmPosMode2.y += dy;
-            }
-            for (let p of flightTrail) {
-                p.x += dx;
-                p.y += dy;
-            }
+            if (window.initialCmPosMode2) { window.initialCmPosMode2.x += dx; window.initialCmPosMode2.y += dy; }
+            for (let p of flightTrail) { p.x += dx; p.y += dy; }
         }
     }, 350);
 }
@@ -668,17 +767,14 @@ function setupUI() {
     document.getElementById('btn-zoom-out').addEventListener('click', () => { window.viewScale /= 1.2; });
     document.getElementById('btn-zoom-reset').addEventListener('click', () => { window.viewScale = 1.0; });
 
-    // 側邊欄收合邏輯
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('toggle-sidebar-btn');
     toggleBtn.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
         if (sidebar.classList.contains('collapsed')) {
-            toggleBtn.innerText = '▶';
-            toggleBtn.title = "展開選單";
+            toggleBtn.innerText = '▶'; toggleBtn.title = "展開選單";
         } else {
-            toggleBtn.innerText = '◀';
-            toggleBtn.title = "收合選單";
+            toggleBtn.innerText = '◀'; toggleBtn.title = "收合選單";
         }
     });
 
@@ -694,7 +790,7 @@ function setupUI() {
     setupDragFlag('slider-finger', 'isDraggingFinger');
     setupDragFlag('slider-angle3', 'isDraggingAngle3');
 
-    const sliders = ['angle1', 'v0', 'w0', 'm1', 'm2', 'finger', 'angle3', 'h3', 'angle4', 'mu4', 'w4', 'h4', 'floors', 'm6', 'M6', 'L6', 'm7', 'M7', 'R7'];
+    const sliders = ['angle1', 'v0', 'w0', 'm1', 'm2', 'finger', 'angle3', 'h3', 'angle4', 'mu4', 'w4', 'h4', 'floors', 'm6', 'M6', 'L6', 'm7', 'M7', 'R7', 'm1_8', 'm2_8', 'M8', 'L8'];
     sliders.forEach(id => {
         const slider = document.getElementById('slider-' + id);
         const display = document.getElementById('val-' + id);
@@ -706,6 +802,7 @@ function setupUI() {
                 if (currentMode == 4 && ['h4', 'w4', 'mu4'].includes(id)) initMode(4);
                 if (currentMode == 6 && ['m6', 'M6', 'L6'].includes(id)) initMode(6);
                 if (currentMode == 7 && ['m7', 'M7', 'R7'].includes(id)) initMode(7);
+                if (currentMode == 8 && ['m1_8', 'm2_8', 'M8', 'L8'].includes(id)) initMode(8);
             });
         }
     });
@@ -717,8 +814,7 @@ function setupUI() {
             let newVal = parseFloat(slider.value) + amount;
             newVal = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), newVal));
             newVal = parseFloat(newVal.toFixed(1));
-            slider.value = newVal;
-            display.innerText = newVal;
+            slider.value = newVal; display.innerText = newVal;
             slider.dispatchEvent(new Event('input')); 
         };
         const bindHold = (btn, amount) => {
@@ -747,22 +843,12 @@ function setupUI() {
     // 模式六按鈕
     document.getElementById('btn-start-6').addEventListener('click', () => { 
         if (currentMode === 6 && !mode6State.isWalking) { 
-            mode6State.isWalking = true; 
-            mode6State.isPaused = false;
-            mode6State.direction = mode6State.relPos <= 0 ? 1 : -1;
-            mode6State.hasWalked = true;
-            
-            let L = parseFloat(document.getElementById('slider-L6').value);
-            let m = parseFloat(document.getElementById('slider-m6').value);
-            let M = parseFloat(document.getElementById('slider-M6').value);
-            let xc = mode6State.initialComX - (m * (mode6State.relPos * L)) / (m + M);
-            let xp = xc + mode6State.relPos * L;
-            
-            mode6State.startXc = xc;
-            mode6State.startXp = xp;
-
-            document.getElementById('btn-start-6').innerText = "行走中...";
-            document.getElementById('btn-start-6').disabled = true;
+            mode6State.isWalking = true; mode6State.isPaused = false;
+            mode6State.direction = mode6State.relPos <= 0 ? 1 : -1; mode6State.hasWalked = true;
+            let L = parseFloat(document.getElementById('slider-L6').value), m = parseFloat(document.getElementById('slider-m6').value), M = parseFloat(document.getElementById('slider-M6').value);
+            let xc = mode6State.initialComX - (m * (mode6State.relPos * L)) / (m + M), xp = xc + mode6State.relPos * L;
+            mode6State.startXc = xc; mode6State.startXp = xp;
+            document.getElementById('btn-start-6').innerText = "行走中..."; document.getElementById('btn-start-6').disabled = true;
             document.getElementById('btn-pause-6').innerText = "暫停";
         } 
     });
@@ -774,32 +860,17 @@ function setupUI() {
     });
     document.getElementById('btn-reset-6').addEventListener('click', () => { if (currentMode === 6) initMode(6); });
 
-    // 模式七按鈕 (修改：支援單側停止與折返)
+    // 模式七按鈕
     document.getElementById('btn-start-7').addEventListener('click', () => { 
         if (currentMode === 7 && !mode7State.isSliding) {
-            mode7State.isSliding = true;
-            mode7State.isPaused = false;
-            
-            // 根據目前位置決定方向 (如果在左端就往右，如果在右端就往左)
-            mode7State.direction = mode7State.progress <= 0 ? 1 : -1;
-            mode7State.hasSlid = true;
-
-            let m = parseFloat(document.getElementById('slider-m7').value);
-            let M = parseFloat(document.getElementById('slider-M7').value);
-            let R = parseFloat(document.getElementById('slider-R7').value);
-            let trackThickness = 16;
-            let ballR = 14;
-            let effR = R - trackThickness/2 - ballR;
-            
+            mode7State.isSliding = true; mode7State.isPaused = false;
+            mode7State.direction = mode7State.progress <= 0 ? 1 : -1; mode7State.hasSlid = true;
+            let m = parseFloat(document.getElementById('slider-m7').value), M = parseFloat(document.getElementById('slider-M7').value), R = parseFloat(document.getElementById('slider-R7').value);
+            let trackThickness = 16, ballR = 14, effR = R - trackThickness/2 - ballR;
             let angle = -Math.PI/2 * Math.cos(mode7State.progress);
-            let Xp_rel = effR * Math.sin(angle);
-            let xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
-            
-            mode7State.startXc = xc;
-            mode7State.startXb = xc + Xp_rel;
-
-            document.getElementById('btn-start-7').innerText = "滑動中...";
-            document.getElementById('btn-start-7').disabled = true;
+            let Xp_rel = effR * Math.sin(angle), xc = mode7State.initialComX - (m * Xp_rel) / (m + M);
+            mode7State.startXc = xc; mode7State.startXb = xc + Xp_rel;
+            document.getElementById('btn-start-7').innerText = "滑動中..."; document.getElementById('btn-start-7').disabled = true;
             document.getElementById('btn-pause-7').innerText = "暫停";
         }
     });
@@ -810,20 +881,45 @@ function setupUI() {
         }
     });
     document.getElementById('btn-reset-7').addEventListener('click', () => { if (currentMode === 7) initMode(7); });
+
+    // 模式八按鈕
+    document.getElementById('btn-start-8').addEventListener('click', () => { 
+        if (currentMode === 8 && !mode8State.isWalking) { 
+            mode8State.isWalking = true; mode8State.isPaused = false;
+            mode8State.direction = mode8State.progress <= 0 ? 1 : -1; mode8State.hasWalked = true;
+            let L = parseFloat(document.getElementById('slider-L8').value);
+            let m1 = parseFloat(document.getElementById('slider-m1_8').value);
+            let m2 = parseFloat(document.getElementById('slider-m2_8').value);
+            let M = parseFloat(document.getElementById('slider-M8').value);
+            
+            let p1 = -0.5 + mode8State.progress;
+            let p2 = 0.5 - mode8State.progress;
+            
+            let xc = mode8State.initialComX - ((m1 * p1 + m2 * p2) * L) / (m1 + m2 + M);
+            let xp1 = xc + p1 * L;
+            let xp2 = xc + p2 * L;
+            
+            mode8State.startXc = xc; mode8State.startXp1 = xp1; mode8State.startXp2 = xp2;
+            document.getElementById('btn-start-8').innerText = "交換中..."; document.getElementById('btn-start-8').disabled = true;
+            document.getElementById('btn-pause-8').innerText = "暫停";
+        } 
+    });
+    document.getElementById('btn-pause-8').addEventListener('click', () => {
+        if (currentMode === 8 && mode8State.isWalking) {
+            mode8State.isPaused = !mode8State.isPaused;
+            document.getElementById('btn-pause-8').innerText = mode8State.isPaused ? "繼續" : "暫停";
+        }
+    });
+    document.getElementById('btn-reset-8').addEventListener('click', () => { if (currentMode === 8) initMode(8); });
 }
 
 function updateInstructions() { document.getElementById('instruction-panel').innerHTML = instructions[currentMode]; }
 
 function applyMode4Preset(w, h, mu) {
-    document.getElementById('slider-w4').value = w;
-    document.getElementById('val-w4').innerText = w;
-    document.getElementById('slider-h4').value = h;
-    document.getElementById('val-h4').innerText = h;
-    document.getElementById('slider-mu4').value = mu;
-    document.getElementById('val-mu4').innerText = mu;
-    document.getElementById('slider-angle4').value = 0;
-    document.getElementById('val-angle4').innerText = "0";
-    
+    document.getElementById('slider-w4').value = w; document.getElementById('val-w4').innerText = w;
+    document.getElementById('slider-h4').value = h; document.getElementById('val-h4').innerText = h;
+    document.getElementById('slider-mu4').value = mu; document.getElementById('val-mu4').innerText = mu;
+    document.getElementById('slider-angle4').value = 0; document.getElementById('val-angle4').innerText = "0";
     initMode(4);
 }
 
@@ -832,8 +928,7 @@ function applyMode4Preset(w, h, mu) {
 // ==========================================
 function clearWorld() {
     Composite.clear(world); Engine.clear(engine);
-    activeBody = null; inclinePlane = null; fulcrum = null; ground = null;
-    flightTrail = [];
+    activeBody = null; inclinePlane = null; fulcrum = null; ground = null; flightTrail = [];
 }
 
 function initMode(mode) {
@@ -862,29 +957,17 @@ function initMode(mode) {
         activeBody = Bodies.rectangle(canvasWidth/2+p.x, canvasHeight-100+p.y, w, h, { angle: angle, friction: mu, frictionStatic: mu, density: 0.001 });
         Composite.add(world, [inclinePlane, activeBody]);
     } else if (mode == 6) {
-        mode6State.relPos = -0.5;
-        mode6State.direction = 1;
-        mode6State.isWalking = false;
-        mode6State.isPaused = false;
-        mode6State.hasWalked = false;
-        mode6State.initialComX = canvasWidth / 2; 
-        
-        let btnStart = document.getElementById('btn-start-6');
-        if (btnStart) { btnStart.innerText = "開始行走"; btnStart.disabled = false; }
-        let btnPause = document.getElementById('btn-pause-6');
-        if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
+        mode6State.relPos = -0.5; mode6State.direction = 1; mode6State.isWalking = false; mode6State.isPaused = false; mode6State.hasWalked = false; mode6State.initialComX = canvasWidth / 2; 
+        let btnStart = document.getElementById('btn-start-6'); if (btnStart) { btnStart.innerText = "開始行走"; btnStart.disabled = false; }
+        let btnPause = document.getElementById('btn-pause-6'); if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
     } else if (mode == 7) {
-        mode7State.progress = 0;
-        mode7State.direction = 1;
-        mode7State.isSliding = false;
-        mode7State.isPaused = false;
-        mode7State.hasSlid = false;
-        mode7State.initialComX = canvasWidth / 2;
-        
-        let btnStart = document.getElementById('btn-start-7');
-        if (btnStart) { btnStart.innerText = "開始滑動"; btnStart.disabled = false; }
-        let btnPause = document.getElementById('btn-pause-7');
-        if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
+        mode7State.progress = 0; mode7State.direction = 1; mode7State.isSliding = false; mode7State.isPaused = false; mode7State.hasSlid = false; mode7State.initialComX = canvasWidth / 2;
+        let btnStart = document.getElementById('btn-start-7'); if (btnStart) { btnStart.innerText = "開始滑動"; btnStart.disabled = false; }
+        let btnPause = document.getElementById('btn-pause-7'); if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
+    } else if (mode == 8) {
+        mode8State.progress = 0; mode8State.direction = 1; mode8State.isWalking = false; mode8State.isPaused = false; mode8State.hasWalked = false; mode8State.initialComX = canvasWidth / 2;
+        let btnStart = document.getElementById('btn-start-8'); if (btnStart) { btnStart.innerText = "開始交換"; btnStart.disabled = false; }
+        let btnPause = document.getElementById('btn-pause-8'); if (btnPause) { btnPause.innerText = "暫停"; btnPause.disabled = false; }
     }
 }
 
@@ -915,18 +998,13 @@ function drawArrow(base, vec, myColor, weight = 2) {
         line(0,0, vec.x, vec.y); 
         rotate(vec.heading());
         let s = 8; 
-        if (mag > s) {
-            translate(mag - s, 0); 
-            triangle(0, s/2, 0, -s/2, s, 0); 
-        }
-    }
-    pop();
+        if (mag > s) { translate(mag - s, 0); triangle(0, s/2, 0, -s/2, s, 0); }
+    } pop();
 }
 
 function drawMode1() {
     let showAssist = document.getElementById('chk-assist') ? document.getElementById('chk-assist').checked : false;
-    let showCom = showAssist;
-    let isTransparent = showAssist;
+    let showCom = showAssist; let isTransparent = showAssist;
     if (activeBody.speed > 0.1) flightTrail.push({x:activeBody.position.x, y:activeBody.position.y});
     if (showCom) { stroke(231,76,60,150); noFill(); beginShape(); for(let p of flightTrail) vertex(p.x,p.y); endShape(); fill(231,76,60); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale); }
     fill(255); stroke(192,57,43); strokeWeight(3/window.viewScale);
@@ -942,28 +1020,23 @@ function handleMode2Logic() {
 }
 
 function drawMode2() {
-    let m1 = parseInt(document.getElementById('slider-m1').value);
-    let m2 = parseInt(document.getElementById('slider-m2').value);
+    let m1 = parseInt(document.getElementById('slider-m1').value); let m2 = parseInt(document.getElementById('slider-m2').value);
     for(let i=1; i<activeBody.parts.length; i++){
         let p = activeBody.parts[i]; 
         fill(p.label==='bar'?241:p.label==='leftBall'?231:52, p.label==='bar'?196:76, p.label==='bar'?15:(p.label==='leftBall'?60:219));
         stroke(0); strokeWeight(2/window.viewScale); drawVertices(p.vertices);
         if (p.label === 'leftBall' || p.label === 'rightBall') {
             push(); fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(16/window.viewScale); textStyle(BOLD);
-            let mText = p.label === 'leftBall' ? m1 : m2;
-            text(mText, p.position.x, p.position.y); pop();
+            text(p.label === 'leftBall' ? m1 : m2, p.position.x, p.position.y); pop();
         }
     }
     fill(46,204,113); drawVertices(fulcrum.vertices); fill(255,255,0); circle(activeBody.position.x, activeBody.position.y, 12/window.viewScale);
     let diff = Math.abs(activeBody.position.x - fulcrum.position.x);
     let isBalanced = diff < 4;
     
-    let cx = activeBody.position.x; 
-    let cy = activeBody.position.y;
-    let leftBall = activeBody.parts.find(p => p.label === 'leftBall');
-    let rightBall = activeBody.parts.find(p => p.label === 'rightBall');
+    let cx = activeBody.position.x; let cy = activeBody.position.y;
+    let leftBall = activeBody.parts.find(p => p.label === 'leftBall'); let rightBall = activeBody.parts.find(p => p.label === 'rightBall');
 
-    // 繪製標示線與距離
     if (isBalanced && !window.isDraggingFinger) {
         let d1 = Math.abs(leftBall.position.x - cx); let d2 = Math.abs(rightBall.position.x - cx);
         push(); let maxR = Math.max(m1, m2); let lineY = cy - maxR - 20;
@@ -974,39 +1047,28 @@ function drawMode2() {
         pop();
     }
     
-    // 將解說與規律文字全部靠左上角對齊，避免和天平圖形重疊
-    push(); resetMatrix(); 
-    let textY2 = 15; // 往上移動到頂端
+    push(); resetMatrix(); let textY2 = 15; 
     if (window.isDraggingFinger) {
-        fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, TOP);
-        text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 15, textY2);
+        fill(41, 128, 185); noStroke(); textSize(18); textAlign(LEFT, TOP); text("提示：用手托住中，請移動支點並放開滑鼠/按鈕觀察", 15, textY2);
     } else {
         if (isBalanced) {
-            fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, TOP);
-            text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 15, textY2); textY2 += 30;
-            
-            fill(231, 76, 60); textSize(32); textStyle(BOLD); textAlign(LEFT, TOP);
-            text("平衡成功，你找到了質(重)心！", 15, textY2); textY2 += 45;
-
+            fill(39, 174, 96); noStroke(); textSize(18); textAlign(LEFT, TOP); text("平衡！手指完美支撐在質心(重心)正下方，淨力矩為零。", 15, textY2); textY2 += 30;
+            fill(231, 76, 60); textSize(32); textStyle(BOLD); textAlign(LEFT, TOP); text("平衡成功，你找到了質(重)心！", 15, textY2); textY2 += 45;
             let d1 = Math.abs(leftBall.position.x - cx); let d2 = Math.abs(rightBall.position.x - cx);
             let ratioD = (d1/d2).toFixed(2); let ratioM = (m2/m1).toFixed(2);
-            
             textSize(20); text(`發現規律：距離與質量成反比`, 15, textY2); textY2 += 30;
             textSize(24); text(`d1 : d2 ≈ m2 : m1 (${ratioD} ≈ ${ratioM})`, 15, textY2);
         } else {
-            fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, TOP);
-            text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 15, textY2);
+            fill(231, 76, 60); noStroke(); textSize(18); textAlign(LEFT, TOP); text("不平衡！重心未對齊支點，產生力矩導致桿子旋轉掉落！", 15, textY2);
         }
-    } 
-    pop();
+    } pop();
 }
 
 function handleMode3Logic() {
     if(window.isDraggingAngle3) {
         let a = radians(parseFloat(document.getElementById('slider-angle3').value)), h = parseInt(document.getElementById('slider-h3').value), w = 60;
         let px = canvasWidth/2+w/2, py = canvasHeight-100;
-        Body.setPosition(activeBody, {x: px-(w/2*cos(a)-h/2*sin(a)), y: py-(w/2*sin(a)+h/2*cos(a))});
-        Body.setAngle(activeBody, a); Body.setVelocity(activeBody,{x:0,y:0});
+        Body.setPosition(activeBody, {x: px-(w/2*cos(a)-h/2*sin(a)), y: py-(w/2*sin(a)+h/2*cos(a))}); Body.setAngle(activeBody, a); Body.setVelocity(activeBody,{x:0,y:0});
     }
 }
 
@@ -1018,17 +1080,11 @@ function drawMode3() {
     drawingContext.setLineDash([]);
     fill(231,76,60); noStroke(); circle(activeBody.position.x, activeBody.position.y, 10/window.viewScale);
     drawArrow(createVector(activeBody.position.x, activeBody.position.y), createVector(0, 60), color(41,128,185), 3/window.viewScale);
-    let w = 60; let px = canvasWidth/2 + w/2; let py = canvasHeight - 100;
-    fill(46, 204, 113); noStroke(); circle(px, py, 8/window.viewScale);
-    push(); resetMatrix(); fill(0); noStroke(); textSize(18);
-    let isTipping = activeBody.position.x > px;
-    if (window.isDraggingAngle3) {
-        fill(41, 128, 185); text("提示：目前暫停物理作用，請放開滑鼠/按鈕以觀察結果", 20, 30);
-    } else if (isTipping) {
-        fill(231, 76, 60); text("不平衡！質心垂直線越過支點！重力產生順時針力矩，方塊倒下！", 20, 30);
-    } else {
-        fill(39, 174, 96); text("平衡！質心垂直線在支點內側，重力產生逆時針恢復力矩，保持平衡。", 20, 30);
-    } pop();
+    let w = 60; let px = canvasWidth/2 + w/2; let py = canvasHeight - 100; fill(46, 204, 113); noStroke(); circle(px, py, 8/window.viewScale);
+    push(); resetMatrix(); fill(0); noStroke(); textSize(18); let isTipping = activeBody.position.x > px;
+    if (window.isDraggingAngle3) { fill(41, 128, 185); text("提示：目前暫停物理作用，請放開滑鼠/按鈕以觀察結果", 20, 30); }
+    else if (isTipping) { fill(231, 76, 60); text("不平衡！質心垂直線越過支點！重力產生順時針力矩，方塊倒下！", 20, 30); }
+    else { fill(39, 174, 96); text("平衡！質心垂直線在支點內側，重力產生逆時針恢復力矩，保持平衡。", 20, 30); } pop();
 }
 
 function handleMode4Logic() {
@@ -1049,8 +1105,7 @@ function handleMode4Logic() {
             inclinePlane.friction = mu; activeBody.friction = mu;
             let maxSpeed = 6.0; 
             if (activeBody.speed > maxSpeed) {
-                let ratio = maxSpeed / activeBody.speed;
-                Body.setVelocity(activeBody, { x: activeBody.velocity.x * ratio, y: activeBody.velocity.y * ratio });
+                let ratio = maxSpeed / activeBody.speed; Body.setVelocity(activeBody, { x: activeBody.velocity.x * ratio, y: activeBody.velocity.y * ratio });
             }
         }
     }
@@ -1084,6 +1139,20 @@ function drawMode5() {
     fill(231,76,60); circle(bx, by-com*scale, 12); fill(41,128,185); circle(bx, by-cog*scale, 12);
 }
 
+// 通用的火柴人繪製函數 (支援自訂顏色)
+function drawStickman(x, y, isMoving, moveProgress, dir, s, clr) {
+    if (!clr) clr = color(231, 76, 60);
+    stroke(clr); strokeWeight(3 / s); noFill();
+    let time = moveProgress * 0.1; 
+    let swing = isMoving ? Math.sin(time) * 0.8 : 0;
+    circle(x, y - 40, 14);
+    line(x, y - 33, x, y - 15);
+    line(x, y - 15, x + Math.sin(swing) * 15 * dir, y);
+    line(x, y - 15, x - Math.sin(swing) * 15 * dir, y);
+    line(x, y - 28, x + Math.sin(swing) * 12 * dir, y - 15);
+    line(x, y - 28, x - Math.sin(swing) * 12 * dir, y - 15);
+}
+
 // ----- 模式六 邏輯 (滑車與人) -----
 function handleMode6Logic() {
     if (mode6State.isWalking && !mode6State.isPaused) {
@@ -1101,20 +1170,6 @@ function handleMode6Logic() {
     }
 }
 
-function drawStickman(x, y, isMoving, moveProgress, dir, s) {
-    stroke(231, 76, 60);
-    strokeWeight(3 / s);
-    noFill();
-    let time = moveProgress * 0.1; 
-    let swing = isMoving ? Math.sin(time) * 0.8 : 0;
-    circle(x, y - 40, 14);
-    line(x, y - 33, x, y - 15);
-    line(x, y - 15, x + Math.sin(swing) * 15 * dir, y);
-    line(x, y - 15, x - Math.sin(swing) * 15 * dir, y);
-    line(x, y - 28, x + Math.sin(swing) * 12 * dir, y - 15);
-    line(x, y - 28, x - Math.sin(swing) * 12 * dir, y - 15);
-}
-
 function drawMode6() {
     let m = parseFloat(document.getElementById('slider-m6').value), M = parseFloat(document.getElementById('slider-M6').value), L = parseFloat(document.getElementById('slider-L6').value);
     let showCom = document.getElementById('chk-com6').checked, showRatio = document.getElementById('chk-ratio6').checked;
@@ -1129,12 +1184,11 @@ function drawMode6() {
     fill(52, 152, 219); stroke(41, 128, 185); strokeWeight(2/window.viewScale); rectMode(CENTER);
     rect(xc, cartY, L, cartH, 5); rectMode(CORNER);
     fill(44, 62, 80); noStroke();
-    circle(xc - L/2 + 30, wheelY, wheelR * 2);
-    circle(xc + L/2 - 30, wheelY, wheelR * 2);
+    circle(xc - L/2 + 30, wheelY, wheelR * 2); circle(xc + L/2 - 30, wheelY, wheelR * 2);
     fill(255); textAlign(CENTER, CENTER); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, cartY);
     
     let isAnimMoving = mode6State.isWalking && !mode6State.isPaused;
-    drawStickman(xp, stickmanBaseY, isAnimMoving, xp, mode6State.direction, window.viewScale);
+    drawStickman(xp, stickmanBaseY, isAnimMoving, xp, mode6State.direction, window.viewScale, color(231, 76, 60));
     fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD); text("m", xp, stickmanBaseY - 55);
     
     if (showCom) {
@@ -1145,75 +1199,52 @@ function drawMode6() {
         push(); resetMatrix();
         let screenComX = (mode6State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
         let screenTextY = (groundY + 45 - canvasHeight) * window.viewScale + canvasHeight;
-        textSize(18); textStyle(BOLD);
-        let txt = "系統水平質心 (不動)";
-        let tw = textWidth(txt);
-        
-        // 繪製白色半透明底框
-        fill(255, 255, 255, 240); noStroke(); rectMode(CENTER);
-        rect(screenComX, screenTextY, tw + 16, 28, 5);
-        
-        // 繪製綠色文字
-        fill(39, 174, 96); textAlign(CENTER, CENTER);
-        text(txt, screenComX, screenTextY);
+        drawSubscriptTextCenter("系統水平質心 ", "X", "CM", " (不動)", screenComX, screenTextY, 18, color(39, 174, 96));
         pop();
 
         if (mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
             stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
-            line(mode6State.startXp, stickmanBaseY - 25, mode6State.startXp, groundY - 160); line(xp, stickmanBaseY - 25, xp, groundY - 160);
+            line(mode6State.startXp, stickmanBaseY - 65, mode6State.startXp, groundY - 155); line(xp, stickmanBaseY - 65, xp, groundY - 155);
             drawingContext.setLineDash([]); 
-            drawArrow(createVector(mode6State.startXp, groundY - 150), createVector(xp - mode6State.startXp, 0), color(231, 76, 60), 2/window.viewScale);
+            drawArrow(createVector(mode6State.startXp, groundY - 145), createVector(xp - mode6State.startXp, 0), color(231, 76, 60), 2/window.viewScale);
             
             stroke(52, 152, 219, 150); drawingContext.setLineDash([5,5]);
-            line(mode6State.startXc, cartY, mode6State.startXc, groundY - 110); line(xc, cartY, xc, groundY - 110);
+            line(mode6State.startXc, cartY, mode6State.startXc, groundY - 95); line(xc, cartY, xc, groundY - 95);
             drawingContext.setLineDash([]); 
-            drawArrow(createVector(mode6State.startXc, groundY - 100), createVector(xc - mode6State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
+            drawArrow(createVector(mode6State.startXc, groundY - 85), createVector(xc - mode6State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
         }
     }
     
-    // 統一在左上角動態排版繪製文字資訊，避免字體重疊
-    push(); resetMatrix();
-    let textY = 15; // 往上移動到頂端
-
-    // 新增：顯示質心不變的提示
+    push(); resetMatrix(); let textY = 15; 
     if (showCom) {
-        fill(39, 174, 96); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-        text(`水平方向不受外力，因此水平質心位置不變`, 15, textY); textY += 30;
+        drawSubscriptTextLeft("水平方向不受外力，因此水平質心 ", "X", "CM", " 位置不變", 15, textY, 18, color(39, 174, 96)); textY += 30;
     }
-
     if (showRatio && mode6State.hasWalked && (dxp > 1 || dxc > 1)) {
         fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
-        textSize(20); text(`發現規律：距離與質量成反比`, 15, textY); textY += 25;
-        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
-        let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY); textY += 35;
+        textSize(20); text(`發現規律：動量/質心位移守恆`, 15, textY); textY += 25;
+        let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00"; let ratioM = (M / m).toFixed(2);
         
-        // 新增終點提示
+        drawRichTextLeft(15, textY, [
+            {t: "Δx", sub: "m"}, {t: " : Δx", sub: "M"}, {t: ` ≈ M : m (${ratioX} ≈ ${ratioM})`}
+        ], 24, color(231, 76, 60));
+        textY += 35;
+        
         if (Math.abs(mode6State.relPos) >= 0.495) {
-            fill(211, 84, 0); textSize(20);
-            text(`|人的位移| + |滑車位移| = 滑車長 (L)`, 15, textY); textY += 30;
+            fill(211, 84, 0); textSize(20); text(`|人的位移| + |滑車位移| = 滑車長 (L)`, 15, textY); textY += 30;
         }
-    }
-    pop();
+    } pop();
 }
 
 // ----- 模式七 邏輯 (半圓槽與小球) -----
 function handleMode7Logic() {
     if (mode7State.isSliding && !mode7State.isPaused) {
-        let speed = 0.02;
-        mode7State.progress += speed * mode7State.direction;
-        
-        // 控制小球單趟滑動，碰到邊緣就停止並切換狀態
+        let speed = 0.02; mode7State.progress += speed * mode7State.direction;
         if (mode7State.direction === 1 && mode7State.progress >= Math.PI) {
-            mode7State.progress = Math.PI;
-            mode7State.isSliding = false;
-            let btn = document.getElementById('btn-start-7');
-            if (btn) { btn.innerText = "往回滑"; btn.disabled = false; }
+            mode7State.progress = Math.PI; mode7State.isSliding = false;
+            let btn = document.getElementById('btn-start-7'); if (btn) { btn.innerText = "往回滑"; btn.disabled = false; }
         } else if (mode7State.direction === -1 && mode7State.progress <= 0) {
-            mode7State.progress = 0;
-            mode7State.isSliding = false;
-            let btn = document.getElementById('btn-start-7');
-            if (btn) { btn.innerText = "開始滑動"; btn.disabled = false; }
+            mode7State.progress = 0; mode7State.isSliding = false;
+            let btn = document.getElementById('btn-start-7'); if (btn) { btn.innerText = "開始滑動"; btn.disabled = false; }
         }
     }
 }
@@ -1224,19 +1255,14 @@ function drawMode7() {
     let analysis = document.getElementById('select-analysis-7').value;
 
     let trackThickness = 16, ballR = 14, effR = R - trackThickness/2 - ballR;
-    
-    // 這裡改用進度 progress 來控制擺動
     let angle = -Math.PI/2 * Math.cos(mode7State.progress);
     
-    // X方向 (水平) 計算
     let Xp_rel = effR * Math.sin(angle), xc = mode7State.initialComX - (m * Xp_rel) / (m + M), xb = xc + Xp_rel; 
     let dxp = Math.abs(xb - mode7State.startXb), dxc = Math.abs(xc - mode7State.startXc);
     
-    // Y方向 (垂直) 計算
     let yCenter = canvasHeight - 100 - R - trackThickness/2, yb = yCenter + effR * Math.cos(angle); 
-    let yc = yCenter + R * (2 / Math.PI); // 粗略假設半圓槽在垂直方向的重心
-    let yCom = (m * yb + M * yc) / (m + M); // 計算系統垂直總質心
-
+    let yc = yCenter + R * (2 / Math.PI); 
+    let yCom = (m * yb + M * yc) / (m + M); 
     let groundY = yCenter + R + trackThickness/2;
     
     fill(149, 165, 166); noStroke(); rectMode(CENTER); rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100); rectMode(CORNER);
@@ -1244,99 +1270,185 @@ function drawMode7() {
     arc(xc, yCenter, R*2, R*2, 0, Math.PI); strokeCap(ROUND); 
     fill(52, 152, 219); noStroke(); textAlign(CENTER, TOP); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, groundY + 15);
     
-    fill(231, 76, 60); stroke(192, 57, 43); strokeWeight(2 / window.viewScale);
-    circle(xb, yb, ballR * 2);
+    fill(231, 76, 60); stroke(192, 57, 43); strokeWeight(2 / window.viewScale); circle(xb, yb, ballR * 2);
     fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(14/window.viewScale); textStyle(BOLD); text("m", xb, yb);
     
     if (showCom) {
-        let showX = analysis === 'x' || analysis === 'xy';
-        let showY = analysis === 'y' || analysis === 'xy';
-
-        // 畫 Y 方向質心 (紫色水平虛線)
+        let showX = analysis === 'x' || analysis === 'xy', showY = analysis === 'y' || analysis === 'xy';
         if (showY) {
-            stroke(142, 68, 173); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
-            line(xc - R - 60, yCom, xc + R + 60, yCom);
-            drawingContext.setLineDash([]);
-
-            push(); resetMatrix(); fill(142, 68, 173); noStroke(); textSize(16); textAlign(LEFT, BOTTOM); textStyle(BOLD);
-            let screenYCom = (yCom - canvasHeight) * window.viewScale + canvasHeight;
-            let screenXLeft = ((xc - R - 60) - canvasWidth/2) * window.viewScale + canvasWidth/2;
-            text("系統垂直質心 (隨小球上下移動)", screenXLeft, screenYCom - 5);
+            stroke(142, 68, 173); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]); line(xc - R - 60, yCom, xc + R + 60, yCom); drawingContext.setLineDash([]);
+            push(); resetMatrix(); 
+            let screenYCom = (yCom - canvasHeight) * window.viewScale + canvasHeight, screenXLeft = ((xc - R - 60) - canvasWidth/2) * window.viewScale + canvasWidth/2;
+            drawSubscriptTextLeft("系統垂直質心 ", "Y", "CM", " (隨小球上下移動)", screenXLeft, screenYCom - 24, 16, color(142, 68, 173));
             pop();
         }
-
-        // 畫 X 方向質心 (綠色鉛垂虛線)
         if (showX) {
             stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
             line(mode7State.initialComX, groundY - 195, mode7State.initialComX, groundY + 30); drawingContext.setLineDash([]);
             
             push(); resetMatrix();
-            let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
+            let screenComX = (mode7State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2; 
             let screenTextY = (groundY + 45 - canvasHeight) * window.viewScale + canvasHeight;
-            textSize(18); textStyle(BOLD);
-            let txt = "系統水平質心 (不動)";
-            let tw = textWidth(txt);
-            
-            // 繪製白色半透明底框
-            fill(255, 255, 255, 240); noStroke(); rectMode(CENTER);
-            rect(screenComX, screenTextY, tw + 16, 28, 5);
-            
-            // 繪製綠色文字
-            fill(39, 174, 96); textAlign(CENTER, CENTER);
-            text(txt, screenComX, screenTextY);
+            drawSubscriptTextCenter("系統水平質心 ", "X", "CM", " (不動)", screenComX, screenTextY, 18, color(39, 174, 96));
             pop();
 
             if (mode7State.hasSlid && (dxp > 1 || dxc > 1)) {
                 stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
                 line(mode7State.startXb, yCenter - 40, mode7State.startXb, groundY - 180); line(xb, yb - ballR, xb, groundY - 180);
-                drawingContext.setLineDash([]); 
-                drawArrow(createVector(mode7State.startXb, groundY - 170), createVector(xb - mode7State.startXb, 0), color(231, 76, 60), 2/window.viewScale);
+                drawingContext.setLineDash([]); drawArrow(createVector(mode7State.startXb, groundY - 170), createVector(xb - mode7State.startXb, 0), color(231, 76, 60), 2/window.viewScale);
                 
                 stroke(52, 152, 219, 150); drawingContext.setLineDash([5,5]);
                 line(mode7State.startXc, yCenter, mode7State.startXc, groundY - 130); line(xc, yCenter, xc, groundY - 130);
-                drawingContext.setLineDash([]); 
-                drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - mode7State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
+                drawingContext.setLineDash([]); drawArrow(createVector(mode7State.startXc, groundY - 120), createVector(xc - mode7State.startXc, 0), color(52, 152, 219), 2/window.viewScale);
             }
         }
-
-        // 繪製系統 2D 質心交點
-        if (showX && !showY) {
-            fill(39, 174, 96); noStroke(); circle(mode7State.initialComX, groundY - 10, 14/window.viewScale);
-        } else if (showY && !showX) {
-            fill(142, 68, 173); noStroke(); circle(xc, yCom, 14/window.viewScale);
-        } else if (showX && showY) {
-            fill(243, 156, 18); noStroke(); circle(mode7State.initialComX, yCom, 16/window.viewScale); // 同時分析時用橘色標示交點
-        }
+        if (showX && !showY) { fill(39, 174, 96); noStroke(); circle(mode7State.initialComX, groundY - 10, 14/window.viewScale); } 
+        else if (showY && !showX) { fill(142, 68, 173); noStroke(); circle(xc, yCom, 14/window.viewScale); } 
+        else if (showX && showY) { fill(243, 156, 18); noStroke(); circle(mode7State.initialComX, yCom, 16/window.viewScale); }
     }
     
-    // 統一在左上角動態排版繪製文字資訊，避免字體重疊
-    push(); resetMatrix();
-    let textY = 15; // 往上移動到頂端
-    let showX = analysis === 'x' || analysis === 'xy';
-    let showY = analysis === 'y' || analysis === 'xy';
+    push(); resetMatrix(); let textY = 15; 
+    let showX = analysis === 'x' || analysis === 'xy', showY = analysis === 'y' || analysis === 'xy';
 
-    // 新增：顯示質心不變的提示 (只要有顯示水平分析且勾選質心)
     if (showCom && showX) {
-        fill(39, 174, 96); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-        text(`水平方向不受外力，因此水平質心位置不變`, 15, textY); textY += 30;
+        drawSubscriptTextLeft("水平方向不受外力，因此水平質心 ", "X", "CM", " 位置不變", 15, textY, 18, color(39, 174, 96)); textY += 30;
     }
-
     if (showCom && showY && mode7State.hasSlid) {
         fill(142, 68, 173); noStroke(); textAlign(LEFT, TOP); textSize(18); textStyle(BOLD);
-        text(`y方向受「重力」與「地板正向力」(皆為外力)作用`, 15, textY); textY += 25;
-        text(`合力不為零，因此系統垂直質心會上下移動`, 15, textY); textY += 30;
+        text(`y方向受「重力」與「地板正向力」(皆為外力)作用`, 15, textY); textY += 25; 
+        drawSubscriptTextLeft("合力不為零，因此系統垂直質心 ", "Y", "CM", " 會上下移動", 15, textY, 18, color(142, 68, 173)); textY += 30;
     }
     if (showRatio && mode7State.hasSlid && (dxp > 1 || dxc > 1) && showX) {
         fill(231, 76, 60); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
         textSize(20); text(`水平方向發現規律：位移與質量成反比`, 15, textY); textY += 25;
-        textSize(24); let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00";
-        let ratioM = (M / m).toFixed(2);
-        text(`Δx₁ : Δx₂ ≈ M : m (${ratioX} ≈ ${ratioM})`, 15, textY); textY += 35;
+        let ratioX = dxp > 0.01 && dxc > 0.01 ? (dxp / dxc).toFixed(2) : "0.00"; let ratioM = (M / m).toFixed(2);
         
-        // 新增終點提示 (使用 progress 判斷是否抵達兩端點)
+        drawRichTextLeft(15, textY, [
+            {t: "Δx", sub: "m"}, {t: " : Δx", sub: "M"}, {t: ` ≈ M : m (${ratioX} ≈ ${ratioM})`}
+        ], 24, color(231, 76, 60));
+        textY += 35;
+        
         if (mode7State.progress >= Math.PI || (mode7State.hasSlid && mode7State.progress <= 0)) {
+            fill(211, 84, 0); textSize(20); text(`|小球位移| + |半圓槽位移| = 2R`, 15, textY); textY += 30;
+        }
+    } pop();
+}
+
+// ----- 模式八 邏輯 (雙人滑車換位) -----
+function handleMode8Logic() {
+    if (mode8State.isWalking && !mode8State.isPaused) {
+        let speed = 0.005; 
+        mode8State.progress += speed * mode8State.direction;
+        
+        if (mode8State.direction === 1 && mode8State.progress >= 1) {
+            mode8State.progress = 1; mode8State.isWalking = false;
+            let btn = document.getElementById('btn-start-8');
+            if (btn) { btn.innerText = "換回來"; btn.disabled = false; }
+        } else if (mode8State.direction === -1 && mode8State.progress <= 0) {
+            mode8State.progress = 0; mode8State.isWalking = false;
+            let btn = document.getElementById('btn-start-8');
+            if (btn) { btn.innerText = "開始交換"; btn.disabled = false; }
+        }
+    }
+}
+
+function drawMode8() {
+    let m1 = parseFloat(document.getElementById('slider-m1_8').value);
+    let m2 = parseFloat(document.getElementById('slider-m2_8').value);
+    let M = parseFloat(document.getElementById('slider-M8').value);
+    let L = parseFloat(document.getElementById('slider-L8').value);
+    let showCom = document.getElementById('chk-com8').checked;
+    let showRatio = document.getElementById('chk-ratio8').checked;
+
+    let p1 = -0.5 + mode8State.progress;
+    let p2 = 0.5 - mode8State.progress;
+
+    let xc = mode8State.initialComX - ((m1 * p1 + m2 * p2) * L) / (m1 + m2 + M);
+    let xp1 = xc + p1 * L;
+    let xp2 = xc + p2 * L;
+
+    let dxp1 = xp1 - mode8State.startXp1;
+    let dxp2 = xp2 - mode8State.startXp2;
+    let dxc = xc - mode8State.startXc;
+
+    let groundY = canvasHeight - 100, wheelR = 12, cartH = 40;
+    let wheelY = groundY - wheelR;          
+    let cartY = wheelY - wheelR - cartH/2; 
+    let stickmanBaseY = cartY - cartH/2;    
+
+    // 繪製地面與滑車
+    fill(149, 165, 166); noStroke(); rectMode(CENTER); rect(canvasWidth/2, groundY + 50, canvasWidth * 10, 100); rectMode(CORNER);
+    fill(52, 152, 219); stroke(41, 128, 185); strokeWeight(2/window.viewScale); rectMode(CENTER);
+    rect(xc, cartY, L, cartH, 5); rectMode(CORNER);
+    fill(44, 62, 80); noStroke();
+    circle(xc - L/2 + 30, wheelY, wheelR * 2); circle(xc + L/2 - 30, wheelY, wheelR * 2);
+    fill(255); textAlign(CENTER, CENTER); textSize(20/window.viewScale); textStyle(BOLD); text(`M`, xc, cartY);
+
+    let isAnimMoving = mode8State.isWalking && !mode8State.isPaused;
+    
+    // 繪製雙人
+    drawStickman(xp1, stickmanBaseY, isAnimMoving, xp1, mode8State.direction, window.viewScale, color(231, 76, 60)); // 紅色 m1
+    drawStickman(xp2, stickmanBaseY, isAnimMoving, xp2, -mode8State.direction, window.viewScale, color(142, 68, 173)); // 紫色 m2
+
+    fill(231, 76, 60); noStroke(); textAlign(CENTER, BOTTOM); textSize(16/window.viewScale); textStyle(BOLD); text("m₁", xp1, stickmanBaseY - 55);
+    fill(142, 68, 173); text("m₂", xp2, stickmanBaseY - 55);
+
+    if (showCom) {
+        stroke(39, 174, 96); strokeWeight(3/window.viewScale); drawingContext.setLineDash([8, 4]);
+        line(mode8State.initialComX, groundY - 195, mode8State.initialComX, groundY + 30); drawingContext.setLineDash([]);
+        fill(39, 174, 96); noStroke(); circle(mode8State.initialComX, cartY, 14/window.viewScale);
+        
+        push(); resetMatrix();
+        let screenComX = (mode8State.initialComX - canvasWidth/2) * window.viewScale + canvasWidth/2;
+        let screenTextY = (groundY + 45 - canvasHeight) * window.viewScale + canvasHeight;
+        drawSubscriptTextCenter("系統水平質心 ", "X", "CM", " (不動)", screenComX, screenTextY, 18, color(39, 174, 96));
+        pop();
+
+        if (mode8State.hasWalked && (Math.abs(dxp1) > 1 || Math.abs(dxc) > 1)) {
+            stroke(231, 76, 60, 150); strokeWeight(2/window.viewScale); drawingContext.setLineDash([5,5]);
+            line(mode8State.startXp1, stickmanBaseY - 65, mode8State.startXp1, groundY - 185); line(xp1, stickmanBaseY - 65, xp1, groundY - 185);
+            drawingContext.setLineDash([]); 
+            drawArrow(createVector(mode8State.startXp1, groundY - 175), createVector(dxp1, 0), color(231, 76, 60), 2/window.viewScale);
+
+            stroke(142, 68, 173, 150); drawingContext.setLineDash([5,5]);
+            line(mode8State.startXp2, stickmanBaseY - 65, mode8State.startXp2, groundY - 155); line(xp2, stickmanBaseY - 65, xp2, groundY - 155);
+            drawingContext.setLineDash([]); 
+            drawArrow(createVector(mode8State.startXp2, groundY - 145), createVector(dxp2, 0), color(142, 68, 173), 2/window.viewScale);
+            
+            stroke(52, 152, 219, 150); drawingContext.setLineDash([5,5]);
+            line(mode8State.startXc, cartY, mode8State.startXc, groundY - 95); line(xc, cartY, xc, groundY - 95);
+            drawingContext.setLineDash([]); 
+            drawArrow(createVector(mode8State.startXc, groundY - 85), createVector(dxc, 0), color(52, 152, 219), 2/window.viewScale);
+        }
+    }
+
+    push(); resetMatrix();
+    let textY = 15;
+
+    if (showCom) {
+        drawSubscriptTextLeft("水平方向不受外力，因此水平質心 ", "X", "CM", " 位置不變", 15, textY, 18, color(39, 174, 96)); textY += 30;
+    }
+
+    if (showRatio && mode8State.hasWalked && (Math.abs(dxp1) > 1 || Math.abs(dxc) > 1)) {
+        fill(39, 174, 96); noStroke(); textAlign(LEFT, TOP); textStyle(BOLD);
+        textSize(20); text(`發現規律：系統動量 / 質心位移守恆`, 15, textY); textY += 25;
+        
+        drawRichTextLeft(15, textY, [
+            {t: "m", sub: "1"}, {t: "Δx", sub: "1"}, 
+            {t: " + m", sub: "2"}, {t: "Δx", sub: "2"}, 
+            {t: " + MΔx", sub: "M"}, {t: " ≈ 0"}
+        ], 24, color(39, 174, 96));
+        textY += 35;
+        
+        // 終點提示
+        if (mode8State.progress >= 0.995 || (mode8State.hasWalked && mode8State.progress <= 0.005)) {
             fill(211, 84, 0); textSize(20);
-            text(`|小球位移| + |半圓槽位移| = 2R`, 15, textY); textY += 30;
+            text(`兩人皆走到對向，相對滑車的位移量大小皆為滑車長 (L)`, 15, textY); textY += 30;
+            
+            drawRichTextLeft(15, textY, [
+                {t: "|Δx", sub: "1"}, {t: " - Δx", sub: "M"}, {t: "| = L  ,  |Δx", sub: "2"}, {t: " - Δx", sub: "M"}, {t: "| = L"}
+            ], 20, color(211, 84, 0));
+            textY += 30;
         }
     }
     pop();
