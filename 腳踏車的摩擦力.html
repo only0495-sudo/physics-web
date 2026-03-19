@@ -77,6 +77,31 @@
       overflow: hidden;
     }
 
+    /* 全螢幕按鈕樣式 */
+    #fullscreen-btn {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 20;
+      padding: 8px 12px;
+      background-color: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      color: var(--text-main);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #fullscreen-btn:hover {
+      background-color: #ffffff;
+      transform: scale(1.02);
+    }
+
     /* 控制面板 */
     #ui-panel {
       flex: 1;
@@ -162,7 +187,9 @@
   </header>
 
   <div id="main-container">
-    <div id="canvas-wrapper"></div>
+    <div id="canvas-wrapper">
+      <button id="fullscreen-btn">⛶ 全螢幕模式</button>
+    </div>
     
     <div id="ui-panel">
       
@@ -316,6 +343,9 @@
 
       // 設定初始說明文字
       updateInstructionText();
+      
+      // 綁定全螢幕按鈕事件
+      setupFullscreenButton();
 
       // 預熱物理引擎，讓腳踏車落地穩定，避免一開始「從空中掉落」
       for (let i = 0; i < 60; i++) {
@@ -324,6 +354,31 @@
         Body.setAngularVelocity(bike.frame, 0);
         Engine.update(engine, 1000 / 60);
       }
+    }
+
+    // 全螢幕按鈕邏輯設定
+    function setupFullscreenButton() {
+      const btn = document.getElementById('fullscreen-btn');
+      
+      btn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          // 請求整個頁面全螢幕，這樣控制面板也能保留操作
+          document.documentElement.requestFullscreen().catch(err => {
+            console.log(`全螢幕請求失敗: ${err.message}`);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      });
+
+      // 監聽全螢幕狀態改變以更新按鈕文字
+      document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+          btn.innerHTML = '✖ 退出全螢幕';
+        } else {
+          btn.innerHTML = '⛶ 全螢幕模式';
+        }
+      });
     }
 
     function buildBike(startX, startY) {

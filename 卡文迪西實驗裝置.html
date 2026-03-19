@@ -154,7 +154,7 @@
         /* 浮動 UI (面板收起時顯示) */
         #floating-ui {
             position: absolute;
-            top: 20px;
+            top: 75px; /* 往下移，避免與全螢幕按鈕重疊 */
             left: 20px;
             display: flex;
             gap: 15px;
@@ -162,6 +162,7 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s ease;
+            flex-wrap: wrap;
         }
         #floating-ui.show {
             opacity: 1;
@@ -202,6 +203,9 @@
     <div id="controls-hint">
         滑鼠左鍵：旋轉視角 | 滑鼠右鍵：平移 | 滾輪：縮放
     </div>
+
+    <!-- 永遠顯示的畫布全螢幕按鈕 (改為小圖示) -->
+    <button class="float-btn" id="btn-fullscreen-global" style="position: absolute; top: 20px; left: 20px; z-index: 30; width: 40px; height: 40px; padding: 0; justify-content: center; font-size: 1.2rem;" title="切換全螢幕">⛶</button>
 
     <!-- 浮動控制列 (面板收起時顯示) -->
     <div id="floating-ui">
@@ -674,6 +678,33 @@ function toggleLaser(isOn) {
 cbLaserMain.addEventListener('change', (e) => toggleLaser(e.target.checked));
 cbLaserFloat.addEventListener('change', (e) => toggleLaser(e.target.checked));
 
+// 全螢幕功能邏輯 (更新為左上角全域按鈕)
+const btnFullscreenGlobal = document.getElementById('btn-fullscreen-global');
+
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`無法開啟全螢幕模式: ${err.message}`);
+        });
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+btnFullscreenGlobal.addEventListener('click', toggleFullScreen);
+
+// 監聽全螢幕狀態改變（更新提示文字即可，保持圖示小巧）
+document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) {
+        btnFullscreenGlobal.title = "退出全螢幕";
+    } else {
+        btnFullscreenGlobal.title = "切換全螢幕";
+    }
+});
+
+// 視窗自適應縮放
 window.addEventListener('resize', () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
