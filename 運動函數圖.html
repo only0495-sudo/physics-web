@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>運動學模擬器 (1D Motion Simulator)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            background: #ffffff;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 美化選擇器與按鈕 */
+        select, button {
+            transition: all 0.2s ease-in-out;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8 gap-6 max-w-7xl mx-auto">
+
+    <header class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">🚗 運動學模擬器</h1>
+            <p class="text-sm text-slate-500 mt-1">觀察不同運動模式下的 x-t, v-t, a-t 關係與切線斜率</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <select id="modeSelect" class="bg-slate-50 border border-slate-300 text-slate-700 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 font-medium outline-none cursor-pointer hover:bg-slate-100">
+                <option value="1">1. 等速運動 (Constant Velocity)</option>
+                <option value="2">2. 等加速運動 (Constant Acceleration)</option>
+                <option value="3">3. 等加速折返 (Turnaround)</option>
+                <option value="4">4. 簡諧運動 (Simple Harmonic Motion)</option>
+            </select>
+
+            <button id="btnPlay" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                開始
+            </button>
+            <button id="btnPause" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hidden">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                暫停
+            </button>
+            <button id="btnReset" class="flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                重置
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow flex flex-col gap-6">
+        <!-- 上半部：車子動畫 -->
+        <div class="canvas-container h-48 border border-slate-200">
+            <canvas id="carCanvas"></canvas>
+            <div class="absolute top-3 left-4 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-md text-sm font-mono font-bold text-slate-700 border border-slate-200 shadow-sm">
+                t = <span id="timeDisplay">0.00</span> s
+            </div>
+        </div>
+
+        <!-- 下半部：圖表 -->
+        <div class="grid grid-cols-3 gap-2 md:gap-6">
+            <!-- X-T Graph -->
+            <div class="canvas-container h-64 border border-slate-200">
+                <canvas id="xtCanvas"></canvas>
+            </div>
+            <!-- V-T Graph -->
+            <div class="canvas-container h-64 border border-slate-200">
+                <canvas id="vtCanvas"></canvas>
+            </div>
+            <!-- A-T Graph -->
+            <div class="canvas-container h-64 border border-slate-200">
+                <canvas id="atCanvas"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 常數設定
+        const T_MAX = 10; // 模擬總時間 10 秒
+
+        // 狀態變數
+        let isRunning = false;
+        let time = 0;
+        let currentMode = 1;
+        let lastTimestamp = 0;
+        let animationFrameId;
+
+        // 取得當前模式的繪圖範圍比例尺
+        function getModeConfig(mode) {
+            switch(mode) {
+                case 1: return { xMax: 100, vMax: 10, aMax: 5 };  // 等速
+                case 2: return { xMax: 200, vMax: 40, aMax: 5 };  // 等加速 (放大x與v極值以配合較大加速度)
+                case 3: return { xMax: 100, vMax: 40, aMax: 10 }; // 等加速折返
+                case 4: return { xMax: 100, vMax: 60, aMax: 40 }; // 簡諧運動
+                default: return { xMax: 100, vMax: 60, aMax: 40 };
+            }
+        }
+
+        // 物理運動函數 (回傳 x, v, a 以及 a的導數jerk 供切線使用)
+        // t 範圍: 0 ~ 10
+        function getPhysics(mode, t) {
+            switch(mode) {
+                case 1: // 等速運動
+                    // 從 x = 0 開始，速度 8，到 t=10 時 x = 80
+                    return { x: 8 * t, v: 8, a: 0, j: 0 };
+                case 2: // 等加速運動
+                    // 從 x = 0 開始，初速 0，加速度 4，到 t=10 時 x = 200
+                    return { x: 2 * t * t, v: 4 * t, a: 4, j: 0 };
+                case 3: // 等加速度折返
+                    // 從 x = 0 開始，初速 32，加速度 -6.4。t=5時速度0(x=80)，t=10時回到0
+                    return { x: 32 * t - 3.2 * t * t, v: 32 - 6.4 * t, a: -6.4, j: 0 };
+                case 4: // 簡諧運動
+                    // 振幅 80，週期 10 (omega = 2*PI/10 = PI/5)
+                    const w = Math.PI / 5;
+                    return {
+                        x: 80 * Math.sin(w * t),
+                        v: 80 * w * Math.cos(w * t),
+                        a: -80 * w * w * Math.sin(w * t),
+                        j: -80 * w * w * w * Math.cos(w * t)
+                    };
+                default:
+                    return { x: 0, v: 0, a: 0, j: 0 };
+            }
+        }
+
+        const carCanvas = document.getElementById('carCanvas');
+        const xtCanvas = document.getElementById('xtCanvas');
+        const vtCanvas = document.getElementById('vtCanvas');
+        const atCanvas = document.getElementById('atCanvas');
+        
+        const ctxCar = carCanvas.getContext('2d');
+        const ctxXT = xtCanvas.getContext('2d');
+        const ctxVT = vtCanvas.getContext('2d');
+        const ctxAT = atCanvas.getContext('2d');
+
+        // 確保高解析度螢幕（如 Retina）不會模糊
+        function resizeCanvas(canvas) {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            return { w: rect.width, h: rect.height };
+        }
+
+        let sizes = {};
+        function handleResize() {
+            sizes.car = resizeCanvas(carCanvas);
+            sizes.xt = resizeCanvas(xtCanvas);
+            sizes.vt = resizeCanvas(vtCanvas);
+            sizes.at = resizeCanvas(atCanvas);
+            drawFrame(); // 重繪
+        }
+        window.addEventListener('resize', handleResize);
+
+        function drawCarArea(state) {
+            const { w, h } = sizes.car;
+            const ctx = ctxCar;
+            ctx.clearRect(0, 0, w, h);
+
+            // 背景天空與地板
+            ctx.fillStyle = '#e0f2fe'; // 淺藍色天空
+            ctx.fillRect(0, 0, w, h * 0.6);
+            ctx.fillStyle = '#94a3b8'; // 灰色馬路
+            ctx.fillRect(0, h * 0.6, w, h * 0.4);
+            
+            // 馬路標線
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([20, 20]);
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.8);
+        ctx.lineTo(w, h * 0.8);
+        ctx.stroke();
+        ctx.setLineDash([]); // 恢復實線
+
+        // 取得當前模式的比例尺，讓車子能依據最大極限 xMax 適應畫布寬度
+        const config = getModeConfig(currentMode);
+
+        // 根據模式計算車子的 X 座標
+        let carX;
+        if (currentMode === 4) {
+            // 簡諧運動：原點(0)在畫面正中央
+            carX = (state.x / config.xMax) * (w * 0.4) + (w / 2);
+        } else {
+            // 其他運動 (從 x=0 出發)：原點(0)在畫面偏左側 10% 處，向右移動
+            carX = (state.x / config.xMax) * (w * 0.8) + (w * 0.1);
+        }
+
+        // 輪胎底部在相對座標是 11 (-15(車頂) + 20(車高) + 6(輪胎半徑) = 11)，所以減去 11 剛好貼地
+        const carY = h * 0.6 - 11; 
+
+        ctx.save();
+        ctx.translate(carX, carY);
+        
+        // 車身
+            ctx.fillStyle = '#ef4444'; // 紅車
+            ctx.beginPath();
+            ctx.roundRect(-25, -15, 50, 20, 5);
+            ctx.fill();
+            
+            // 車窗
+            ctx.fillStyle = '#bfdbfe';
+            ctx.beginPath();
+            ctx.roundRect(-15, -12, 35, 10, 3);
+            ctx.fill();
+
+            // 輪胎
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(-15, 5, 6, 0, Math.PI * 2);
+            ctx.arc(15, 5, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawGraph(ctx, size, title, maxValue, valueFn, slopeFn, unit) {
+            const { w, h } = size;
+            ctx.clearRect(0, 0, w, h);
+
+            // 邊界與網格設定
+            const padX = 40;
+            const padY = 30;
+            const graphW = w - padX * 1.5;
+            const graphH = h - padY * 2;
+            const originY = padY + graphH / 2;
+            const originX = padX;
+
+            // 畫網格
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i = 1; i <= T_MAX; i++) {
+                const px = originX + (i / T_MAX) * graphW;
+                ctx.moveTo(px, padY);
+                ctx.lineTo(px, h - padY);
+            }
+            ctx.moveTo(originX, padY);
+            ctx.lineTo(originX, h - padY);
+            ctx.moveTo(originX, originY);
+            ctx.lineTo(w - padX * 0.5, originY);
+            ctx.stroke();
+
+            // 標籤
+            ctx.fillStyle = '#475569';
+            ctx.font = '12px Inter';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(maxValue, originX - 5, padY);
+            ctx.fillText(`-${maxValue}`, originX - 5, h - padY);
+            ctx.fillText('0', originX - 5, originY);
+            
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`時間 t (s)`, w - padX * 1.5, originY + 5);
+            
+            ctx.font = 'bold 14px Inter';
+            ctx.fillStyle = '#0f172a';
+            ctx.fillText(`${title} (${unit})`, padX, padY - 20);
+
+            // 繪製函數軌跡 (從 0 到 當前 t)
+            const dt = 0.05; // 繪圖取樣間隔
+            ctx.beginPath();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            for(let tempT = 0; tempT <= time; tempT += dt) {
+                const val = valueFn(tempT);
+                const px = originX + (tempT / T_MAX) * graphW;
+                const py = originY - (val / maxValue) * (graphH / 2);
+                if(tempT === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // 如果時間大於等於0，繪製當前紅點、切線與 Y 軸對應數值
+            if (time >= 0) {
+                const currentVal = valueFn(time);
+                const px = originX + (time / T_MAX) * graphW;
+                const py = originY - (currentVal / maxValue) * (graphH / 2);
+
+                // 計算螢幕上的切線斜率 (極重要：必須考慮畫布比例縮放)
+                const physicalSlope = slopeFn(time);
+                const scaleX = graphW / T_MAX;         // x軸每秒佔幾像素
+                const scaleY = (graphH / 2) / maxValue; // y軸每單位佔幾像素
+                // 畫布y軸往下為正，所以要加負號反轉
+                const screenSlope = -physicalSlope * (scaleY / scaleX);
+
+                // 繪製切線
+                const tangentLengthScreen = 30; // 切線在螢幕上的長度(水平)
+                ctx.beginPath();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]); // 虛線
+                ctx.moveTo(px - tangentLengthScreen, py - screenSlope * tangentLengthScreen);
+                ctx.lineTo(px + tangentLengthScreen, py + screenSlope * tangentLengthScreen);
+                ctx.stroke();
+                ctx.setLineDash([]); // 恢復實線
+
+                // 繪製當前紅點
+                ctx.beginPath();
+                ctx.fillStyle = '#ef4444';
+                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 顯示斜率數值 (字體放大並加粗)
+                ctx.fillStyle = '#ef4444';
+                ctx.font = 'bold 14px Inter';
+                ctx.textAlign = 'left';
+                ctx.fillText(`斜率(m)=${physicalSlope.toFixed(1)}`, px + 10, py - 12);
+
+                // --- 新增：在 Y 軸標示當前數值 ---
+                // 1. 畫一條水平輔助虛線連回 Y 軸
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)'; // 淡紅色
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]); // 虛線樣式
+                ctx.moveTo(originX, py);
+                ctx.lineTo(px, py);
+                ctx.stroke();
+                ctx.setLineDash([]); // 恢復實線
+
+                // 2. 在 Y 軸上標示當前的紅色數值 (字體放大)
+                ctx.font = 'bold 16px Inter';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                const textStr = currentVal.toFixed(1);
+                
+                // 加上一點白底，配合放大後的字體調整白底高度與位置
+                const textWidth = ctx.measureText(textStr).width;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(originX - 10 - textWidth, py - 12, textWidth + 8, 24);
+                
+                // 畫上紅色文字
+                ctx.fillStyle = '#ef4444';
+                ctx.fillText(textStr, originX - 5, py);
+            }
+        }
+
+        function drawFrame() {
+            const state = getPhysics(currentMode, time);
+            const config = getModeConfig(currentMode);
+            
+            // 更新時間顯示
+            document.getElementById('timeDisplay').innerText = time.toFixed(2);
+
+            // 畫車子
+            drawCarArea(state);
+
+            // 畫三張圖表，動態傳入對應的比例尺、數值函數與斜率(導數)函數
+            drawGraph(ctxXT, sizes.xt, '位置-時間圖 (x-t)', config.xMax, 
+                (t) => getPhysics(currentMode, t).x, 
+                (t) => getPhysics(currentMode, t).v, 'm');
+                
+            drawGraph(ctxVT, sizes.vt, '速度-時間圖 (v-t)', config.vMax, 
+                (t) => getPhysics(currentMode, t).v, 
+                (t) => getPhysics(currentMode, t).a, 'm/s');
+                
+            drawGraph(ctxAT, sizes.at, '加速度-時間圖 (a-t)', config.aMax, 
+                (t) => getPhysics(currentMode, t).a, 
+                (t) => getPhysics(currentMode, t).j, 'm/s²');
+        }
+
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const deltaTime = (timestamp - lastTimestamp) / 1000; // 轉換為秒
+            lastTimestamp = timestamp;
+
+            if (isRunning) {
+                time += deltaTime;
+                if (time >= T_MAX) {
+                    time = T_MAX; // 暫停在最後一刻
+                    pauseSimulation();
+                }
+            }
+
+            drawFrame();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // 按鈕控制邏輯
+        const btnPlay = document.getElementById('btnPlay');
+        const btnPause = document.getElementById('btnPause');
+        const btnReset = document.getElementById('btnReset');
+        const modeSelect = document.getElementById('modeSelect');
+
+        function playSimulation() {
+            if (time >= T_MAX) time = 0; // 若已經到最後，自動重頭
+            isRunning = true;
+            lastTimestamp = performance.now();
+            btnPlay.classList.add('hidden');
+            btnPause.classList.remove('hidden');
+        }
+
+        function pauseSimulation() {
+            isRunning = false;
+            btnPlay.classList.remove('hidden');
+            btnPause.classList.add('hidden');
+        }
+
+        function resetSimulation() {
+            pauseSimulation();
+            time = 0;
+            drawFrame();
+        }
+
+        btnPlay.addEventListener('click', playSimulation);
+        btnPause.addEventListener('click', pauseSimulation);
+        btnReset.addEventListener('click', resetSimulation);
+        modeSelect.addEventListener('change', (e) => {
+            currentMode = parseInt(e.target.value);
+            resetSimulation();
+        });
+
+        // 啟動初始化
+        handleResize();
+        animationFrameId = requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>
