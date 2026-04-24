@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D 冷次定律模擬器</title>
+    <title>3D 冷次定律模擬器 (完整穿透版)</title>
     <style>
         :root {
             --primary: #3b82f6;
@@ -131,6 +131,8 @@
             pointer-events: none;
         }
 
+        #flip-btn:hover { background: rgba(59, 130, 246, 0.4) !important; }
+
         /* 全螢幕按鈕 */
         #fullscreen-btn {
             position: absolute;
@@ -201,7 +203,7 @@
         <div class="panel-content">
             <div class="control-group">
                 <label>
-                    <input type="checkbox" id="show-field"> 顯示磁力線
+                    <input type="checkbox" id="show-field"> 顯示磁鐵磁力線
                 </label>
             </div>
 
@@ -219,27 +221,38 @@
                 </div>
             </div>
 
+            <div class="control-group" style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="flip-btn" style="width: 100%; padding: 10px; background: rgba(59, 130, 246, 0.2); color: var(--primary); border: 1px solid var(--primary); border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s;">
+                    🔄 單次翻轉磁鐵 (N/S 互換)
+                </button>
+                <label style="justify-content: center; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
+                    <input type="checkbox" id="auto-rotate"> 旋轉發電機模式 (連續旋轉)
+                </label>
+            </div>
+
             <div class="instruction">
-                <strong>操作方式：</strong><br>
-                1. <b>拖曳右側磁鐵</b> 靠近或遠離線圈。<br>
-                2. 滑鼠左鍵/單指滑動可 <b>旋轉 3D 視角</b>。<br>
-                3. 滑鼠滾輪/雙指縮放可 <b>縮放視角</b>。
+                <strong>💡 進階操作提示：</strong><br>
+                1. <b>滑鼠拖曳</b> 右側磁鐵靠近線圈。<br>
+                2. <b>穿透線圈</b> 觀察穿出瞬間的磁場與電流反轉變化！<br>
+                3. 點擊 <b>單次翻轉</b> 觀察極性突變時的強大感應電流。<br>
+                4. 勾選 <b>旋轉發電機模式</b>，觀察連續旋轉如何產生交流電 (AC)！
             </div>
         </div>
     </div>
 
-    <!-- 右側原理說明 (預設收起) -->
-    <div class="panel collapsed" id="info-panel">
+    <!-- 右側原理說明 (預設開啟) -->
+    <div class="panel" id="info-panel">
         <div class="panel-header">
             <h3>💡 物理現象解析</h3>
-            <button class="collapse-btn" onclick="togglePanel('info-panel', this)" title="收起/展開面板">□</button>
+            <button class="collapse-btn" onclick="togglePanel('info-panel', this)" title="收起/展開面板">_</button>
         </div>
         <div class="panel-content">
             <p style="font-size: 0.9rem; line-height: 1.6; color: #ddd; margin-top: 0;">
-                根據<b>法拉第與冷次定律</b>，當磁鐵靠近或遠離時，穿過線圈的磁通量發生變化。<br><br>
-                線圈會產生感應電流，並點亮下方的燈泡。該電流所生成的<span style="color: #10b981; font-weight: bold;">感應磁場 (綠色箭頭)</span>，總是<b>反抗</b>原磁通量的變化。<br><br>
-                <b>👉 推薦視角：</b><br>
-                將畫面旋轉至「正側視角」，觀察當 N 極推入時，電荷的流動方向與綠色感應磁場方向的關聯 (右手定則)。
+                根據<b>法拉第與冷次定律</b>，感應電流產生的磁場，總是<b>反抗</b>原磁通量的變化。<br><br>
+                <b>【進入線圈時】</b><br>
+                N極靠近，向左的磁通量增加，線圈會產生向右的<span style="color: #10b981; font-weight: bold;">感應磁場 (綠色箭頭)</span> 來排斥磁鐵。<br><br>
+                <b>【穿出線圈時】</b><br>
+                N極遠離，向左的磁通量減少，線圈會產生向左的<span style="color: #10b981; font-weight: bold;">感應磁場</span> 試圖把磁鐵吸回來。
             </p>
         </div>
     </div>
@@ -280,20 +293,22 @@ let bulbFilamentMat, bulbPointLight, bulbGlassMat;
 
 // 物理狀態
 let magnetState = {
-    x: 12,          
+    x: 15,          
     isDragging: false,
-    lastX: 12,
+    lastX: 15,
+    targetRotationY: 0  // 紀錄磁鐵的目標翻轉角度
 };
 
 let simState = {
-    inducedCurrent: 0,   // 大於 0 代表產生 CCW 電流
+    inducedCurrent: 0,   // 感應電流大小與方向
     fluxLast: 0          
 };
 
 let uiState = {
     showField: false,
     showCharges: false,
-    chargeType: 'positive'
+    chargeType: 'positive',
+    autoRotate: false    // 新增：自動連續旋轉狀態
 };
 
 // 幾何常數
@@ -308,9 +323,9 @@ function init() {
     scene.background = new THREE.Color('#111111'); 
     scene.fog = new THREE.Fog('#111111', 20, 100);
 
-    // 【視角修正】改成圖片中的「右側前上角」視角
+    // 視角設置
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(22, 14, 25);
+    camera.position.set(18, 12, 22);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -325,7 +340,8 @@ function init() {
     orbitControls.maxPolarAngle = Math.PI / 2 + 0.1;
     orbitControls.minDistance = 10;
     orbitControls.maxDistance = 60;
-    orbitControls.target.set(2, 0, 0); // 確保焦點看向磁鐵與線圈中間
+    // 將視角焦點設在原點 (線圈中心)
+    orbitControls.target.set(0, 0, 0); 
 
     // 光源設置
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -342,12 +358,11 @@ function init() {
 
     createFloor();
     createCoil();
-    createLightBulb();     // 新增：繪製連接導線與燈泡
+    createLightBulb();     
     createMagnet();
     createInducedBArrow(); 
     createFieldLines();    
 
-    // 套用預設開關狀態
     fieldLinesGroup.visible = uiState.showField;
 
     setupInteraction();
@@ -415,14 +430,14 @@ function createCoil() {
     const coilMesh = new THREE.Mesh(tubeGeo, tubeMat);
     coilGroup.add(coilMesh);
 
-    // 發光電荷 (配合黑底，紫羅蘭色調亮)
+    // 發光電荷
     const chargeMat = new THREE.MeshBasicMaterial({ color: 0xc084fc });
     const chargeGeo = new THREE.SphereGeometry(0.3, 12, 12); 
     
     for(let i=0; i<chargeCount; i++) {
         const charge = new THREE.Mesh(chargeGeo, chargeMat.clone());
         charge.userData.t = i / chargeCount; 
-        charge.visible = uiState.showCharges; // 初始隱藏
+        charge.visible = uiState.showCharges;
         updateChargePosition(charge);
         coilGroup.add(charge);
         charges.push(charge);
@@ -431,13 +446,10 @@ function createCoil() {
     scene.add(coilGroup);
 }
 
-// 建立 3D 燈泡與連接導線
 function createLightBulb() {
     const bulbGroup = new THREE.Group();
-    // 燈泡位置：導線左下角 (相對於鏡頭視覺)
     bulbGroup.position.set(-6, -4.5, 5);
 
-    // 1. 燈泡玻璃罩 (物理透光材質)
     const glassGeo = new THREE.SphereGeometry(1.2, 32, 32);
     bulbGlassMat = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
@@ -451,10 +463,9 @@ function createLightBulb() {
         emissiveIntensity: 0
     });
     const glass = new THREE.Mesh(glassGeo, bulbGlassMat);
-    glass.castShadow = false; // 避免擋住內部光源，讓光線透出
+    glass.castShadow = false;
     bulbGroup.add(glass);
 
-    // 2. 金屬螺紋底座
     const baseGeo = new THREE.CylinderGeometry(0.6, 0.5, 1.2, 16);
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 });
     const base = new THREE.Mesh(baseGeo, baseMat);
@@ -462,47 +473,42 @@ function createLightBulb() {
     base.castShadow = true;
     bulbGroup.add(base);
 
-    // 3. 發光燈絲 (保留參照以動態更新)
     const filamentGeo = new THREE.TorusGeometry(0.3, 0.05, 8, 16);
     filamentGeo.rotateX(Math.PI / 2);
     bulbFilamentMat = new THREE.MeshStandardMaterial({
         color: 0x333333,
         emissive: 0xffaa00,
-        emissiveIntensity: 0 // 初始無光
+        emissiveIntensity: 0
     });
     const filament = new THREE.Mesh(filamentGeo, bulbFilamentMat);
     bulbGroup.add(filament);
 
-    // 4. 內置點光源
     bulbPointLight = new THREE.PointLight(0xffaa00, 0, 30);
     bulbPointLight.position.set(0, 0, 0);
     bulbGroup.add(bulbPointLight);
 
     scene.add(bulbGroup);
 
-    // 5. 連接導線 (重新規劃 3D 路徑，使其沿著地板漂亮地繞行，不穿模)
     const wireMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7 });
     
-    // 線圈左端座標: t=0 -> (-3, 0, 3)
     const wirePath1 = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-3, 0, 3),           // 連接線圈左端
-        new THREE.Vector3(-3, -2, 3),          // 垂直往下
-        new THREE.Vector3(-4, -5.8, 4),        // 碰到地板，往外側彎
-        new THREE.Vector3(-5.5, -5.8, 5),      // 沿著地板走到燈泡下方
-        new THREE.Vector3(-5.8, -5.2, 5)       // 接到燈泡底座右側
+        new THREE.Vector3(-3, 0, 3),           
+        new THREE.Vector3(-3, -2, 3),          
+        new THREE.Vector3(-4, -5.8, 4),        
+        new THREE.Vector3(-5.5, -5.8, 5),      
+        new THREE.Vector3(-5.8, -5.2, 5)       
     ]);
     const wireMesh1 = new THREE.Mesh(new THREE.TubeGeometry(wirePath1, 30, 0.15, 8, false), wireMat);
     wireMesh1.castShadow = true;
     scene.add(wireMesh1);
 
-    // 線圈右端座標: t=1 -> (3, 0, 3)
     const wirePath2 = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(3, 0, 3),            // 連接線圈右端
-        new THREE.Vector3(3, -2, 3),           // 垂直往下
-        new THREE.Vector3(2, -5.8, 4),         // 碰到地板
-        new THREE.Vector3(-2, -5.8, 6),        // 沿著地板繞過前方
-        new THREE.Vector3(-6, -5.8, 6),        // 繞到燈泡左前方
-        new THREE.Vector3(-6.2, -5.2, 5)       // 接到燈泡底座左側
+        new THREE.Vector3(3, 0, 3),            
+        new THREE.Vector3(3, -2, 3),           
+        new THREE.Vector3(2, -5.8, 4),         
+        new THREE.Vector3(-2, -5.8, 6),        
+        new THREE.Vector3(-6, -5.8, 6),        
+        new THREE.Vector3(-6.2, -5.2, 5)       
     ]);
     const wireMesh2 = new THREE.Mesh(new THREE.TubeGeometry(wirePath2, 40, 0.15, 8, false), wireMat);
     wireMesh2.castShadow = true;
@@ -563,6 +569,7 @@ function createMagnet() {
     magnet.add(meshN);
     magnet.add(meshS);
 
+    // 碰撞感應框
     const hitGeo = new THREE.BoxGeometry(width + 2, height + 2, depth + 2);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     const hitBox = new THREE.Mesh(hitGeo, hitMat);
@@ -571,7 +578,6 @@ function createMagnet() {
     scene.add(magnet);
 }
 
-// 建立永遠面向相機的文字標籤 Sprite
 function createTextSprite(message, color) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -581,7 +587,6 @@ function createTextSprite(message, color) {
     context.textAlign = "center";
     context.textBaseline = "middle";
     
-    // 繪製文字邊框增加可讀性
     context.lineWidth = 6;
     context.strokeStyle = "rgba(0, 0, 0, 0.8)";
     context.strokeText(message, 256, 128);
@@ -617,9 +622,8 @@ function createInducedBArrow() {
     inducedBArrow.add(new THREE.Mesh(cylGeo, mat));
     inducedBArrow.add(new THREE.Mesh(coneGeo, mat));
     
-    // 加入文字標籤
     const label = createTextSprite("感應磁場 B", "rgba(16, 185, 129, 1)");
-    label.position.set(0, 3, 0); // 浮在箭頭正上方
+    label.position.set(0, 3, 0); 
     inducedBArrow.add(label);
     
     scene.add(inducedBArrow);
@@ -703,7 +707,9 @@ function setupInteraction() {
         const intersectPoint = new THREE.Vector3();
         if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
             let newX = intersectPoint.x - dragOffset.x;
-            const minX = COIL_LENGTH/2 + 3; // 避免穿模
+            
+            // 解開邊界限制，允許穿透到負的 X 座標
+            const minX = -35; 
             const maxX = 35;
             
             if (newX < minX) newX = minX;
@@ -728,10 +734,28 @@ function setupInteraction() {
 }
 
 function setupUI() {
-    // 已經加回 'show-field'
     document.getElementById('show-field').addEventListener('change', (e) => {
         uiState.showField = e.target.checked;
         fieldLinesGroup.visible = uiState.showField;
+    });
+
+    // 單次翻轉按鈕事件
+    document.getElementById('flip-btn').addEventListener('click', () => {
+        if (!uiState.autoRotate) {
+            magnetState.targetRotationY += Math.PI; 
+        }
+    });
+
+    // 新增：連續旋轉切換事件
+    document.getElementById('auto-rotate').addEventListener('change', (e) => {
+        uiState.autoRotate = e.target.checked;
+        
+        // 當關閉連續旋轉時，將目標角度對齊當前磁鐵的實際角度，避免它失控轉回去
+        if (!uiState.autoRotate) {
+            // 吸附到最接近的水平狀態 (0 或是 180度)
+            const nearestHalfTurn = Math.round(magnet.rotation.y / Math.PI) * Math.PI;
+            magnetState.targetRotationY = nearestHalfTurn;
+        }
     });
 
     const chargeCb = document.getElementById('show-charges');
@@ -769,11 +793,20 @@ function setupUI() {
 }
 
 /**
- * 物理引擎核心
+ * 物理引擎核心：計算磁通量
+ * 使用更符合真實物理的偶極子磁通量公式 Φ ∝ 1 / (x^2 + R^2)^(3/2)
+ * 確保磁鐵通過原點 (x=0) 時，曲線呈現平滑的高峰
  */
 function calculateFlux(magnetX) {
-    const dist = Math.max(Math.abs(magnetX), 0.1); 
-    return 100 / (dist * dist); 
+    const rSq = COIL_RADIUS * COIL_RADIUS; // R^2 = 9
+    const distSq = magnetX * magnetX;      // x^2
+    
+    // 獲取磁鐵當前的實際渲染角度 (cos(0) = 1, cos(π) = -1)
+    // 當自動旋轉開啟時，這個值會如正弦波般連續震盪，完美模擬交流發電機！
+    const currentPolarity = Math.cos(magnet.rotation.y);
+    
+    // 調整分子常數 2500 來獲取適當的視覺靈敏度
+    return (2500 / Math.pow(distSq + rSq, 1.5)) * currentPolarity; 
 }
 
 function updatePhysics() {
@@ -783,11 +816,17 @@ function updatePhysics() {
     const dFlux = currentFlux - simState.fluxLast;
     simState.fluxLast = currentFlux;
 
-    let targetCurrent = dFlux * 15.0; 
+    // 將磁通量變化率轉化為目標電流
+    let targetCurrent = dFlux * 8.0; 
     
+    // 限制最大電流值，避免視覺失控
+    targetCurrent = Math.max(Math.min(targetCurrent, 6), -6);
+    
+    // 緩動電流 (低通濾波) 讓視覺變化更自然
     simState.inducedCurrent += (targetCurrent - simState.inducedCurrent) * 0.2;
 
-    if (Math.abs(simState.inducedCurrent) < 0.001) {
+    // 當電流極小時歸零，停止電荷動畫
+    if (Math.abs(simState.inducedCurrent) < 0.005) {
         simState.inducedCurrent = 0;
     }
 }
@@ -798,6 +837,16 @@ function updateChargePosition(chargeMesh) {
 }
 
 function updateVisuals() {
+    // 0. 更新磁鐵旋轉狀態 (發電機模式 vs 單次平滑翻轉)
+    if (uiState.autoRotate) {
+        // 交流發電機模式：每幀固定增加角度 (角速度 ω)
+        magnet.rotation.y += 0.08; 
+        magnetState.targetRotationY = magnet.rotation.y; // 保持目標同步，防關閉時亂跳
+    } else {
+        // 一般模式：平滑補間動畫 (Lerp) 趨近目標角度
+        magnet.rotation.y += (magnetState.targetRotationY - magnet.rotation.y) * 0.15;
+    }
+
     // 1. 更新電荷軌跡
     if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0) {
         let moveDir = -Math.sign(simState.inducedCurrent);
@@ -805,7 +854,7 @@ function updateVisuals() {
             moveDir *= -1; 
         }
 
-        const speed = Math.abs(simState.inducedCurrent) * 0.02;
+        const speed = Math.abs(simState.inducedCurrent) * 0.015;
 
         charges.forEach(c => {
             c.userData.t += speed * moveDir;
@@ -815,28 +864,29 @@ function updateVisuals() {
         });
     }
 
-    // 2. 更新感應磁場大箭頭 (跟著內部電荷顯示選項連動)
-    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.05) {
+    // 2. 更新感應磁場大箭頭
+    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.1) {
         inducedBArrow.visible = true;
         
+        // 電流方向決定箭頭指向，完美呈現冷次定律的反抗特性
         const sign = Math.sign(simState.inducedCurrent);
         const targetRotY = sign > 0 ? 0 : Math.PI;
         
         inducedBArrow.rotation.y += (targetRotY - inducedBArrow.rotation.y) * 0.2;
         
-        const intensity = Math.min(Math.abs(simState.inducedCurrent) * 0.2, 1);
+        // 電流越大，箭頭越粗且越亮
+        const intensity = Math.min(Math.abs(simState.inducedCurrent) * 0.3, 1);
         inducedBArrow.scale.set(0.5 + intensity*0.8, 0.5 + intensity*0.8, 0.5 + intensity*0.8);
         inducedBArrow.children.forEach(c => c.material.emissiveIntensity = intensity);
     } else {
         inducedBArrow.visible = false;
     }
 
-    // 3. 【更新燈泡發光效果】(增強靈敏度與整體光暈)
+    // 3. 更新燈泡發光效果
     if (bulbFilamentMat && bulbPointLight && bulbGlassMat) {
-        // 大幅放大電流的數值，確保稍微拖曳磁鐵燈泡就會明顯亮起
-        const lightIntensity = Math.min(Math.abs(simState.inducedCurrent) * 15.0, 1.0);
+        // 電流大小決定亮度
+        const lightIntensity = Math.min(Math.abs(simState.inducedCurrent) * 2.0, 1.0);
         
-        // 平滑過渡亮度 (包含燈絲、點光源、與玻璃罩本身的發光感)
         bulbFilamentMat.emissiveIntensity += (lightIntensity * 8.0 - bulbFilamentMat.emissiveIntensity) * 0.2;
         bulbPointLight.intensity += (lightIntensity * 3.0 - bulbPointLight.intensity) * 0.2;
         bulbGlassMat.emissiveIntensity += (lightIntensity * 0.6 - bulbGlassMat.emissiveIntensity) * 0.2;
