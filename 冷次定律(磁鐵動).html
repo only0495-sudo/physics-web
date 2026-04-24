@@ -1,471 +1,858 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<style>
-  body {
-    background-color: #f5f5f7; 
-    color: #333; 
-    font-family: 'Segoe UI', Roboto, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    margin: 0;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D 冷次定律模擬器</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --surface: rgba(30, 30, 30, 0.85);
+            --text: #f3f4f6;
+        }
 
-  .container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 95%;
-    max-width: 950px;
-  }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111111;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text);
+            user-select: none;
+        }
 
-  .controls {
-    width: 100%;
-    background: linear-gradient(to bottom, #ffffff, #e0e0e0);
-    padding: 18px 25px;
-    border-radius: 8px 8px 0 0;
-    border-bottom: 1px solid #ccc;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    box-sizing: border-box;
-  }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
 
-  h3 { margin: 0 0 15px 0; color: #a0522d; font-size: 1.3rem; letter-spacing: 1px;}
+        /* UI 面板共用設定 */
+        .panel {
+            position: absolute;
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
 
-  .control-row {
-    display: flex;
-    gap: 40px;
-    align-items: flex-start;
-  }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px 10px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
 
-  .main-label { 
-      cursor: pointer; display: flex; align-items: center; 
-      margin-bottom: 8px; font-size: 1.05rem; font-weight: 500; 
-      color: #333; 
-  }
-  input[type="checkbox"], input[type="radio"] { 
-      transform: scale(1.2); margin-right: 10px; cursor: pointer; accent-color: #a0522d;
-  }
+        .panel-content {
+            padding: 10px 20px 20px 20px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+            max-height: 600px;
+            opacity: 1;
+        }
 
-  .sub-options { margin-left: 30px; display: flex; gap: 20px; }
-  .radio-label { font-size: 0.9rem; color: #555; cursor: pointer; display: flex; align-items: center;}
-  .electron { color: #008080; font-weight: bold; } 
-  .positive { color: #800080; font-weight: bold; } 
+        .panel.collapsed .panel-content {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            opacity: 0;
+        }
 
-  .instruction { margin: 15px 0 0 0; color: #666; font-size: 0.85rem; border-top: 1px solid #ccc; padding-top: 10px;}
+        /* 左側控制面板 */
+        #controls-panel { top: 20px; left: 20px; width: 320px; }
 
-  canvas {
-    background: #ffffff;
-    border-radius: 0 0 8px 8px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
-    cursor: grab;
-    border: 1px solid #ddd; 
-    border-top: none;
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-  canvas:active { cursor: grabbing; }
-</style>
+        /* 右上角物理原理解釋 */
+        #info-panel { top: 20px; right: 20px; width: 300px; }
+
+        /* 左下角公式疊加層 */
+        #formula-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-family: 'Times New Roman', serif;
+            font-size: 1.2rem;
+            padding: 15px 25px;
+            z-index: 10;
+        }
+
+        h2, h3 { margin: 0; color: var(--primary); }
+        h2 { font-size: 1.3rem; }
+        h3 { font-size: 1.1rem; }
+
+        .collapse-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .collapse-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .control-group { margin-bottom: 15px; }
+
+        label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        input[type="checkbox"], input[type="radio"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+
+        .radio-group {
+            margin-left: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 5px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* 全螢幕按鈕 */
+        #fullscreen-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 1.4rem;
+            transition: all 0.2s;
+        }
+        #fullscreen-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.1); }
+
+        .instruction {
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.5;
+            background: rgba(59, 130, 246, 0.15);
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* 手機版響應式 */
+        @media (max-width: 768px) {
+            #controls-panel { width: 85%; max-width: 320px; }
+            #info-panel { display: none; }
+            #formula-panel { bottom: 85px; font-size: 1rem; }
+        }
+
+        #loader {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #111111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            z-index: 9999;
+            font-size: 1.5rem;
+            transition: opacity 0.5s;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-<div class="container">
-  <div class="controls">
-    <h3>冷次定律(磁鐵動) </h3>
-      <div class="control-row">
-      <div class="option-group">
-        <label class="main-label">
-          <input type="checkbox" id="showFieldLines" checked> 顯示磁力線
-        </label>
-      </div>
+    <div id="loader">初始化物理引擎與渲染器...</div>
 
-      <div class="option-group">
-        <label class="main-label">
-          <input type="checkbox" id="showCharges"> 顯示導線電荷
-        </label>
-        <div class="sub-options">
-          <label class="radio-label electron">
-            <input type="radio" name="chargeType" value="electron" checked> 電子流 (負電荷)
-          </label>
-          <label class="radio-label positive">
-            <input type="radio" name="chargeType" value="positive"> 電流 (正電荷)
-          </label>
+    <div id="canvas-container"></div>
+
+    <!-- 左側控制面板 -->
+    <div class="panel" id="controls-panel">
+        <div class="panel-header">
+            <h2>3D 冷次定律模擬器</h2>
+            <button class="collapse-btn" onclick="togglePanel('controls-panel', this)" title="收起/展開面板">_</button>
         </div>
-      </div>
+        <div class="panel-content">
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="show-field"> 顯示磁力線
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="show-charges"> 顯示導線電荷與感應磁場
+                </label>
+                <div class="radio-group" id="charge-radios">
+                    <label style="color: #0dd4c8; font-weight: bold; text-shadow: 0 0 4px rgba(0,0,0,0.8);">
+                        <input type="radio" name="charge-type" value="electron"> 電子流 (負電荷)
+                    </label>
+                    <label style="color: #c084fc; font-weight: bold; text-shadow: 0 0 4px rgba(0,0,0,0.8);">
+                        <input type="radio" name="charge-type" value="positive" checked> 常規電流 (正電荷)
+                    </label>
+                </div>
+            </div>
+
+            <div class="instruction">
+                <strong>操作方式：</strong><br>
+                1. <b>拖曳右側磁鐵</b> 靠近或遠離線圈。<br>
+                2. 滑鼠左鍵/單指滑動可 <b>旋轉 3D 視角</b>。<br>
+                3. 滑鼠滾輪/雙指縮放可 <b>縮放視角</b>。
+            </div>
+        </div>
     </div>
-    
-    <p class="instruction">
-      操作：拖曳磁鐵。觀察左方<b>電流方向</b>指示器 (已修正方向)。
-    </p>
-  </div>
-  
-  <canvas id="simCanvas" width="900" height="600"></canvas>
-</div>
+
+    <!-- 右側原理說明 (預設收起) -->
+    <div class="panel collapsed" id="info-panel">
+        <div class="panel-header">
+            <h3>💡 物理現象解析</h3>
+            <button class="collapse-btn" onclick="togglePanel('info-panel', this)" title="收起/展開面板">□</button>
+        </div>
+        <div class="panel-content">
+            <p style="font-size: 0.9rem; line-height: 1.6; color: #ddd; margin-top: 0;">
+                根據<b>法拉第與冷次定律</b>，當磁鐵靠近或遠離時，穿過線圈的磁通量發生變化。<br><br>
+                線圈會產生感應電流，並點亮下方的燈泡。該電流所生成的<span style="color: #10b981; font-weight: bold;">感應磁場 (綠色箭頭)</span>，總是<b>反抗</b>原磁通量的變化。<br><br>
+                <b>👉 推薦視角：</b><br>
+                將畫面旋轉至「正側視角」，觀察當 N 極推入時，電荷的流動方向與綠色感應磁場方向的關聯 (右手定則)。
+            </p>
+        </div>
+    </div>
+
+    <!-- 左下角公式 -->
+    <div id="formula-panel">
+        𝓔 = - N (dΦ<sub>B</sub> / dt)
+    </div>
+
+    <!-- 全螢幕按鈕 -->
+    <button id="fullscreen-btn" title="全螢幕切換">⛶</button>
 
 <script>
-window.onload = function() {
-    const canvas = document.getElementById('simCanvas');
+/**
+ * UI 收起/展開邏輯
+ */
+function togglePanel(panelId, btn) {
+    const panel = document.getElementById(panelId);
+    panel.classList.toggle('collapsed');
+    if (panel.classList.contains('collapsed')) {
+        btn.innerText = '□';
+    } else {
+        btn.innerText = '_';
+    }
+}
+
+/**
+ * 3D 物理與渲染核心
+ */
+let scene, camera, renderer, orbitControls;
+let magnet, coilGroup, inducedBArrow;
+let fieldLinesGroup = new THREE.Group();
+let charges = [];
+const chargeCount = 100;
+
+// 燈泡材質參考
+let bulbFilamentMat, bulbPointLight, bulbGlassMat;
+
+// 物理狀態
+let magnetState = {
+    x: 12,          
+    isDragging: false,
+    lastX: 12,
+};
+
+let simState = {
+    inducedCurrent: 0,   // 大於 0 代表產生 CCW 電流
+    fluxLast: 0          
+};
+
+let uiState = {
+    showField: false,
+    showCharges: false,
+    chargeType: 'positive'
+};
+
+// 幾何常數
+const COIL_RADIUS = 3;
+const COIL_LENGTH = 6;
+const COIL_TURNS = 6;
+
+function init() {
+    const container = document.getElementById('canvas-container');
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color('#111111'); 
+    scene.fog = new THREE.Fog('#111111', 20, 100);
+
+    // 【視角修正】改成圖片中的「右側前上角」視角
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(22, 14, 25);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
+    orbitControls.maxPolarAngle = Math.PI / 2 + 0.1;
+    orbitControls.minDistance = 10;
+    orbitControls.maxDistance = 60;
+    orbitControls.target.set(2, 0, 0); // 確保焦點看向磁鐵與線圈中間
+
+    // 光源設置
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(10, 20, 15);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const backLight = new THREE.PointLight(0x4444ff, 0.3);
+    backLight.position.set(-15, 5, -15);
+    scene.add(backLight);
+
+    createFloor();
+    createCoil();
+    createLightBulb();     // 新增：繪製連接導線與燈泡
+    createMagnet();
+    createInducedBArrow(); 
+    createFieldLines();    
+
+    // 套用預設開關狀態
+    fieldLinesGroup.visible = uiState.showField;
+
+    setupInteraction();
+    setupUI();
+
+    document.getElementById('loader').style.opacity = '0';
+    setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+
+    animate();
+}
+
+function createFloor() {
+    const geo = new THREE.PlaneGeometry(200, 200);
+    const mat = new THREE.MeshStandardMaterial({ 
+        color: '#1a1a1a',
+        roughness: 0.9,
+        metalness: 0.1
+    });
+    const floor = new THREE.Mesh(geo, mat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -6;
+    floor.receiveShadow = true;
+    
+    const grid = new THREE.GridHelper(200, 50, 0x444444, 0x222222);
+    grid.position.y = -5.99;
+    
+    scene.add(floor);
+    scene.add(grid);
+}
+
+// 螺旋線數學模型
+class HelixCurve extends THREE.Curve {
+    constructor(radius, length, turns) {
+        super();
+        this.radius = radius;
+        this.length = length;
+        this.turns = turns;
+    }
+    getPoint(t, optionalTarget = new THREE.Vector3()) {
+        const x = (t - 0.5) * this.length; 
+        const angle = t * Math.PI * 2 * this.turns;
+        const y = Math.sin(angle) * this.radius;
+        const z = Math.cos(angle) * this.radius;
+        return optionalTarget.set(x, y, z);
+    }
+}
+
+function createCoil() {
+    coilGroup = new THREE.Group();
+    
+    const path = new HelixCurve(COIL_RADIUS, COIL_LENGTH, COIL_TURNS);
+    const tubeGeo = new THREE.TubeGeometry(path, 300, 0.4, 16, false);
+    
+    // 半透明玻璃質感銅線
+    const tubeMat = new THREE.MeshStandardMaterial({ 
+        color: 0xd97736,
+        metalness: 0.5,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide,
+        depthWrite: false 
+    });
+    
+    const coilMesh = new THREE.Mesh(tubeGeo, tubeMat);
+    coilGroup.add(coilMesh);
+
+    // 發光電荷 (配合黑底，紫羅蘭色調亮)
+    const chargeMat = new THREE.MeshBasicMaterial({ color: 0xc084fc });
+    const chargeGeo = new THREE.SphereGeometry(0.3, 12, 12); 
+    
+    for(let i=0; i<chargeCount; i++) {
+        const charge = new THREE.Mesh(chargeGeo, chargeMat.clone());
+        charge.userData.t = i / chargeCount; 
+        charge.visible = uiState.showCharges; // 初始隱藏
+        updateChargePosition(charge);
+        coilGroup.add(charge);
+        charges.push(charge);
+    }
+
+    scene.add(coilGroup);
+}
+
+// 建立 3D 燈泡與連接導線
+function createLightBulb() {
+    const bulbGroup = new THREE.Group();
+    // 燈泡位置：導線左下角 (相對於鏡頭視覺)
+    bulbGroup.position.set(-6, -4.5, 5);
+
+    // 1. 燈泡玻璃罩 (物理透光材質)
+    const glassGeo = new THREE.SphereGeometry(1.2, 32, 32);
+    bulbGlassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transmission: 0.9,
+        opacity: 1,
+        metalness: 0.1,
+        roughness: 0.05,
+        ior: 1.5,
+        thickness: 0.5,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0
+    });
+    const glass = new THREE.Mesh(glassGeo, bulbGlassMat);
+    glass.castShadow = false; // 避免擋住內部光源，讓光線透出
+    bulbGroup.add(glass);
+
+    // 2. 金屬螺紋底座
+    const baseGeo = new THREE.CylinderGeometry(0.6, 0.5, 1.2, 16);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = -1.2;
+    base.castShadow = true;
+    bulbGroup.add(base);
+
+    // 3. 發光燈絲 (保留參照以動態更新)
+    const filamentGeo = new THREE.TorusGeometry(0.3, 0.05, 8, 16);
+    filamentGeo.rotateX(Math.PI / 2);
+    bulbFilamentMat = new THREE.MeshStandardMaterial({
+        color: 0x333333,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0 // 初始無光
+    });
+    const filament = new THREE.Mesh(filamentGeo, bulbFilamentMat);
+    bulbGroup.add(filament);
+
+    // 4. 內置點光源
+    bulbPointLight = new THREE.PointLight(0xffaa00, 0, 30);
+    bulbPointLight.position.set(0, 0, 0);
+    bulbGroup.add(bulbPointLight);
+
+    scene.add(bulbGroup);
+
+    // 5. 連接導線 (重新規劃 3D 路徑，使其沿著地板漂亮地繞行，不穿模)
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7 });
+    
+    // 線圈左端座標: t=0 -> (-3, 0, 3)
+    const wirePath1 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-3, 0, 3),           // 連接線圈左端
+        new THREE.Vector3(-3, -2, 3),          // 垂直往下
+        new THREE.Vector3(-4, -5.8, 4),        // 碰到地板，往外側彎
+        new THREE.Vector3(-5.5, -5.8, 5),      // 沿著地板走到燈泡下方
+        new THREE.Vector3(-5.8, -5.2, 5)       // 接到燈泡底座右側
+    ]);
+    const wireMesh1 = new THREE.Mesh(new THREE.TubeGeometry(wirePath1, 30, 0.15, 8, false), wireMat);
+    wireMesh1.castShadow = true;
+    scene.add(wireMesh1);
+
+    // 線圈右端座標: t=1 -> (3, 0, 3)
+    const wirePath2 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(3, 0, 3),            // 連接線圈右端
+        new THREE.Vector3(3, -2, 3),           // 垂直往下
+        new THREE.Vector3(2, -5.8, 4),         // 碰到地板
+        new THREE.Vector3(-2, -5.8, 6),        // 沿著地板繞過前方
+        new THREE.Vector3(-6, -5.8, 6),        // 繞到燈泡左前方
+        new THREE.Vector3(-6.2, -5.2, 5)       // 接到燈泡底座左側
+    ]);
+    const wireMesh2 = new THREE.Mesh(new THREE.TubeGeometry(wirePath2, 40, 0.15, 8, false), wireMat);
+    wireMesh2.castShadow = true;
+    scene.add(wireMesh2);
+}
+
+function createTextTexture(text, bgColor) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 256;
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 120px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 128);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 15;
+    ctx.strokeRect(0,0,256,256);
+    return new THREE.CanvasTexture(canvas);
+}
 
-    // --- 物件參數 ---
-    let magnet = { 
-        x: 750, y: height/2 - 50, 
-        w: 200, h: 70, 
-        dragging: false 
-    };
+function createMagnet() {
+    magnet = new THREE.Group();
+    magnet.position.set(magnetState.x, 0, 0);
 
-    let coil = { 
-        x: 400, y: height/2 - 50, 
-        radius: 80, 
-        length: 320, 
-        turns: 12,
-        wireThickness: 10 
-    };
+    const width = 6;
+    const height = 2.5;
+    const depth = 2.5;
 
-    let lastMagnetX = magnet.x;
-    let inducedCurrent = 0;
-    let chargeOffset = 0;
-    let loadingAngle = 0;
+    const geoHalf = new THREE.BoxGeometry(width/2, height, depth);
+    
+    const matN = [
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ map: createTextTexture('N', '#d32f2f'), roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 })  
+    ];
+    const meshN = new THREE.Mesh(geoHalf, matN);
+    meshN.position.x = -width/4;
+    meshN.castShadow = true;
+    
+    const matS = [
+        new THREE.MeshStandardMaterial({ map: createTextTexture('S', '#1976d2'), roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 })  
+    ];
+    const meshS = new THREE.Mesh(geoHalf, matS);
+    meshS.position.x = width/4;
+    meshS.castShadow = true;
 
-    const ui = {
-        showField: true,
-        showCharges: false,
-        chargeType: 'electron'
-    };
+    magnet.add(meshN);
+    magnet.add(meshS);
 
-    document.getElementById('showFieldLines').addEventListener('change', e => ui.showField = e.target.checked);
-    document.getElementById('showCharges').addEventListener('change', e => ui.showCharges = e.target.checked);
-    document.querySelectorAll('input[name="chargeType"]').forEach(r => {
-        r.addEventListener('change', e => ui.chargeType = e.target.value);
+    const hitGeo = new THREE.BoxGeometry(width + 2, height + 2, depth + 2);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitBox = new THREE.Mesh(hitGeo, hitMat);
+    magnet.add(hitBox);
+
+    scene.add(magnet);
+}
+
+// 建立永遠面向相機的文字標籤 Sprite
+function createTextSprite(message, color) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 512;
+    canvas.height = 256;
+    context.font = "Bold 60px 'Segoe UI', Arial";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    
+    // 繪製文字邊框增加可讀性
+    context.lineWidth = 6;
+    context.strokeStyle = "rgba(0, 0, 0, 0.8)";
+    context.strokeText(message, 256, 128);
+    
+    context.fillStyle = color;
+    context.fillText(message, 256, 128);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(10, 5, 1);
+    return sprite;
+}
+
+function createInducedBArrow() {
+    inducedBArrow = new THREE.Group();
+    
+    const cylGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 16);
+    cylGeo.rotateZ(Math.PI / 2); 
+    
+    const coneGeo = new THREE.ConeGeometry(1.2, 2.5, 16);
+    coneGeo.rotateZ(-Math.PI / 2); 
+    coneGeo.translate(5, 0, 0); 
+    
+    const mat = new THREE.MeshStandardMaterial({ 
+        color: 0x10b981, 
+        emissive: 0x10b981, 
+        emissiveIntensity: 0.8,
+        transparent: true,
+        opacity: 0.9
+    });
+    
+    inducedBArrow.add(new THREE.Mesh(cylGeo, mat));
+    inducedBArrow.add(new THREE.Mesh(coneGeo, mat));
+    
+    // 加入文字標籤
+    const label = createTextSprite("感應磁場 B", "rgba(16, 185, 129, 1)");
+    label.position.set(0, 3, 0); // 浮在箭頭正上方
+    inducedBArrow.add(label);
+    
+    scene.add(inducedBArrow);
+}
+
+function createFieldLines() {
+    const lineMat = new THREE.LineBasicMaterial({ 
+        color: 0xaaaaaa, 
+        transparent: true, 
+        opacity: 0.3 
+    });
+    
+    const coneGeo = new THREE.ConeGeometry(0.25, 0.8, 8);
+    coneGeo.rotateX(Math.PI / 2); 
+    const coneMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
+
+    const numLines = 12;
+    for(let layer = 1; layer <= 2; layer++) {
+        const spread = layer * 4;
+        for(let i = 0; i < numLines; i++) {
+            const angle = (i / numLines) * Math.PI * 2;
+            
+            const curve = new THREE.CubicBezierCurve3(
+                new THREE.Vector3(-3, 0, 0), 
+                new THREE.Vector3(-8, Math.cos(angle)*spread, Math.sin(angle)*spread),
+                new THREE.Vector3(8, Math.cos(angle)*spread, Math.sin(angle)*spread),
+                new THREE.Vector3(3, 0, 0)   
+            );
+
+            const points = curve.getPoints(40);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            fieldLinesGroup.add(new THREE.Line(geometry, lineMat));
+
+            const cone = new THREE.Mesh(coneGeo, coneMat);
+            const pt = curve.getPoint(0.5);
+            const tangent = curve.getTangent(0.5);
+            cone.position.copy(pt);
+            cone.lookAt(pt.clone().add(tangent));
+            fieldLinesGroup.add(cone);
+        }
+    }
+    
+    magnet.add(fieldLinesGroup);
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let dragPlane = new THREE.Plane();
+let dragOffset = new THREE.Vector3();
+
+function setupInteraction() {
+    const container = renderer.domElement;
+
+    container.addEventListener('pointerdown', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        
+        const intersects = raycaster.intersectObject(magnet, true);
+        if (intersects.length > 0) {
+            magnetState.isDragging = true;
+            orbitControls.enabled = false; 
+            container.style.cursor = 'grabbing';
+            dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), magnet.position);
+            raycaster.ray.intersectPlane(dragPlane, dragOffset);
+            dragOffset.sub(magnet.position);
+        }
     });
 
-    function getPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
-    }
-    function startDrag(e) {
-        const p = getPos(e);
-        if (p.x > magnet.x - magnet.w/2 - 30 && p.x < magnet.x + magnet.w/2 + 30 &&
-            p.y > magnet.y - magnet.h/2 - 30 && p.y < magnet.y + magnet.h/2 + 30) {
-            magnet.dragging = true;
-        }
-    }
-    function moveDrag(e) {
-        if (!magnet.dragging) return;
-        e.preventDefault();
-        const p = getPos(e);
-        magnet.x = p.x;
-        if (magnet.x < 50) magnet.x = 50;
-        if (magnet.x > width - 50) magnet.x = width - 50;
-    }
-    function endDrag() { magnet.dragging = false; }
+    container.addEventListener('pointermove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
 
-    canvas.addEventListener('mousedown', startDrag);
-    canvas.addEventListener('mousemove', moveDrag);
-    window.addEventListener('mouseup', endDrag);
-    canvas.addEventListener('touchstart', startDrag, {passive: false});
-    canvas.addEventListener('touchmove', moveDrag, {passive: false});
-    window.addEventListener('touchend', endDrag);
-
-    function generateSmoothCoilPaths() {
-        const pointsPerTurn = 50; 
-        const totalSteps = coil.turns * pointsPerTurn;
-        const startX = coil.x - coil.length / 2;
-        
-        let backSegments = [];
-        let frontSegments = [];
-        let currentPath = [];
-        let isCurrentPathBack = true; 
-        
-        for (let i = 0; i <= totalSteps; i++) {
-            let t = i / totalSteps; 
-            let angle = t * coil.turns * 2 * Math.PI;
-            
-            let px = startX + t * coil.length;
-            let py = coil.y + coil.radius * Math.sin(angle);
-            let pz = Math.cos(angle); 
-            
-            let isBack = pz < 0;
-            
-            if (isBack !== isCurrentPathBack) {
-                if (currentPath.length > 1) {
-                    if (isCurrentPathBack) backSegments.push(currentPath);
-                    else frontSegments.push(currentPath);
-                }
-                let lastPt = currentPath[currentPath.length-1];
-                currentPath = lastPt ? [lastPt] : [];
-                isCurrentPathBack = isBack;
-            }
-            
-            currentPath.push({x: px, y: py, z: pz, angle: angle});
-        }
-        if (currentPath.length > 1) {
-            if (isCurrentPathBack) backSegments.push(currentPath);
-            else frontSegments.push(currentPath);
-        }
-        
-        return { backSegments, frontSegments };
-    }
-
-    // --- 繪圖函數 ---
-    function drawFieldLines() {
-        if (!ui.showField) return;
-        ctx.save();
-        // **磁力線顏色調整為更深**
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)'; // 透明度從 0.15 提高到 0.4
-        ctx.lineWidth = 1.5;
-        
-        const mx = magnet.x, my = magnet.y, mw = magnet.w, mh = magnet.h;
-        const nX = mx - mw/2; 
-        const sX = mx + mw/2; 
-        
-        for (let layer = 1; layer <= 4; layer++) {
-            let scale = layer * 55;
-            let p0 = {x: nX, y: my - mh/4};
-            let p1 = {x: nX - scale, y: my - scale - 60};
-            let p2 = {x: sX + scale, y: my - scale - 60};
-            let p3 = {x: sX, y: my - mh/4};
-            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y); ctx.stroke();
-            drawArrowOnBezierTop(p0, p1, p2, p3);
-
-            p0 = {x: nX, y: my + mh/4};
-            p1 = {x: nX - scale, y: my + scale + 60};
-            p2 = {x: sX + scale, y: my + scale + 60};
-            p3 = {x: sX, y: my + mh/4};
-            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y); ctx.stroke();
-            drawArrowOnBezierBottom(p0, p1, p2, p3);
-        }
-        ctx.restore();
-    }
-    
-    function drawArrowOnBezierTop(p0, p1, p2, p3) {
-        let arrowX = magnet.x;
-        let arrowY = 0.125*p0.y + 0.375*p1.y + 0.375*p2.y + 0.125*p3.y;
-        drawArrow(arrowX, arrowY);
-    }
-    
-    function drawArrowOnBezierBottom(p0, p1, p2, p3) {
-        let arrowX = magnet.x;
-        let arrowY = 0.125*p0.y + 0.375*p1.y + 0.375*p2.y + 0.125*p3.y;
-        drawArrow(arrowX, arrowY);
-    }
-
-    function drawArrow(x, y) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.beginPath();
-        ctx.moveTo(-5, -5); ctx.lineTo(5, 0); ctx.lineTo(-5, 5);
-        ctx.fill();
-        ctx.restore();
-    }
-
-    function drawMagnet() {
-        const mx = magnet.x, my = magnet.y, w = magnet.w, h = magnet.h;
-        ctx.save();
-        ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(0,0,0,0.3)'; 
-        ctx.fillStyle = '#d32f2f'; ctx.fillRect(mx - w/2, my - h/2, w/2, h);
-        ctx.fillStyle = '#1976d2'; ctx.fillRect(mx, my - h/2, w/2, h);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Arial'; 
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('N', mx - w/4, my); 
-        ctx.fillText('S', mx + w/4, my);
-        ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1;
-        ctx.strokeRect(mx - w/2, my - h/2, w, h);
-        ctx.restore();
-    }
-
-    function drawCoilSegments(segments, isBack) {
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = coil.wireThickness;
-
-        if (isBack) {
-            ctx.strokeStyle = '#5d4037'; 
-        } else {
-            const grad = ctx.createLinearGradient(0, coil.y - coil.radius, 0, coil.y + coil.radius);
-            grad.addColorStop(0, '#a0522d'); 
-            grad.addColorStop(0.5, '#d2691e'); 
-            grad.addColorStop(1, '#a0522d');
-            ctx.strokeStyle = grad;
-        }
-        segments.forEach(path => {
-            if (path.length < 2) return;
-            ctx.beginPath();
-            ctx.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) {
-                ctx.lineTo(path[i].x, path[i].y);
-            }
-            ctx.stroke();
-        });
-    }
-
-    function drawMovingCharges(drawBackLayer) {
-        if (!ui.showCharges) return;
-
-        const chargesCount = 120;
-        const spacing = coil.length / coil.turns;
-        const startX = coil.x - coil.length / 2;
-        const color = (ui.chargeType === 'electron') ? '#00838f' : '#8e24aa'; 
-        ctx.fillStyle = color;
-
-        for (let i = 0; i < chargesCount; i++) {
-            let baseT = i / chargesCount;
-            let t = (baseT + chargeOffset) % 1;
-            if (t < 0) t += 1;
-            let angle = t * coil.turns * 2 * Math.PI;
-            let pz = Math.cos(angle);
-            let isBack = pz < 0;
-            if (isBack === drawBackLayer) {
-                let px = startX + t * coil.length;
-                let py = coil.y + coil.radius * Math.sin(angle);
-                let size = isBack ? 3 : 5; 
-                ctx.beginPath();
-                ctx.arc(px, py, size, 0, Math.PI*2);
-                ctx.fill();
-            }
-        }
-    }
-
-    // --- 修正版：Loading 圈圈 (反轉方向) ---
-    function drawLoadingIndicator() {
-        const cx = coil.x - coil.length / 2 - 60; 
-        const cy = coil.y; 
-        const radius = 25;
-
-        ctx.save();
-        ctx.translate(cx, cy);
-
-        ctx.font = '14px Segoe UI';
-        ctx.fillStyle = '#333'; 
-        ctx.textAlign = 'center';
-        ctx.fillText("Current", 0, -radius - 12);
-
-        if (Math.abs(inducedCurrent) < 0.1) {
-            ctx.strokeStyle = '#ccc'; 
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, Math.PI*2);
-            ctx.stroke();
-            ctx.restore();
+        if (!magnetState.isDragging) {
+            const intersects = raycaster.intersectObject(magnet, true);
+            container.style.cursor = intersects.length > 0 ? 'grab' : 'auto';
             return;
         }
 
-        loadingAngle -= inducedCurrent * 0.15; // 反轉旋轉方向
-
-        ctx.rotate(loadingAngle);
-
-        // 鏡像翻轉繪圖，使箭頭指向修正後的方向 (CCW) 
-        // 只有在繪製弧線和箭頭時才應用此翻轉
-        ctx.scale(-1, 1); 
-
-        ctx.lineCap = 'round';
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = '#f9a825'; 
-
-        for(let i=0; i<3; i++) {
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, i * (Math.PI*2/3), i * (Math.PI*2/3) + Math.PI/2);
-            ctx.stroke();
+        const intersectPoint = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+            let newX = intersectPoint.x - dragOffset.x;
+            const minX = COIL_LENGTH/2 + 3; // 避免穿模
+            const maxX = 35;
+            
+            if (newX < minX) newX = minX;
+            if (newX > maxX) newX = maxX;
+            
+            magnet.position.x = newX;
+            magnetState.x = newX;
         }
-        
-        // 畫小箭頭
-        ctx.save();
-        ctx.rotate(Math.PI/2); 
-        ctx.translate(radius, 0);
-        ctx.fillStyle = '#f9a825';
-        ctx.beginPath();
-        ctx.moveTo(0, -6); ctx.lineTo(6, 4); ctx.lineTo(-6, 4);
-        ctx.fill();
-        ctx.restore();
+    });
 
-        ctx.restore();
-    }
+    window.addEventListener('pointerup', () => {
+        magnetState.isDragging = false;
+        orbitControls.enabled = true; 
+        renderer.domElement.style.cursor = 'auto';
+    });
 
-    function drawLightBulb() {
-        const bulbX = coil.x;
-        const bulbY = coil.y + coil.radius + 120;
-        const bulbRadius = 30;
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
 
-        let brightness = Math.min(Math.abs(inducedCurrent) * 0.8, 1.0); 
-        
-        ctx.save();
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.beginPath(); ctx.moveTo(coil.x - coil.length/2, coil.y); ctx.lineTo(coil.x - coil.length/2, bulbY - 20); ctx.lineTo(bulbX - 15, bulbY - 20); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(coil.x + coil.length/2, coil.y); ctx.lineTo(coil.x + coil.length/2, bulbY - 20); ctx.lineTo(bulbX + 15, bulbY - 20); ctx.stroke();
+function setupUI() {
+    // 已經加回 'show-field'
+    document.getElementById('show-field').addEventListener('change', (e) => {
+        uiState.showField = e.target.checked;
+        fieldLinesGroup.visible = uiState.showField;
+    });
 
-        ctx.translate(bulbX, bulbY);
+    const chargeCb = document.getElementById('show-charges');
+    const radioGroup = document.getElementById('charge-radios');
+    
+    chargeCb.addEventListener('change', (e) => {
+        uiState.showCharges = e.target.checked;
+        charges.forEach(c => c.visible = uiState.showCharges);
+        radioGroup.style.opacity = uiState.showCharges ? '1' : '0.5';
+        radioGroup.style.pointerEvents = uiState.showCharges ? 'auto' : 'none';
+    });
 
-        if (brightness > 0.01) {
-            let glowRadius = bulbRadius * (1.5 + brightness * 2); 
-            let grd = ctx.createRadialGradient(0, 0, bulbRadius * 0.4, 0, 0, glowRadius);
-            grd.addColorStop(0, `rgba(255, 235, 59, ${brightness})`); 
-            grd.addColorStop(0.5, `rgba(255, 152, 0, ${brightness * 0.6})`); 
-            grd.addColorStop(1, 'rgba(255, 152, 0, 0)');
-            ctx.fillStyle = grd;
-            ctx.beginPath(); ctx.arc(0, 0, glowRadius, 0, Math.PI * 2); ctx.fill();
-        }
+    document.querySelectorAll('input[name="charge-type"]').forEach(r => {
+        r.addEventListener('change', (e) => {
+            uiState.chargeType = e.target.value;
+            const color = uiState.chargeType === 'electron' ? 0x0dd4c8 : 0xc084fc;
+            charges.forEach(c => c.material.color.setHex(color));
+        });
+    });
 
-        ctx.beginPath(); ctx.arc(0, 0, bulbRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 200, 200, 0.2)`; ctx.fill();
-        ctx.strokeStyle = '#666'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-5, -10); ctx.lineTo(0, 0); ctx.lineTo(5, -10); ctx.lineTo(10, 0);
-        if (brightness > 0.1) {
-            ctx.strokeStyle = '#e65100'; ctx.lineWidth = 2 + brightness * 2; 
+    const fsBtn = document.getElementById('fullscreen-btn');
+    fsBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable fullscreen: ${err.message}`);
+            });
         } else {
-            ctx.strokeStyle = '#888'; ctx.lineWidth = 2;
+            document.exitFullscreen();
         }
-        ctx.stroke();
-        ctx.fillStyle = '#555'; ctx.fillRect(-12, bulbRadius - 2, 24, 15);
-        ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(-12, bulbRadius + 3); ctx.lineTo(12, bulbRadius + 3); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-12, bulbRadius + 8); ctx.lineTo(12, bulbRadius + 8); ctx.stroke();
-        ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, bulbRadius + 15, 5, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        fsBtn.innerText = document.fullscreenElement ? '✕' : '⛶';
+    });
+}
+
+/**
+ * 物理引擎核心
+ */
+function calculateFlux(magnetX) {
+    const dist = Math.max(Math.abs(magnetX), 0.1); 
+    return 100 / (dist * dist); 
+}
+
+function updatePhysics() {
+    magnetState.lastX = magnetState.x;
+    
+    const currentFlux = calculateFlux(magnetState.x);
+    const dFlux = currentFlux - simState.fluxLast;
+    simState.fluxLast = currentFlux;
+
+    let targetCurrent = dFlux * 15.0; 
+    
+    simState.inducedCurrent += (targetCurrent - simState.inducedCurrent) * 0.2;
+
+    if (Math.abs(simState.inducedCurrent) < 0.001) {
+        simState.inducedCurrent = 0;
+    }
+}
+
+function updateChargePosition(chargeMesh) {
+    const path = new HelixCurve(COIL_RADIUS, COIL_LENGTH, COIL_TURNS);
+    path.getPoint(chargeMesh.userData.t, chargeMesh.position);
+}
+
+function updateVisuals() {
+    // 1. 更新電荷軌跡
+    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0) {
+        let moveDir = -Math.sign(simState.inducedCurrent);
+        if (uiState.chargeType === 'electron') {
+            moveDir *= -1; 
+        }
+
+        const speed = Math.abs(simState.inducedCurrent) * 0.02;
+
+        charges.forEach(c => {
+            c.userData.t += speed * moveDir;
+            if (c.userData.t > 1) c.userData.t -= 1;
+            if (c.userData.t < 0) c.userData.t += 1;
+            updateChargePosition(c);
+        });
     }
 
-    function animate() {
-        ctx.clearRect(0, 0, width, height);
-        let dx = magnet.x - lastMagnetX;
-        let dist = magnet.x - coil.x;
-        let interaction = Math.exp(-0.00004 * dist * dist);
-        let targetCurrent = -dx * interaction * 2.0;
+    // 2. 更新感應磁場大箭頭 (跟著內部電荷顯示選項連動)
+    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.05) {
+        inducedBArrow.visible = true;
         
-        inducedCurrent += (targetCurrent - inducedCurrent) * 0.2;
-        lastMagnetX = magnet.x;
-
-        if (Math.abs(inducedCurrent) > 0.05) {
-            let speed = inducedCurrent * 0.0005; 
-            if (ui.chargeType === 'electron') speed *= -1;
-            chargeOffset += speed;
-        }
-
-        const paths = generateSmoothCoilPaths();
-
-        drawFieldLines();
-        drawCoilSegments(paths.backSegments, true);
-        drawMovingCharges(true); 
-        drawLightBulb();
-        drawMagnet();
-        drawCoilSegments(paths.frontSegments, false);
-        drawMovingCharges(false); 
-        drawLoadingIndicator();
-
-        requestAnimationFrame(animate);
+        const sign = Math.sign(simState.inducedCurrent);
+        const targetRotY = sign > 0 ? 0 : Math.PI;
+        
+        inducedBArrow.rotation.y += (targetRotY - inducedBArrow.rotation.y) * 0.2;
+        
+        const intensity = Math.min(Math.abs(simState.inducedCurrent) * 0.2, 1);
+        inducedBArrow.scale.set(0.5 + intensity*0.8, 0.5 + intensity*0.8, 0.5 + intensity*0.8);
+        inducedBArrow.children.forEach(c => c.material.emissiveIntensity = intensity);
+    } else {
+        inducedBArrow.visible = false;
     }
 
-    animate();
-};
+    // 3. 【更新燈泡發光效果】(增強靈敏度與整體光暈)
+    if (bulbFilamentMat && bulbPointLight && bulbGlassMat) {
+        // 大幅放大電流的數值，確保稍微拖曳磁鐵燈泡就會明顯亮起
+        const lightIntensity = Math.min(Math.abs(simState.inducedCurrent) * 15.0, 1.0);
+        
+        // 平滑過渡亮度 (包含燈絲、點光源、與玻璃罩本身的發光感)
+        bulbFilamentMat.emissiveIntensity += (lightIntensity * 8.0 - bulbFilamentMat.emissiveIntensity) * 0.2;
+        bulbPointLight.intensity += (lightIntensity * 3.0 - bulbPointLight.intensity) * 0.2;
+        bulbGlassMat.emissiveIntensity += (lightIntensity * 0.6 - bulbGlassMat.emissiveIntensity) * 0.2;
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    orbitControls.update();
+    updatePhysics();
+    updateVisuals();
+    renderer.render(scene, camera);
+}
+
+init();
+
 </script>
 </body>
 </html>
