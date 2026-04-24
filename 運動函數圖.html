@@ -30,9 +30,9 @@
         }
     </style>
 </head>
-<body class="p-4 md:p-8 flex flex-col h-screen max-h-screen overflow-hidden box-border">
+<body class="p-4 md:p-8 flex flex-col min-h-screen box-border">
 
-    <div class="max-w-6xl mx-auto w-full flex flex-col h-full gap-4">
+    <div class="max-w-6xl mx-auto w-full flex flex-col gap-6">
         
         <!-- 標題與控制項 -->
         <div class="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm">
@@ -46,6 +46,10 @@
             </div>
 
             <div class="flex gap-2 mt-4 md:mt-0">
+                <!-- 新增：全部顯示按鈕 -->
+                <button onclick="showAllGraphs()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold transition-colors whitespace-nowrap">
+                    全部顯示
+                </button>
                 <button onclick="togglePlay()" id="btn-play" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-md font-semibold transition-colors w-24">
                     開始
                 </button>
@@ -56,7 +60,7 @@
         </div>
 
         <!-- 上半部：車輛或木塊動畫 -->
-        <div class="canvas-container h-64 shrink-0 border border-slate-200">
+        <div class="canvas-container h-64 border border-slate-200">
             <canvas id="carCanvas"></canvas>
             <div class="absolute top-4 left-4 bg-white/80 px-3 py-1 rounded text-sm font-semibold text-slate-700 backdrop-blur-sm">
                 時間: <span id="timeDisplay">0.00</span> s
@@ -69,20 +73,32 @@
         </div>
 
         <!-- 下半部：圖表 -->
-        <div class="grid grid-cols-3 gap-2 md:gap-6 flex-1 min-h-0">
+        <div class="grid grid-cols-3 gap-2 md:gap-6">
             <!-- X-T Graph -->
-            <div class="canvas-container h-full border border-slate-200">
+            <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="xtCanvas"></canvas>
+                <!-- 新增：預設遮罩與顯示按鈕 -->
+                <div id="overlay-xt" class="absolute inset-0 bg-slate-50 flex items-center justify-center z-10">
+                    <button onclick="setGraphVisible('xt', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold shadow-md transition-colors">顯示 x-t 圖</button>
+                </div>
             </div>
             
             <!-- V-T Graph -->
-            <div class="canvas-container h-full border border-slate-200">
+            <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="vtCanvas"></canvas>
+                <!-- 新增：預設遮罩與顯示按鈕 -->
+                <div id="overlay-vt" class="absolute inset-0 bg-slate-50 flex items-center justify-center z-10">
+                    <button onclick="setGraphVisible('vt', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold shadow-md transition-colors">顯示 v-t 圖</button>
+                </div>
             </div>
 
             <!-- A-T Graph -->
-            <div class="canvas-container h-full border border-slate-200">
+            <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="atCanvas"></canvas>
+                <!-- 新增：預設遮罩與顯示按鈕 -->
+                <div id="overlay-at" class="absolute inset-0 bg-slate-50 flex items-center justify-center z-10">
+                    <button onclick="setGraphVisible('at', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold shadow-md transition-colors">顯示 a-t 圖</button>
+                </div>
             </div>
         </div>
 
@@ -203,6 +219,23 @@
             ctx.stroke();
             ctx.restore();
         }
+
+        // --- 新增：控制圖表顯示/隱藏的函數 ---
+        function setGraphVisible(type, isVisible) {
+            const overlay = document.getElementById(`overlay-${type}`);
+            if (isVisible) {
+                overlay.classList.add('hidden');
+            } else {
+                overlay.classList.remove('hidden');
+            }
+        }
+
+        function showAllGraphs() {
+            setGraphVisible('xt', true);
+            setGraphVisible('vt', true);
+            setGraphVisible('at', true);
+        }
+        // ------------------------------------
 
         // 繪製速度向量箭頭 (加入 startY 參數以適應不同物體高度，並整體放大)
         function drawVelocityVector(ctx, v, startY) {
@@ -371,12 +404,15 @@
             const { w, h } = size;
             ctx.clearRect(0, 0, w, h);
 
-            const padding = 30;
+            // 繪圖區域保留邊距 (加大左側邊距，避免數字與小數點被切掉)
+            const paddingLeft = 65; 
+            const paddingRight = 30;
             const topPadding = 40;
-            const originX = padding;
+            const bottomPadding = 30;
+            const originX = paddingLeft;
             const originY = h / 2 + 10;
-            const graphW = w - padding * 2;
-            const graphH = h - topPadding - padding;
+            const graphW = w - paddingLeft - paddingRight;
+            const graphH = h - topPadding - bottomPadding;
 
             ctx.fillStyle = '#334155';
             ctx.font = 'bold 14px Inter';
