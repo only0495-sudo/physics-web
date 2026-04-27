@@ -283,7 +283,7 @@ function togglePanel(panelId, btn) {
  * 3D 物理與渲染核心
  */
 let scene, camera, renderer, orbitControls;
-let magnet, coilGroup, inducedBArrow;
+let magnet, coilGroup, inducedBArrow, magnetHitBox;
 let fieldLinesGroup = new THREE.Group();
 let charges = [];
 const chargeCount = 100;
@@ -569,11 +569,11 @@ function createMagnet() {
     magnet.add(meshN);
     magnet.add(meshS);
 
-    // 碰撞感應框
+    // 碰撞感應框 (將其賦值給全域變數 magnetHitBox，不再使用 const 區域變數)
     const hitGeo = new THREE.BoxGeometry(width + 2, height + 2, depth + 2);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
-    const hitBox = new THREE.Mesh(hitGeo, hitMat);
-    magnet.add(hitBox);
+    magnetHitBox = new THREE.Mesh(hitGeo, hitMat);
+    magnet.add(magnetHitBox);
 
     scene.add(magnet);
 }
@@ -633,38 +633,50 @@ function createFieldLines() {
     const lineMat = new THREE.LineBasicMaterial({ 
         color: 0xaaaaaa, 
         transparent: true, 
-        opacity: 0.3 
+        opacity: 0.25 
     });
     
-    const coneGeo = new THREE.ConeGeometry(0.25, 0.8, 8);
+    const coneGeo = new THREE.ConeGeometry(0.3, 1.0, 8);
     coneGeo.rotateX(Math.PI / 2); 
     const coneMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
 
-    const numLines = 12;
-    for(let layer = 1; layer <= 2; layer++) {
-        const spread = layer * 4;
-        for(let i = 0; i < numLines; i++) {
-            const angle = (i / numLines) * Math.PI * 2;
+    // 設定多層次磁力線：包含近距離密集圈，與遠距離超廣角圈
+    const layers = [
+        { num: 8, spread: 5, extend: 8 },      // 內層短磁力線
+        { num: 12, spread: 10, extend: 16 },   // 中層磁力線
+        { num: 16, spread: 18, extend: 28 },   // 外層長磁力線
+        { num: 16, spread: 35, extend: 45 }    // 超廣角磁力線 (確保遠距離能穿過線圈)
+    ];
+
+    layers.forEach(layer => {
+        for(let i = 0; i < layer.num; i++) {
+            const angle = (i / layer.num) * Math.PI * 2;
             
+            // 使用貝茲曲線模擬真實磁偶極子磁力線路徑
             const curve = new THREE.CubicBezierCurve3(
-                new THREE.Vector3(-3, 0, 0), 
-                new THREE.Vector3(-8, Math.cos(angle)*spread, Math.sin(angle)*spread),
-                new THREE.Vector3(8, Math.cos(angle)*spread, Math.sin(angle)*spread),
-                new THREE.Vector3(3, 0, 0)   
+                new THREE.Vector3(-3, 0, 0), // 從 N 極出發
+                new THREE.Vector3(-layer.extend, Math.cos(angle)*layer.spread, Math.sin(angle)*layer.spread),
+                new THREE.Vector3(layer.extend, Math.cos(angle)*layer.spread, Math.sin(angle)*layer.spread),
+                new THREE.Vector3(3, 0, 0)   // 回到 S 極
             );
 
-            const points = curve.getPoints(40);
+            // 越長的線給予越高的解析度使其平滑
+            const points = curve.getPoints(layer.extend > 20 ? 60 : 40);
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             fieldLinesGroup.add(new THREE.Line(geometry, lineMat));
 
-            const cone = new THREE.Mesh(coneGeo, coneMat);
-            const pt = curve.getPoint(0.5);
-            const tangent = curve.getTangent(0.5);
-            cone.position.copy(pt);
-            cone.lookAt(pt.clone().add(tangent));
-            fieldLinesGroup.add(cone);
+            // 根據線長度動態決定箭頭數量 (長線放3個，短線放1個)
+            const arrowPositions = layer.extend > 20 ? [0.25, 0.5, 0.75] : [0.5];
+            arrowPositions.forEach(t => {
+                const cone = new THREE.Mesh(coneGeo, coneMat);
+                const pt = curve.getPoint(t);
+                const tangent = curve.getTangent(t);
+                cone.position.copy(pt);
+                cone.lookAt(pt.clone().add(tangent)); // 箭頭順著切線方向
+                fieldLinesGroup.add(cone);
+            });
         }
-    }
+    });
     
     magnet.add(fieldLinesGroup);
 }
@@ -682,7 +694,8 @@ function setupInteraction() {
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        const intersects = raycaster.intersectObject(magnet, true);
+        // 修正：只偵測 magnetHitBox (隱形碰撞框)，不偵測整個 magnet 群組(包含磁力線)
+        const intersects = raycaster.intersectObject(magnetHitBox, false);
         if (intersects.length > 0) {
             magnetState.isDragging = true;
             orbitControls.enabled = false; 
@@ -699,7 +712,8 @@ function setupInteraction() {
         raycaster.setFromCamera(mouse, camera);
 
         if (!magnetState.isDragging) {
-            const intersects = raycaster.intersectObject(magnet, true);
+            // 修正：滑鼠懸停時也只偵測碰撞框
+            const intersects = raycaster.intersectObject(magnetHitBox, false);
             container.style.cursor = intersects.length > 0 ? 'grab' : 'auto';
             return;
         }

@@ -186,7 +186,6 @@
             backdrop-filter: blur(8px);
             z-index: 40 !important;
             width: 320px !important; /* 放大面板整體寬度 */
-            /* 注意：這裡已經移除了 overflow: hidden; 解決下拉選單破圖問題 */
         }
         
         .lil-gui .title { color: #0f172a !important; font-weight: bold !important; border-bottom: 1px solid #e2e8f0; }
@@ -213,7 +212,7 @@
             <div class="panel-content text-sm text-slate-600 space-y-2">
                 <p><strong>慢動作演進：</strong> 將碰撞時間拉長，觀察內部機理。</p>
                 <p><strong>能量轉換：</strong> 碰撞瞬間，失去的動能會轉換為<strong>形變位能 (U)</strong>。</p>
-                <p><strong>最接近時刻：</strong> 兩球共速 (達質心速度 $V_{cm}$) 時，形變量最大，位能達到最高峰。</p>
+                <p><strong>最接近時刻：</strong> 兩球共速 (達質心速度 V<sub>CM</sub>) 時，形變量最大，位能達到最高峰。</p>
                 <div class="bg-orange-50 p-2 rounded border border-orange-100 text-xs text-orange-800 mt-2">
                     <strong>🔍 觀察重點：</strong><br>
                     請注意下方 E-t 圖中橘色的「形變位能」曲線。若設定為非彈性碰撞，可以觀察到碰撞結束後總動能下降，且畫面上物體保持永久形變。
@@ -222,7 +221,7 @@
         </details>
 
         <!-- 系統質心速度顯示面板 -->
-        <div id="vcm-display">系統質心速度 Vcm = 0.00 m/s</div>
+        <div id="vcm-display">系統質心速度 V<sub>CM</sub> = 0.00 m/s</div>
 
         <button id="play-pause-btn" onclick="toggleSimulation()">
             <span id="play-icon">▶️ 播放</span>
@@ -302,7 +301,42 @@
         p1: [], p2: [], pTotal: []
     };
 
-    function createChartConfig(title, yLabel, datasets) {
+    // 新增: 用於在 V-T 圖上動態標註「質心速度 VCM」的客製化插件
+    const vcmTextPlugin = {
+        id: 'vcmTextPlugin',
+        afterDraw: (chart) => {
+            const dataset = chart.data.datasets.find(d => d.label === '質心速度 Vcm');
+            if (dataset && dataset.data.length > 0) {
+                const ctx = chart.ctx;
+                const vcmValue = dataset.data[0]; // 質心速度為定值，取第一筆即可
+                const yPos = chart.scales.y.getPixelForValue(vcmValue);
+                
+                // 確保文字只在圖表區域內繪製 (防溢出)
+                if (yPos >= chart.chartArea.top && yPos <= chart.chartArea.bottom) {
+                    ctx.save();
+                    ctx.fillStyle = '#64748b'; // 與虛線顏色相近的文字顏色
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'bottom'; // 設定對齊點為文字底部
+                    
+                    // 繪製主文字 "質心速度 V"
+                    ctx.font = 'bold 13px "Segoe UI", sans-serif';
+                    const mainText = '質心速度 V';
+                    ctx.fillText(mainText, chart.chartArea.left + 15, yPos - 6);
+                    
+                    // 測量主文字寬度，以決定下標起始位置
+                    const mainWidth = ctx.measureText(mainText).width;
+                    
+                    // 縮小字體並保持相同的 Y 座標，讓 CM 與前方文字底部切齊 (同一地板高度)
+                    ctx.font = 'bold 9px "Segoe UI", sans-serif';
+                    ctx.fillText('CM', chart.chartArea.left + 15 + mainWidth + 1, yPos - 6);
+
+                    ctx.restore();
+                }
+            }
+        }
+    };
+
+    function createChartConfig(title, yLabel, datasets, customPlugins = []) {
         return {
             type: 'line',
             data: { labels: chartData.time, datasets: datasets },
@@ -311,16 +345,18 @@
                 plugins: { title: { display: true, text: title, font: { size: 16 } }, legend: { position: 'top' } },
                 scales: { x: { title: { display: true, text: '時間 t (s)' }, ticks: { maxTicksLimit: 10 } }, y: { title: { display: true, text: yLabel } } },
                 elements: { point: { radius: 0 }, line: { borderWidth: 2 } }
-            }
+            },
+            plugins: customPlugins
         };
     }
 
     const ctxVT = document.getElementById('vt-chart').getContext('2d');
+    // 在 v-t 圖的 config 中帶入我們撰寫好的客製化插件 vcmTextPlugin
     const chartVT = new Chart(ctxVT, createChartConfig('速度 - 時間 (v-t 圖)', '速度 v (m/s)', [
         { label: '物體 m1', data: chartData.v1, borderColor: '#ef4444' },
         { label: '物體 m2', data: chartData.v2, borderColor: '#3b82f6' },
         { label: '質心速度 Vcm', data: chartData.vcm, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 1 }
-    ]));
+    ], [vcmTextPlugin]));
 
     const ctxET = document.getElementById('et-chart').getContext('2d');
     const chartET = new Chart(ctxET, createChartConfig('能量 - 時間 (E-t 圖)', '能量 E (J)', [
@@ -627,8 +663,8 @@
         let M_total = params.m1 + params.m2;
         let currentVcm = (params.m1 * state.v1 + params.m2 * state.v2) / M_total;
         
-        // 更新右上角的 HTML 標籤
-        document.getElementById('vcm-display').innerText = `系統質心速度 Vcm = ${currentVcm.toFixed(2)} m/s`;
+        // 更新右上角的 HTML 標籤 (使用 innerHTML 來支援 <sub> 標籤)
+        document.getElementById('vcm-display').innerHTML = `系統質心速度 V<sub>CM</sub> = ${currentVcm.toFixed(2)} m/s`;
     }
 
     /** ==========================================
