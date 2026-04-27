@@ -28,7 +28,7 @@
 
         canvas { display: block; }
 
-        /* 共通面板樣式 - 尺寸微調縮小 */
+        /* 共通面板樣式 */
         .glass-panel {
             position: absolute;
             background: var(--primary-bg);
@@ -63,7 +63,6 @@
             transform: translateX(275px);
         }
 
-        /* 面板切換按鈕包裝器 */
         .panel-toggle-wrapper {
             position: absolute;
             top: 0;
@@ -162,7 +161,6 @@
             cursor: pointer;
         }
 
-        /* 按鈕樣式優化 */
         .btn-action {
             width: 100%;
             padding: 10px;
@@ -205,21 +203,21 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* 圖表 */
+        /* 圖表 - 放大調整 */
         #chart-container {
             position: absolute;
             bottom: 15px;
             left: 50%;
             transform: translateX(-50%);
-            width: 95vw;
-            max-width: 1100px;
-            height: 220px;
+            width: 96vw;
+            max-width: 1200px;
+            height: 280px; /* 從 220 提升到 280 */
             background: var(--primary-bg);
             border-radius: 12px;
             border: 1px solid var(--panel-border);
             backdrop-filter: blur(10px);
             z-index: 10;
-            padding: 10px;
+            padding: 15px;
             box-sizing: border-box;
         }
 
@@ -263,7 +261,7 @@
                 </div>
             </div>
             <p style="font-size: 0.8rem; color: #bbb; margin-bottom: 0;">
-                靜止在平衡點時能量為零。拉動產生位能後，總能量隨之增加。
+                在平衡點靜止時能量為零。拉動產生位能後，總能量隨之增加。
             </p>
         </div>
     </div>
@@ -323,7 +321,7 @@
             isDragging: false,
             isSlowMo: false,
             simpleChart: false,
-            timeStep: 1/60,
+            timeStep: 1/120, // 增加物理取樣率以提高穩定性
             screenX: 0,         
             restX: 0,           
             wallX: 0,
@@ -355,9 +353,9 @@
                     legend: { 
                         labels: { 
                             color: '#eee', 
-                            font: { size: 14, weight: 'bold' },
-                            boxWidth: 30,
-                            padding: 15
+                            font: { size: 16, weight: 'bold' }, // 再次放大圖例字體
+                            boxWidth: 35,
+                            padding: 20
                         } 
                     } 
                 },
@@ -401,14 +399,19 @@
             }
 
             const dt = state.isSlowMo ? state.timeStep * 0.2 : state.timeStep;
-            const fSpring = -state.k * state.x;
-            const fFriction = -state.mu * 6.0 * state.v; 
-            const a = (fSpring + fFriction) / state.m;
             
-            state.v += a * dt;
-            state.x += state.v * dt;
+            // 物理子步進以增加精確度
+            for (let i = 0; i < 2; i++) {
+                const fSpring = -state.k * state.x;
+                const fFriction = -state.mu * 6.0 * state.v; 
+                const a = (fSpring + fFriction) / state.m;
+                
+                state.v += a * (dt/2);
+                state.x += state.v * (dt/2);
+            }
+            
             state.screenX = state.restX + state.x;
-            state.heat += Math.abs(fFriction * state.v) * dt;
+            state.heat += Math.abs(-state.mu * 6.0 * state.v * state.v) * dt;
         }
 
         function draw() {
@@ -456,10 +459,18 @@
             ctx.strokeStyle = '#fff';
             ctx.strokeRect(mX - mSize/2, groundY - mSize/2, mSize, mSize);
 
-            const K = 0.5 * state.m * state.v * state.v;
-            const U = 0.5 * state.k * state.x * state.x;
+            // 能量計算
+            let K = 0.5 * state.m * state.v * state.v;
+            let U = 0.5 * state.k * state.x * state.x;
+            
+            // 理論總力學能與系統總能
             const totalEnergy = state.initialSystemEnergy;
             const mechEnergy = Math.max(0, totalEnergy - state.heat);
+
+            // 修正：強制將顯示的 K 和 U 限制在理論值 mechEnergy 之下
+            // 這是為了處理數值積分中極微小的誤差造成的「溢出」現象
+            if (K > mechEnergy) K = mechEnergy;
+            if (U > mechEnergy) U = mechEnergy;
 
             if (frameCount % 2 === 0) {
                 chart.data.datasets[0].data.push(K);
@@ -470,9 +481,10 @@
                 
                 chart.data.datasets.forEach(d => d.data.shift());
                 
-                const currentMax = Math.max(100, totalEnergy * 1.2);
+                // 動態調整 Y 軸，確保略大於總能，視覺上不會穿頂
+                const currentMax = Math.max(100, totalEnergy * 1.1);
                 if (currentMax > chart.options.scales.y.suggestedMax) {
-                    chart.options.scales.y.suggestedMax = Math.ceil(currentMax / 40) * 40;
+                    chart.options.scales.y.suggestedMax = Math.ceil(currentMax / 20) * 20;
                 }
                 chart.update();
             }
