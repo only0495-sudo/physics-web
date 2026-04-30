@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>正向力與視重 2D 模擬器 | 專業教學儀表板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -13,194 +13,211 @@
             overflow: hidden; 
             background-color: #f8fafc; 
             color: #1e293b; 
-            /* 防止移動端雙擊放大 */
+            /* 完全禁用雙擊放大行為，確保觸控立即響應 */
             touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+        /* UI 容器：確保在畫布之上且不干擾背景拖動 */
+        #ui-root {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
         }
 
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
-            background: #3b82f6; cursor: pointer; margin-top: -6px;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.2);
+            pointer-events: auto; /* 恢復點擊 */
         }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #cbd5e1; border-radius: 3px; }
-        input[type=range]:focus { outline: none; }
+
+        /* 加大觸控熱區的拉桿 */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 30px; width: 30px; border-radius: 50%;
+            background: #3b82f6; cursor: pointer; margin-top: -12px;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; background: #cbd5e1; border-radius: 3px; }
 
         .fade-transition { transition: opacity 0.3s ease, transform 0.3s ease; }
-        .hidden-mode { opacity: 0; pointer-events: none; position: absolute; transform: translateY(10px); }
+        .hidden-mode { display: none !important; }
 
         #simCanvas {
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            z-index: -1;
+            z-index: 1;
             cursor: grab;
         }
         #simCanvas:active { cursor: grabbing; }
+
+        /* 面板滾動區域優化 */
+        aside {
+            max-height: calc(100vh - 120px);
+        }
     </style>
 </head>
-<body class="flex flex-col h-screen w-screen">
+<body class="bg-slate-50 overflow-hidden">
 
     <canvas id="simCanvas"></canvas>
 
-    <!-- 頂部導覽列 -->
-    <header class="w-full glass-panel flex flex-col md:flex-row items-center justify-between px-6 py-4 z-10 shrink-0">
-        <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">N</div>
-            <div>
-                <h1 class="text-xl md:text-2xl font-bold tracking-wide text-slate-800">正向力與視重教學模擬器</h1>
-                <p class="text-xs text-blue-600 font-mono font-bold">2D Physics Simulation Engine</p>
-            </div>
-        </div>
-        
-        <div class="flex bg-slate-100 p-1 rounded-lg mt-4 md:mt-0 border border-slate-200">
-            <button id="btn-mode-block" class="px-6 py-2 rounded-md font-bold text-sm transition-all bg-blue-600 text-white shadow-md" onclick="switchMode('block')">
-                <span class="mr-2">📦</span> 方塊受力實驗
-            </button>
-            <button id="btn-mode-elevator" class="px-6 py-2 rounded-md font-bold text-sm transition-all text-slate-500 hover:text-slate-800" onclick="switchMode('elevator')">
-                <span class="mr-2">🛗</span> 電梯升降實驗
-            </button>
-        </div>
-    </header>
-
-    <main class="flex-grow flex flex-col md:flex-row relative overflow-hidden pointer-events-none p-4 gap-4">
-        
-        <aside class="w-full md:w-80 flex flex-col gap-4 pointer-events-auto h-full overflow-y-auto no-scrollbar shrink-0">
-            
-            <div class="glass-panel p-5 rounded-xl border-l-4 border-l-blue-500">
-                <h3 class="text-sm text-slate-500 font-bold mb-1">物理核心概念</h3>
-                <div class="text-lg font-mono font-bold text-blue-600">| 壓迫總力 | = | 正向力 N |</div>
-            </div>
-
-            <!-- 模式一面板 -->
-            <div id="panel-block" class="glass-panel p-5 rounded-xl flex flex-col gap-5 fade-transition relative">
-                <h2 class="text-lg font-bold border-b border-slate-200 pb-2 text-slate-800 flex justify-between items-center">
-                    <span>參數設定</span>
-                    <span class="text-xs font-normal text-slate-600 bg-slate-100 px-2 py-1 rounded">靜態平衡</span>
-                </h2>
-                
+    <div id="ui-root">
+        <!-- 頂部導覽列 -->
+        <header class="w-full glass-panel flex flex-col md:flex-row items-center justify-between px-6 py-3 shrink-0">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">N</div>
                 <div>
-                    <div class="flex justify-between mb-2">
-                        <label class="text-sm font-bold text-slate-700">方塊質量 (m)</label>
-                        <span id="ui-block-mass-val" class="font-mono text-blue-600 font-bold">20 kg</span>
-                    </div>
-                    <input type="range" id="ui-block-mass" min="10" max="100" value="20">
-                </div>
-
-                <label class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
-                    <input type="checkbox" id="ui-force-toggle" class="w-5 h-5 accent-orange-500 rounded">
-                    <span class="font-bold text-orange-600">施加外部力 (F)</span>
-                </label>
-
-                <div id="ui-force-details" class="flex flex-col gap-4 opacity-30 pointer-events-none transition-opacity duration-300">
-                    <div>
-                        <div class="flex justify-between mb-2">
-                            <label class="text-sm font-bold text-slate-700">外力大小 (|F|)</label>
-                            <span id="ui-block-force-val" class="font-mono text-orange-400 font-bold">0 N</span>
-                        </div>
-                        <input type="range" id="ui-block-force" min="0" max="300" value="0" step="5">
-                    </div>
-                    <div>
-                        <div class="flex justify-between mb-1">
-                            <label class="text-sm font-bold text-slate-700">施力角度</label>
-                            <span id="ui-block-angle-val" class="font-mono text-orange-400 font-bold">90°</span>
-                        </div>
-                        <div class="flex gap-2 mb-3">
-                            <button class="flex-1 bg-white hover:bg-slate-100 text-xs py-1.5 rounded border border-slate-300 font-bold active:scale-95" onclick="setAngle(90)">↑ 向上 (90°)</button>
-                            <button class="flex-1 bg-white hover:bg-slate-100 text-xs py-1.5 rounded border border-slate-300 font-bold active:scale-95" onclick="setAngle(270)">↓ 向下 (270°)</button>
-                        </div>
-                        <input type="range" id="ui-block-angle" min="0" max="360" value="90">
-                    </div>
-                </div>
-
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <h3 class="text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">垂直方向受力分析</h3>
-                    <div class="space-y-2 font-mono text-sm">
-                        <div class="flex justify-between"><span class="text-slate-600">重力 (W)</span><span class="text-slate-800 font-bold">↓ <span id="ui-val-w">196</span> N</span></div>
-                        <div class="flex justify-between"><span class="text-slate-600">外力 (Fy)</span><span class="text-orange-600 font-bold"><span id="ui-val-fy-dir">↑</span> <span id="ui-val-fy">0</span> N</span></div>
-                        <div class="h-px w-full bg-slate-200 my-1"></div>
-                        <div class="flex justify-between items-center"><span class="text-blue-700 font-bold">正向力 (N)</span><span class="text-blue-600 text-xl font-bold">↑ <span id="ui-val-n">196</span> N</span></div>
-                    </div>
+                    <h1 class="text-lg md:text-xl font-bold tracking-wide text-slate-800">正向力與視重教學模擬器</h1>
+                    <p class="text-[10px] text-blue-600 font-mono font-bold">2D Physics Professional Engine</p>
                 </div>
             </div>
+            
+            <div class="flex bg-slate-100 p-1 rounded-lg mt-2 md:mt-0 border border-slate-200">
+                <button id="btn-mode-block" class="px-5 py-2 rounded-md font-bold text-sm transition-all bg-blue-600 text-white shadow-md" onclick="switchMode('block')">📦 方塊實驗</button>
+                <button id="btn-mode-elevator" class="px-5 py-2 rounded-md font-bold text-sm transition-all text-slate-500 hover:text-slate-800" onclick="switchMode('elevator')">🛗 電梯實驗</button>
+            </div>
+        </header>
 
-            <!-- 模式二面板 -->
-            <div id="panel-elevator" class="glass-panel p-5 rounded-xl flex flex-col gap-5 fade-transition hidden-mode absolute top-0 w-full md:relative">
-                <h2 class="text-lg font-bold border-b border-slate-200 pb-2 text-slate-800 flex justify-between items-center">
-                    <span>電梯旅程控制</span>
-                    <span class="text-xs font-normal text-slate-600 bg-slate-100 px-2 py-1 rounded">動態運動</span>
-                </h2>
+        <!-- 主要互動區 -->
+        <main class="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
+            
+            <!-- 左側面板 -->
+            <aside class="w-full md:w-80 flex flex-col gap-3 h-full overflow-y-auto no-scrollbar pointer-events-none">
                 
-                <p class="text-sm text-slate-600 leading-relaxed">
-                    點擊按鈕啟動電梯。觀察加速與減速過程中「視重」的變化。您可以<b>拖動畫面</b>來觀看不同樓層。
-                </p>
+                <div class="glass-panel p-4 rounded-xl border-l-4 border-l-blue-500 shrink-0">
+                    <h3 class="text-xs text-slate-500 font-bold mb-0.5">物理核心概念</h3>
+                    <div class="text-base font-mono font-bold text-blue-600">| 壓迫總力 | = | 正向力 N |</div>
+                </div>
 
-                <div class="flex flex-col gap-3 mt-2">
-                    <button id="btn-ele-start" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shadow-lg active:scale-95 flex items-center justify-center gap-2" onclick="startJourney()">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                        開始上升旅程
-                    </button>
+                <!-- 模式一控制面板 -->
+                <div id="panel-block" class="glass-panel p-4 rounded-xl flex flex-col gap-4 fade-transition">
+                    <h2 class="text-base font-bold border-b border-slate-200 pb-2 text-slate-800 flex justify-between items-center">
+                        <span>參數設定</span>
+                        <span class="text-[10px] font-normal text-slate-600 bg-slate-100 px-2 py-1 rounded">靜態平衡</span>
+                    </h2>
                     
-                    <button id="btn-ele-pause" class="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg transition-all active:scale-95 opacity-50 cursor-not-allowed" onclick="togglePause()" disabled>
-                        暫停
-                    </button>
-                    <button class="w-full py-2 text-xs text-slate-400 hover:text-slate-600" onclick="resetCamera()">重置視角位置</button>
+                    <div>
+                        <div class="flex justify-between mb-1.5">
+                            <label class="text-sm font-bold text-slate-700">質量 (m)</label>
+                            <span id="ui-block-mass-val" class="font-mono text-blue-600 font-bold">20 kg</span>
+                        </div>
+                        <input type="range" id="ui-block-mass" min="10" max="100" value="20">
+                    </div>
+
+                    <label class="flex items-center gap-3 cursor-pointer p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                        <input type="checkbox" id="ui-force-toggle" class="w-6 h-6 accent-orange-500 rounded">
+                        <span class="font-bold text-sm text-orange-600">施加外部力 (F)</span>
+                    </label>
+
+                    <div id="ui-force-details" class="flex flex-col gap-3 opacity-30 pointer-events-none transition-opacity duration-300">
+                        <div>
+                            <div class="flex justify-between mb-1.5">
+                                <label class="text-sm font-bold text-slate-700">外力大小 (|F|)</label>
+                                <span id="ui-block-force-val" class="font-mono text-orange-400 font-bold">0 N</span>
+                            </div>
+                            <input type="range" id="ui-block-force" min="0" max="300" value="0" step="5">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <label class="text-sm font-bold text-slate-700">施力角度</label>
+                                <span id="ui-block-angle-val" class="font-mono text-orange-400 font-bold">90°</span>
+                            </div>
+                            <div class="flex gap-2 mb-2">
+                                <button class="flex-1 bg-white hover:bg-slate-100 text-xs py-2 rounded border border-slate-300 font-bold active:scale-95" onclick="setAngle(90)">↑ 向上</button>
+                                <button class="flex-1 bg-white hover:bg-slate-100 text-xs py-2 rounded border border-slate-300 font-bold active:scale-95" onclick="setAngle(270)">↓ 向下</button>
+                            </div>
+                            <input type="range" id="ui-block-angle" min="0" max="360" value="90">
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-slate-700">
+                        <div class="space-y-1 font-mono text-xs">
+                            <div class="flex justify-between"><span>重力 W</span><span class="font-bold text-slate-800">↓ <span id="ui-val-w">196</span> N</span></div>
+                            <div class="flex justify-between"><span>外力 Fy</span><span class="font-bold text-orange-600"><span id="ui-val-fy-dir">↑</span> <span id="ui-val-fy">0</span> N</span></div>
+                            <div class="h-px w-full bg-slate-200 my-1"></div>
+                            <div class="flex justify-between items-center text-blue-700 font-bold"><span>正向力 N</span><span class="text-lg">↑ <span id="ui-val-n">196</span> N</span></div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-2">
-                    <div class="text-xs text-slate-500 font-bold mb-1 uppercase">當前運動狀態</div>
-                    <div id="ui-ele-status" class="text-lg font-bold text-slate-800 mb-1">停在一樓</div>
-                    <div id="ui-ele-physics" class="text-sm font-mono text-emerald-600 font-bold">a = 0.00 m/s² | 等速/靜止</div>
+                <!-- 模式二控制面板 -->
+                <div id="panel-elevator" class="glass-panel p-4 rounded-xl flex flex-col gap-4 fade-transition hidden-mode absolute top-0 w-full md:relative">
+                    <h2 class="text-base font-bold border-b border-slate-200 pb-2 text-slate-800 flex justify-between items-center">
+                        <span>電梯旅程控制</span>
+                        <span class="text-[10px] font-normal text-slate-600 bg-slate-100 px-2 py-1 rounded">動態運動</span>
+                    </h2>
+                    
+                    <div class="flex flex-col gap-3">
+                        <button id="btn-ele-start" class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg active:scale-95 flex items-center justify-center gap-2" onclick="startJourney()">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                            開始電梯運動
+                        </button>
+                        
+                        <button id="btn-ele-pause" class="w-full py-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl active:scale-95 opacity-50" onclick="togglePause()" disabled>
+                            暫停
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <div id="ui-ele-status" class="text-base font-bold text-slate-800 mb-0.5 text-center">靜止在一樓</div>
+                        <div id="ui-ele-physics" class="text-xs font-mono text-emerald-600 font-bold text-center">a = 0.00 m/s²</div>
+                    </div>
+
+                    <button class="w-full py-2 text-xs text-slate-400 hover:text-blue-600 font-bold underline transition-colors" onclick="resetCamera()">重置視角中心</button>
+                </div>
+
+            </aside>
+
+            <!-- 右側資訊區 -->
+            <div class="flex-grow flex flex-col justify-between items-end pointer-events-none h-full pb-28 md:pb-24">
+                <!-- 右上角數據 -->
+                <div id="overlay-right-top" class="glass-panel p-5 rounded-2xl border-t-4 border-t-blue-500 pointer-events-auto shadow-xl flex flex-col items-end text-slate-700">
+                    <div class="text-xs text-slate-600 font-bold mb-1 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>
+                        即時正向力 / 視重 (N)
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="ui-top-val-n" class="text-5xl md:text-6xl font-black font-mono tracking-tighter text-blue-600 drop-shadow-sm">196</span>
+                        <span class="text-xl font-bold text-slate-500">N</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-2 font-mono font-bold text-slate-700">基準重量 W = <span id="ui-top-val-w">196</span> N</div>
+                </div>
+
+                <!-- 底部垂直堆疊圖表 -->
+                <div id="overlay-graphs" class="flex flex-col items-end gap-3 pointer-events-auto hidden-mode pr-2">
+                    <div class="glass-panel p-2 rounded-xl"><canvas id="canvas-vt" width="280" height="120" class="rounded-lg"></canvas></div>
+                    <div class="glass-panel p-2 rounded-xl"><canvas id="canvas-nt" width="280" height="120" class="rounded-lg"></canvas></div>
                 </div>
             </div>
+        </main>
 
-        </aside>
-
-        <!-- 右側資訊層 -->
-        <div class="flex-grow flex flex-col justify-between items-end pointer-events-none h-full pb-16">
-            <div id="overlay-right-top" class="glass-panel p-6 rounded-2xl border-t-4 border-t-blue-500 pointer-events-auto fade-transition shadow-xl flex flex-col items-end">
-                <div class="text-sm text-slate-600 font-bold mb-1 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>
-                    即時正向力 / 視重 (N)
-                </div>
-                <div class="flex items-baseline gap-2">
-                    <span id="ui-top-val-n" class="text-6xl font-black font-mono tracking-tighter text-blue-600 drop-shadow-sm">196</span>
-                    <span class="text-2xl font-bold text-slate-500">N</span>
-                </div>
-                <div class="text-xs text-slate-500 mt-2 font-mono font-bold">基準重量 W = <span id="ui-top-val-w">196</span> N</div>
+        <!-- 固定工具列 -->
+        <div class="fixed bottom-8 right-8 flex items-center gap-5 glass-panel px-6 py-4 rounded-full z-[200] shadow-2xl border border-slate-200">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                <input type="range" id="ui-zoom" min="0.5" max="3.0" value="1.0" step="0.1" class="w-32 md:w-40">
+                <span id="ui-zoom-val" class="text-sm font-mono font-bold text-slate-600 w-10 text-center">1.0x</span>
             </div>
-
-            <div id="overlay-graphs" class="w-full flex flex-col items-end gap-3 pointer-events-auto fade-transition hidden-mode mt-auto pr-4 overflow-y-auto no-scrollbar" style="max-height: 70vh;">
-                <div class="glass-panel p-3 rounded-xl"><canvas id="canvas-vt" width="280" height="150" class="rounded-lg"></canvas></div>
-                <div class="glass-panel p-3 rounded-xl"><canvas id="canvas-nt" width="280" height="150" class="rounded-lg"></canvas></div>
-            </div>
+            <div class="w-px h-8 bg-slate-300"></div>
+            <button class="text-slate-600 hover:text-blue-600 p-2 active:scale-90 transition-transform" onclick="toggleFullscreen()">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </button>
         </div>
-    </main>
-
-    <!-- 工具列 -->
-    <div class="fixed bottom-4 right-4 flex items-center gap-4 glass-panel px-5 py-3 rounded-full z-50 shadow-xl border border-slate-200 pointer-events-auto">
-        <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
-            <input type="range" id="ui-zoom" min="0.5" max="3.0" value="1.0" step="0.1" class="w-24">
-            <span id="ui-zoom-val" class="text-sm font-mono font-bold text-slate-600 w-8 text-center">1.0x</span>
-        </div>
-        <div class="w-px h-6 bg-slate-300"></div>
-        <button class="text-slate-600 hover:text-blue-600 hover:scale-110 transition-all p-1" onclick="toggleFullscreen()">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
-        </button>
     </div>
 
     <script>
@@ -208,14 +225,10 @@
         let currentMode = 'block';
         let lastTime = 0;
         let globalZoom = 1.0;
-        
-        let camOffsetX = 0;
-        let camOffsetY = 0;
-        let isDragging = false;
-        let lastDragPos = { x: 0, y: 0 };
+        let camOffsetX = 0, camOffsetY = 0, isDragging = false, lastDragPos = { x: 0, y: 0 };
 
-        const stateBlock = { mass: 20, forceEnabled: false, forceMag: 0, forceAngle: 90, W: 0, Fy: 0, Fx: 0, N: 0, y: 0, vy: 0 };
-        const stateElevator = { mass: 600 / GRAVITY, displacement: 0, a: 0, v: 0, N: 600, journeyActive: false, isPaused: false, timer: 0, phase: 'idle', location: 'bottom', direction: 'up', history: [] };
+        const stateBlock = { mass: 20, forceEnabled: false, forceMag: 0, forceAngle: 90, W: 196, Fy: 0, N: 196, y: 0, vy: 0 };
+        const stateElevator = { mass: 600/GRAVITY, displacement: 0, a: 0, v: 0, N: 600, journeyActive: false, isPaused: false, timer: 0, phase: 'idle', location: 'bottom', direction: 'up', history: [] };
 
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
@@ -229,33 +242,21 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        canvas.addEventListener('mousedown', (e) => { isDragging = true; lastDragPos = { x: e.clientX, y: e.clientY }; });
-        window.addEventListener('mousemove', (e) => {
+        const startDrag = (x, y) => { isDragging = true; lastDragPos = { x, y }; };
+        const doDrag = (x, y) => {
             if (!isDragging) return;
-            const dx = e.clientX - lastDragPos.x;
-            const dy = e.clientY - lastDragPos.y;
-            camOffsetX += dx / globalZoom;
-            camOffsetY += dy / globalZoom;
-            lastDragPos = { x: e.clientX, y: e.clientY };
-        });
-        window.addEventListener('mouseup', () => { isDragging = false; });
-        
-        canvas.addEventListener('touchstart', (e) => { 
-            isDragging = true; 
-            lastDragPos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
-        }, { passive: false });
-        window.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            const dx = e.touches[0].clientX - lastDragPos.x;
-            const dy = e.touches[0].clientY - lastDragPos.y;
-            camOffsetX += dx / globalZoom;
-            camOffsetY += dy / globalZoom;
-            lastDragPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        }, { passive: false });
-        window.addEventListener('touchend', () => { isDragging = false; });
+            camOffsetX += (x - lastDragPos.x) / globalZoom;
+            camOffsetY += (y - lastDragPos.y) / globalZoom;
+            lastDragPos = { x, y };
+        };
+        canvas.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => doDrag(e.clientX, e.clientY));
+        window.addEventListener('mouseup', () => isDragging = false);
+        canvas.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+        window.addEventListener('touchmove', (e) => doDrag(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+        window.addEventListener('touchend', () => isDragging = false);
 
         function resetCamera() { camOffsetX = 0; camOffsetY = 0; }
-
         document.getElementById('ui-zoom').addEventListener('input', (e) => {
             globalZoom = parseFloat(e.target.value);
             document.getElementById('ui-zoom-val').innerText = globalZoom.toFixed(1) + 'x';
@@ -266,15 +267,14 @@
             else document.exitFullscreen();
         }
 
-        function setAngle(angle) {
-            document.getElementById('ui-block-angle').value = angle;
-            updateBlockPhysics();
+        function setAngle(angle) { 
+            const angleInput = document.getElementById('ui-block-angle');
+            if (angleInput) {
+                angleInput.value = angle; 
+                updateBlockPhysics(); 
+            }
         }
 
-        /**
-         * 繪製受力向量箭頭
-         * 文字大小會隨 width 自動比例縮放
-         */
         function drawArrow(ctx, fromX, fromY, toX, toY, color, text = '', width = 4) {
             const headlen = width * 2.5; 
             const dx = toX - fromX, dy = toY - fromY;
@@ -291,93 +291,112 @@
             ctx.lineCap = 'butt'; 
             ctx.lineJoin = 'miter';
 
-            ctx.beginPath();
-            ctx.moveTo(fromX, fromY);
-            ctx.lineTo(lineEndX, lineEndY);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(toX, toY);
+            ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(lineEndX, lineEndY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toX, toY);
             ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
             ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
-            ctx.closePath();
-            ctx.fill();
+            ctx.closePath(); ctx.fill();
 
             if (text) {
-                const fontSize = width * 2.4;
-                const offset = headlen + (fontSize * 0.4);
-                const tx = toX + offset * Math.cos(angle), ty = toY + offset * Math.sin(angle);
+                const fontSize = Math.max(16, width * 2.0); 
+                const tx = toX + (headlen + fontSize*0.4) * Math.cos(angle), ty = toY + (headlen + fontSize*0.4) * Math.sin(angle);
                 ctx.font = 'bold ' + fontSize + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = fontSize * 0.2;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = fontSize * 0.15;
                 ctx.strokeText(text, tx, ty);
-                ctx.fillStyle = '#1e293b';
-                ctx.fillText(text, tx, ty);
+                ctx.fillStyle = '#1e293b'; ctx.fillText(text, tx, ty);
             }
         }
 
         function updateBlockPhysics() {
             if(currentMode !== 'block') return;
-            stateBlock.mass = parseFloat(document.getElementById('ui-block-mass').value);
-            stateBlock.forceEnabled = document.getElementById('ui-force-toggle').checked;
-            document.getElementById('ui-force-details').style.opacity = stateBlock.forceEnabled ? '1' : '0.3';
-            document.getElementById('ui-force-details').style.pointerEvents = stateBlock.forceEnabled ? 'auto' : 'none';
+            const massIn = document.getElementById('ui-block-mass');
+            const toggleIn = document.getElementById('ui-force-toggle');
+            if(!massIn || !toggleIn) return;
+
+            stateBlock.mass = parseFloat(massIn.value);
+            stateBlock.forceEnabled = toggleIn.checked;
+            
+            const details = document.getElementById('ui-force-details');
+            if(details) {
+                details.style.opacity = stateBlock.forceEnabled ? '1' : '0.3';
+                details.style.pointerEvents = stateBlock.forceEnabled ? 'auto' : 'none';
+            }
+
             stateBlock.W = stateBlock.mass * GRAVITY;
-            document.getElementById('ui-block-mass-val').innerText = `${stateBlock.mass} kg`;
+            const massVal = document.getElementById('ui-block-mass-val');
+            if(massVal) massVal.innerText = `${stateBlock.mass} kg`;
+
             if (stateBlock.forceEnabled) {
-                stateBlock.forceMag = parseFloat(document.getElementById('ui-block-force').value);
-                stateBlock.forceAngle = parseFloat(document.getElementById('ui-block-angle').value);
-                const rad = stateBlock.forceAngle * Math.PI / 180;
-                stateBlock.Fy = stateBlock.forceMag * Math.sin(rad);
+                const forceIn = document.getElementById('ui-block-force');
+                const angleIn = document.getElementById('ui-block-angle');
+                stateBlock.forceMag = parseFloat(forceIn.value);
+                stateBlock.forceAngle = parseFloat(angleIn.value);
+                stateBlock.Fy = stateBlock.forceMag * Math.sin(stateBlock.forceAngle * Math.PI / 180);
                 document.getElementById('ui-block-force-val').innerText = `${stateBlock.forceMag} N`;
                 document.getElementById('ui-block-angle-val').innerText = `${stateBlock.forceAngle}°`;
-            } else { stateBlock.Fy = 0; }
+            } else { 
+                stateBlock.Fy = 0; 
+            }
+
             stateBlock.N = (stateBlock.y > 0) ? 0 : Math.max(0, stateBlock.W - stateBlock.Fy);
-            document.getElementById('ui-val-w').innerText = Math.round(stateBlock.W);
-            document.getElementById('ui-val-fy').innerText = Math.round(Math.abs(stateBlock.Fy));
-            document.getElementById('ui-val-fy-dir').innerText = stateBlock.Fy >= 0 ? '↑' : '↓';
-            document.getElementById('ui-val-n').innerText = Math.round(stateBlock.N);
+            
+            const uiW = document.getElementById('ui-val-w');
+            const uiFy = document.getElementById('ui-val-fy');
+            const uiFyDir = document.getElementById('ui-val-fy-dir');
+            const uiN = document.getElementById('ui-val-n');
+            
+            if(uiW) uiW.innerText = Math.round(stateBlock.W);
+            if(uiFy) uiFy.innerText = Math.round(Math.abs(stateBlock.Fy));
+            if(uiFyDir) uiFyDir.innerText = stateBlock.Fy >= 0 ? '↑' : '↓';
+            if(uiN) uiN.innerText = Math.round(stateBlock.N);
+            
             updateTopOverlay(stateBlock.N, stateBlock.W);
         }
 
         function updateTopOverlay(n, w) {
-            const nVal = document.getElementById('ui-top-val-n');
-            const wVal = document.getElementById('ui-top-val-w');
-            nVal.innerText = Math.round(n);
-            wVal.innerText = Math.round(w);
-            if (n > w + 1) nVal.className = "text-6xl font-black font-mono text-red-500 drop-shadow-sm";
-            else if (n < w - 1) nVal.className = "text-6xl font-black font-mono text-blue-600 drop-shadow-sm";
-            else nVal.className = "text-6xl font-black font-mono text-emerald-500 drop-shadow-sm";
+            const nVal = document.getElementById('ui-top-val-n'), wVal = document.getElementById('ui-top-val-w');
+            if(!nVal || !wVal) return;
+            nVal.innerText = Math.round(n); wVal.innerText = Math.round(w);
+            if (n > w + 1) nVal.className = "text-5xl md:text-6xl font-black font-mono text-red-500 drop-shadow-sm";
+            else if (n < w - 1) nVal.className = "text-5xl md:text-6xl font-black font-mono text-blue-600 drop-shadow-sm";
+            else nVal.className = "text-5xl md:text-6xl font-black font-mono text-emerald-500 drop-shadow-sm";
         }
 
         function updateElevatorUI() {
             updateTopOverlay(stateElevator.N, 600);
-            const statusEl = document.getElementById('ui-ele-status');
-            const physicsEl = document.getElementById('ui-ele-physics');
+            const statusEl = document.getElementById('ui-ele-status'), physicsEl = document.getElementById('ui-ele-physics');
+            if (!statusEl || !physicsEl) return;
             if (!stateElevator.journeyActive) {
-                statusEl.innerText = stateElevator.location === 'bottom' ? "停在一樓" : "停在頂樓";
-                physicsEl.innerText = "a = 0.00 m/s² | 靜止狀態";
+                statusEl.innerText = stateElevator.location === 'bottom' ? "狀態：靜止在一樓" : "狀態：靜止在頂樓";
+                physicsEl.innerText = "a = 0.00 | 靜止";
             } else if (stateElevator.isPaused) {
-                statusEl.innerText = "暫停中";
-                physicsEl.innerText = `a = ${stateElevator.a.toFixed(2)} m/s²`;
+                statusEl.innerText = "狀態：暫停中";
+                physicsEl.innerText = `a = ${stateElevator.a.toFixed(2)}`;
             } else {
                 const dir = stateElevator.direction === 'up' ? '上升' : '下降';
-                statusEl.innerText = `階段：${stateElevator.phase === 'accel' ? '加速' : stateElevator.phase === 'const' ? '等速' : '減速'}${dir}`;
-                physicsEl.innerText = `a = ${stateElevator.a.toFixed(2)} m/s² | v = ${stateElevator.v.toFixed(2)} m/s`;
+                const phase = stateElevator.phase === 'accel' ? '加速' : stateElevator.phase === 'const' ? '等速' : '減速';
+                statusEl.innerText = `狀態：${phase}${dir}`;
+                physicsEl.innerText = `a = ${stateElevator.a.toFixed(2)} | v = ${stateElevator.v.toFixed(2)}`;
             }
         }
 
         window.switchMode = function(mode) {
             currentMode = mode; resetCamera();
-            document.getElementById('btn-mode-block').className = (mode === 'block') ? "px-6 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md" : "px-6 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
-            document.getElementById('btn-mode-elevator').className = (mode === 'elevator') ? "px-6 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md" : "px-6 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
-            document.getElementById('panel-block').classList.toggle('hidden-mode', mode !== 'block');
-            document.getElementById('panel-elevator').classList.toggle('hidden-mode', mode !== 'elevator');
-            document.getElementById('overlay-graphs').classList.toggle('hidden-mode', mode !== 'elevator');
-            if (mode === 'block') updateBlockPhysics();
-            else { updateElevatorUI(); drawGraphs(); }
+            const btnB = document.getElementById('btn-mode-block');
+            const btnE = document.getElementById('btn-mode-elevator');
+            const panB = document.getElementById('panel-block');
+            const panE = document.getElementById('panel-elevator');
+            const overlayG = document.getElementById('overlay-graphs');
+
+            if(btnB) btnB.className = (mode === 'block') ? "px-5 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md" : "px-5 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
+            if(btnE) btnE.className = (mode === 'elevator') ? "px-5 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md" : "px-5 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
+            
+            if(panB) panB.classList.toggle('hidden-mode', mode !== 'block');
+            if(panE) panE.classList.toggle('hidden-mode', mode !== 'elevator');
+            if(overlayG) overlayG.classList.toggle('hidden-mode', mode !== 'elevator');
+            
+            if (mode === 'block') updateBlockPhysics(); else { updateElevatorUI(); drawGraphs(); }
         };
 
         window.startJourney = function() {
@@ -385,37 +404,37 @@
             stateElevator.journeyActive = true; stateElevator.isPaused = false; stateElevator.timer = 0;
             stateElevator.direction = stateElevator.location === 'bottom' ? 'up' : 'down';
             stateElevator.history = [{t: 0, N: 600, v: 0}];
-            document.getElementById('btn-ele-start').disabled = true;
-            document.getElementById('btn-ele-start').classList.add('opacity-50');
-            const pauseBtn = document.getElementById('btn-ele-pause');
-            pauseBtn.disabled = false; pauseBtn.innerText = "暫停"; pauseBtn.classList.remove('opacity-50');
+            const sBtn = document.getElementById('btn-ele-start'); if(sBtn) { sBtn.disabled = true; sBtn.classList.add('opacity-50'); }
+            const pBtn = document.getElementById('btn-ele-pause'); if(pBtn) { pBtn.disabled = false; pBtn.classList.remove('opacity-50'); }
         };
 
         window.togglePause = function() {
             if(!stateElevator.journeyActive) return;
             stateElevator.isPaused = !stateElevator.isPaused;
-            document.getElementById('btn-ele-pause').innerText = stateElevator.isPaused ? "繼續" : "暫停";
+            const pBtn = document.getElementById('btn-ele-pause');
+            if(pBtn) pBtn.innerText = stateElevator.isPaused ? "繼續運動" : "暫停";
         };
 
         function renderCustomGraph(canvasId, title, yMax, yMin, dataKey, baseVal, color) {
-            const c = document.getElementById(canvasId); const ctxG = c.getContext('2d');
+            const c = document.getElementById(canvasId); if(!c) return;
+            const ctxG = c.getContext('2d');
             ctxG.fillStyle = '#fff'; ctxG.fillRect(0, 0, c.width, c.height);
-            const m = { t: 30, b: 25, l: 40, r: 15 }, pw = c.width - m.l - m.r, ph = c.height - m.t - m.b;
+            const m = { t: 25, b: 20, l: 35, r: 10 }, pw = c.width - m.l - m.r, ph = c.height - m.t - m.b;
             ctxG.strokeStyle = '#e2e8f0'; ctxG.beginPath();
             for(let i=0; i<=4; i++) { const y = m.t + (i/4)*ph; ctxG.moveTo(m.l, y); ctxG.lineTo(m.l+pw, y); } ctxG.stroke();
-            ctxG.fillStyle = '#64748b'; ctxG.font = 'bold 12px sans-serif'; ctxG.textAlign = 'left'; ctxG.fillText(title, 10, 18);
+            ctxG.fillStyle = '#64748b'; ctxG.font = 'bold 10px sans-serif'; ctxG.textAlign = 'left'; ctxG.fillText(title, 8, 15);
             const baseY = m.t + ph - ((baseVal - yMin) / (yMax - yMin)) * ph;
-            ctxG.strokeStyle = '#94a3b8'; ctxG.setLineDash([4, 4]); ctxG.beginPath(); ctxG.moveTo(m.l, baseY); ctxG.lineTo(m.l+pw, baseY); ctxG.stroke(); ctxG.setLineDash([]);
+            ctxG.strokeStyle = '#cbd5e1'; ctxG.setLineDash([4, 2]); ctxG.beginPath(); ctxG.moveTo(m.l, baseY); ctxG.lineTo(m.l+pw, baseY); ctxG.stroke(); ctxG.setLineDash([]);
             if(stateElevator.history.length > 1) {
-                ctxG.beginPath(); ctxG.strokeStyle = color; ctxG.lineWidth = 2.5;
+                ctxG.beginPath(); ctxG.strokeStyle = color; ctxG.lineWidth = 2;
                 stateElevator.history.forEach((pt, i) => {
-                    const x = m.l + (pt.t / 9) * pw;
+                    const x = m.l + (pt.t / 4.5) * pw;
                     const y = m.t + ph - ((Math.max(yMin, Math.min(yMax, pt[dataKey])) - yMin) / (yMax - yMin)) * ph;
                     if (i === 0) ctxG.moveTo(x, y); else ctxG.lineTo(x, y);
                 }); ctxG.stroke();
             }
         }
-        function drawGraphs() { renderCustomGraph('canvas-vt', '速度-時間圖 (v-t)', 6, -6, 'v', 0, '#10b981'); renderCustomGraph('canvas-nt', '正向力-時間圖 (N-t)', 900, 300, 'N', 600, '#3b82f6'); }
+        function drawGraphs() { renderCustomGraph('canvas-vt', '速度 v-t', 6, -6, 'v', 0, '#10b981'); renderCustomGraph('canvas-nt', '正向力 N-t', 900, 300, 'N', 600, '#3b82f6'); }
 
         function animate(timestamp) {
             if (!lastTime) lastTime = timestamp;
@@ -425,16 +444,59 @@
             
             let worldCenterX = cw / 2 + (cw > 768 ? (currentMode === 'block' ? 150 : 100) : 0);
             let worldCenterY = ch / 2;
-            let focusX = 0;
-            let focusY = 0;
+            let focusX = 0, focusY = 0;
 
             if (currentMode === 'block') {
                 const floorY = 150;
                 focusX = 0; 
                 focusY = floorY - 50 - stateBlock.y * 10; 
+                
+                let netF = stateBlock.Fy - stateBlock.W;
+                if (stateBlock.y === 0 && netF <= 0) stateBlock.vy = 0;
+                else { stateBlock.vy += (netF / stateBlock.mass) * dt * 5; stateBlock.y = Math.max(0, stateBlock.y + stateBlock.vy * dt * 5); }
+                updateBlockPhysics();
             } else {
-                focusX = 0;
-                focusY = 100; 
+                focusX = 0; focusY = 80;
+                if (stateElevator.journeyActive && !stateElevator.isPaused) {
+                    stateElevator.timer += dt; 
+                    const A = 2.5, T = 1.5, t_raw = stateElevator.timer;
+                    // 修正：時間鉗制，確保 localDisp 不會因為過度時間而歸零
+                    const t = Math.min(t_raw, 3 * T);
+                    const vmax = (2 * A * T) / Math.PI;
+                    let a_val = 0, localDisp = 0;
+                    
+                    if (t <= T) { 
+                        a_val = A*Math.sin(Math.PI*t/T); stateElevator.phase = 'accel'; 
+                        localDisp = (A*T/Math.PI)*t - (A*T*T/(Math.PI**2))*Math.sin(Math.PI*t/T);
+                    } else if (t <= 2*T) { 
+                        a_val = 0; stateElevator.phase = 'const'; 
+                        localDisp = (A*T*T/Math.PI) + vmax*(t-T);
+                    } else { 
+                        a_val = -A*Math.sin(Math.PI*(t-2*T)/T); stateElevator.phase = 'decel'; let tr=t-2*T;
+                        localDisp = (A*T*T/Math.PI) + vmax*T + vmax*tr - ((A*T/Math.PI)*tr - (A*T*T/(Math.PI**2))*Math.sin(Math.PI*tr/T));
+                    }
+                    
+                    let dir = stateElevator.direction === 'up' ? 1 : -1;
+                    stateElevator.a = dir * a_val;
+                    stateElevator.displacement = stateElevator.direction === 'up' ? localDisp : ((4*A*T*T)/Math.PI) - localDisp;
+                    stateElevator.N = 600 + stateElevator.mass * stateElevator.a;
+                    
+                    if (t <= T) stateElevator.v = dir * (A * T / Math.PI) * (1 - Math.cos(Math.PI * t / T));
+                    else if (t <= 2 * T) stateElevator.v = dir * vmax;
+                    else if (t <= 3 * T) stateElevator.v = dir * (vmax - (A * T / Math.PI) * (1 - Math.cos(Math.PI * (t - 2 * T) / T)));
+                    else stateElevator.v = 0;
+
+                    stateElevator.history.push({t: t_raw, N: stateElevator.N, v: stateElevator.v});
+                    
+                    if (t_raw >= 3*T) {
+                        stateElevator.journeyActive = false; 
+                        stateElevator.location = stateElevator.direction === 'up' ? 'top' : 'bottom';
+                        stateElevator.a = 0; stateElevator.v = 0;
+                        const sBtn = document.getElementById('btn-ele-start'); if(sBtn) { sBtn.disabled = false; sBtn.classList.remove('opacity-50'); sBtn.innerHTML = stateElevator.location === 'top' ? "▼ 開始下降旅程" : "▲ 開始上升旅程"; }
+                        const pBtn = document.getElementById('btn-ele-pause'); if(pBtn) { pBtn.disabled = true; pBtn.classList.add('opacity-50'); }
+                    }
+                    updateElevatorUI(); drawGraphs();
+                }
             }
 
             ctx.translate(worldCenterX, worldCenterY);
@@ -442,94 +504,40 @@
             ctx.translate(-focusX + camOffsetX, -focusY + camOffsetY);
             
             if (currentMode === 'block') {
-                let netF = stateBlock.Fy - stateBlock.W;
-                if (stateBlock.y === 0 && netF <= 0) stateBlock.vy = 0;
-                else { stateBlock.vy += (netF / stateBlock.mass) * dt * 5; stateBlock.y = Math.max(0, stateBlock.y + stateBlock.vy * dt * 5); }
-                updateBlockPhysics();
-
-                const floorY = 150;
-                const bw = 100, bh = 100, bx = -bw/2, by = floorY - bh - stateBlock.y * 10;
-
-                ctx.fillStyle = '#f1f5f9'; ctx.fillRect(-2000, floorY, 4000, 1000);
-                ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-2000, floorY); ctx.lineTo(2000, floorY); ctx.stroke();
-                
-                ctx.fillStyle = '#fcd34d'; ctx.fillRect(bx, by, bw, bh);
-                ctx.strokeStyle = '#b45309'; ctx.lineWidth = 4; ctx.strokeRect(bx, by, bw, bh);
-                
+                const floorY = 150, bw = 100, bh = 100, bx = -bw/2, by = floorY - bh - stateBlock.y * 10;
+                ctx.fillStyle = '#f1f5f9'; ctx.fillRect(-3000, floorY, 6000, 1000);
+                ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-3000, floorY); ctx.lineTo(3000, floorY); ctx.stroke();
+                ctx.fillStyle = '#fcd34d'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = '#b45309'; ctx.strokeRect(bx, by, bw, bh);
                 const scale = 0.5;
-                drawArrow(ctx, -20, by + 50, -20, by + 50 + stateBlock.W * scale, '#64748b', 'W', 8);
-                if (stateBlock.N > 0) drawArrow(ctx, 20, by + bh, 20, by + bh - stateBlock.N * scale, '#3b82f6', 'N', 8);
+                drawArrow(ctx, -25, by + 50, -25, by + 50 + stateBlock.W * scale, '#64748b', 'W', 8);
+                if (stateBlock.N > 0) drawArrow(ctx, 25, by + bh, 25, by + bh - stateBlock.N * scale, '#3b82f6', 'N', 8);
                 if (stateBlock.forceEnabled && stateBlock.forceMag > 0) {
                     const rad = stateBlock.forceAngle * Math.PI / 180;
                     drawArrow(ctx, 0, by + 50, stateBlock.forceMag*scale*Math.cos(rad), by + 50 - stateBlock.forceMag*scale*Math.sin(rad), '#f97316', 'F', 8);
                 }
             } else {
-                if (stateElevator.journeyActive && !stateElevator.isPaused) {
-                    stateElevator.timer += dt; 
-                    // T=1.5 為加速度/減速階段，整個旅程為 3*T = 4.5秒
-                    const A = 2.5, T = 1.5, vmax = (2 * A * T) / Math.PI;
-                    let t = stateElevator.timer;
-                    let a_val = 0, localDisp = 0;
-                    if (t <= T) { a_val = A*Math.sin(Math.PI*t/T); stateElevator.phase = 'accel'; localDisp = (A*T/Math.PI)*t - (A*T*T/(Math.PI*Math.PI))*Math.sin(Math.PI*t/T); }
-                    else if (t <= 2*T) { a_val = 0; stateElevator.phase = 'const'; localDisp = (A*T*T/Math.PI) + vmax*(t-T); }
-                    else if (t <= 3*T) { a_val = -A*Math.sin(Math.PI*(t-2*T)/T); stateElevator.phase = 'decel'; let tr=t-2*T; localDisp = (A*T*T/Math.PI) + vmax*T + vmax*tr - ((A*T/Math.PI)*tr - (A*T*T/(Math.PI*Math.PI))*Math.sin(Math.PI*tr/T)); }
-                    
-                    let dir = stateElevator.direction === 'up' ? 1 : -1;
-                    stateElevator.a = dir * a_val;
-                    stateElevator.displacement = stateElevator.direction === 'up' ? localDisp : ((4*A*T*T)/Math.PI) - localDisp;
-                    stateElevator.N = 600 + stateElevator.mass * stateElevator.a;
-                    if (t <= T) stateElevator.v = dir * (A * T / Math.PI) * (1 - Math.cos(Math.PI * t / T));
-                    else if (t <= 2 * T) stateElevator.v = dir * vmax;
-                    else if (t <= 3 * T) stateElevator.v = dir * (vmax - (A * T / Math.PI) * (1 - Math.cos(Math.PI * (t - 2 * T) / T)));
-                    else stateElevator.v = 0;
-
-                    stateElevator.history.push({t: t, N: stateElevator.N, v: stateElevator.v});
-                    if (stateElevator.timer >= 3 * T) {
-                        stateElevator.journeyActive = false; 
-                        stateElevator.location = stateElevator.direction === 'up' ? 'top' : 'bottom';
-                        stateElevator.a = 0; stateElevator.v = 0;
-                        const startBtn = document.getElementById('btn-ele-start'); startBtn.disabled = false; startBtn.classList.remove('opacity-50');
-                        startBtn.innerHTML = stateElevator.location === 'top' ? "▼ 開始下降旅程" : "▲ 開始上升旅程";
-                        document.getElementById('btn-ele-pause').disabled = true; document.getElementById('btn-ele-pause').classList.add('opacity-50');
-                    }
-                    updateElevatorUI(); drawGraphs();
-                }
-
-                const rScale = (ch * 0.7) / 28.6;
-                const shaftW = 140, cabinW = 100, cabinH = 120;
-                const groundY = 250;
-
-                ctx.fillStyle = 'rgba(226, 232, 240, 0.4)'; ctx.fillRect(-shaftW/2, -1000, shaftW, 2000);
-                ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.strokeRect(-shaftW/2, -1000, shaftW, 2000);
-
+                const rScale = (ch * 0.7) / 28.6, shaftW = 140, cabinW = 100, cabinH = 120, groundY = 250;
+                ctx.fillStyle = 'rgba(226, 232, 240, 0.4)'; ctx.fillRect(-shaftW/2, -1500, shaftW, 3000);
+                ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.strokeRect(-shaftW/2, -1500, shaftW, 3000);
                 const cY = groundY - cabinH - stateElevator.displacement * rScale;
-                ctx.strokeStyle = '#64748b'; ctx.lineWidth = 4;
-                ctx.beginPath(); ctx.moveTo(0, -1000); ctx.lineTo(0, cY); ctx.stroke();
-
+                ctx.strokeStyle = '#64748b'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, -1500); ctx.lineTo(0, cY); ctx.stroke();
                 ctx.fillStyle = '#fff'; ctx.fillRect(-cabinW/2, cY, cabinW, cabinH);
                 ctx.strokeStyle = '#64748b'; ctx.lineWidth = 4; ctx.strokeRect(-cabinW/2, cY, cabinW, cabinH);
-
-                ctx.fillStyle = '#10b981'; ctx.fillRect(-15, cY+cabinH-60, 30, 50);
-                ctx.beginPath(); ctx.arc(0, cY+cabinH-75, 12, 0, 7); ctx.fill();
-                
+                ctx.fillStyle = '#10b981'; ctx.fillRect(-15, cY+cabinH-60, 30, 50); ctx.beginPath(); ctx.arc(0, cY+cabinH-75, 12, 0, 7); ctx.fill();
                 const aS = 0.22, pY = cY+cabinH-10;
-                drawArrow(ctx, -55, pY-30, -55, pY-30+600*aS, '#64748b', 'W', 21.6);
-                drawArrow(ctx, 55, pY, 55, pY-stateElevator.N*aS, '#3b82f6', 'N', 21.6);
-
-                if (Math.abs(stateElevator.a) > 0.05) {
-                    drawArrow(ctx, 110, pY - 30, 110, pY - 30 - stateElevator.a * 30, '#ef4444', 'a', 14.4);
-                } else {
-                    // 根據速度判斷是「等速」還是「靜止」
+                drawArrow(ctx, -50, pY-30, -50, pY-30+600*aS, '#64748b', 'W', 21.6);
+                drawArrow(ctx, 50, pY, 50, pY-stateElevator.N*aS, '#3b82f6', 'N', 21.6);
+                if (Math.abs(stateElevator.a) > 0.05) drawArrow(ctx, 100, pY - 30, 100, pY - 30 - stateElevator.a * 30, '#ef4444', 'a', 14.4);
+                else {
                     const label = Math.abs(stateElevator.v) > 0.1 ? '等速' : '靜止';
-                    ctx.fillStyle = '#ef4444';
-                    ctx.font = 'bold 32.4px sans-serif';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(label, 105, pY - 25);
+                    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, 95, pY - 25);
                 }
             }
             ctx.restore(); requestAnimationFrame(animate);
         }
-        switchMode('block'); requestAnimationFrame(animate);
+        
+        switchMode('block');
+        requestAnimationFrame(animate);
     </script>
 </body>
 </html>
