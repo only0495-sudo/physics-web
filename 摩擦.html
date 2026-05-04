@@ -6,7 +6,6 @@
     <title>高中物理：摩擦力模擬器</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 自訂滑桿樣式以提升視覺質感 */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -42,11 +41,9 @@
     <!-- 左側：模擬器畫布區域 -->
     <div class="flex-1 relative bg-sky-100 flex flex-col">
         
-        <!-- 左上角：即時狀態與公式浮動面板 (具備收折功能) -->
-        <!-- 外層設定 pointer-events-none 避免阻擋畫布拖曳，但在需要點擊的標題列與內容加上 pointer-events-auto -->
+        <!-- 左上角：即時狀態與公式浮動面板 -->
         <div class="absolute top-4 left-4 bg-white/80 backdrop-blur-sm rounded-xl shadow-md border border-white/50 z-10 w-[380px] pointer-events-none">
             
-            <!-- 面板標題與收合按鈕 -->
             <div class="flex justify-between items-center p-3 border-b border-slate-200/50 cursor-pointer pointer-events-auto hover:bg-white/50 transition-colors rounded-t-xl" id="toggle-status-btn">
                 <h2 class="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
@@ -60,9 +57,7 @@
                 </button>
             </div>
 
-            <!-- 面板內容區 -->
             <div id="status-content" class="p-4 flex flex-col gap-4 pointer-events-auto">
-                <!-- 即時數值與時速表 -->
                 <div class="flex items-center gap-4">
                     <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm flex-1">
                         <span id="stat-F-label" class="text-slate-500">推力 (F):</span>
@@ -77,27 +72,23 @@
                         <span class="text-slate-500">運動狀態:</span>
                         <span id="stat-state" class="font-bold text-teal-600">靜止</span>
                     </div>
-                    <!-- 時速表 -->
                     <div class="flex flex-col items-center justify-center border-l border-slate-200 pl-4">
                         <canvas id="speedCanvas" width="70" height="70"></canvas>
                     </div>
                 </div>
 
-                <!-- 併入的公式面板區 -->
                 <div class="bg-slate-100/60 p-3.5 rounded-lg border border-slate-200 overflow-hidden">
                     <h3 class="text-sm font-bold text-slate-700 mb-2">物理公式 (極值參考)</h3>
                     <div class="text-sm text-slate-600 font-mono flex flex-col gap-1.5 text-left whitespace-nowrap">
                         <span>最大靜摩擦 f<sub>s(max)</sub> = μ<sub>s</sub>N = <span id="formula-fsmax" class="text-red-500 font-bold text-base">0.0</span> N</span>
-                        <span>動摩擦力 f<sub>k</sub> = μ<sub>k</sub>N = <span id="formula-fk" class="text-blue-600 font-bold text-base">0.0</span> N</span>
+                        <span>動摩擦力 f<sub>k</sub> = μ<sub>k</sub>N = <span id="formula-fk" class="text-green-500 font-bold text-base">0.0</span> N</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 右上角：摩擦力對推力/角度關係圖 (具備收折功能) -->
+        <!-- 右上角：關係圖 -->
         <div class="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-white/50 z-10 pointer-events-none">
-            
-            <!-- 關係圖標題與收合按鈕 -->
             <div class="flex justify-between items-center p-3 border-b border-slate-200/50 cursor-pointer pointer-events-auto hover:bg-white/50 transition-colors rounded-t-xl" id="toggle-graph-btn">
                 <h2 id="graph-title" class="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
@@ -111,14 +102,13 @@
                 </button>
             </div>
 
-            <!-- 關係圖畫布區 -->
             <div id="graph-content" class="p-4 pointer-events-auto">
                 <canvas id="graphCanvas" width="280" height="200" class="bg-white rounded border border-slate-200 pointer-events-none"></canvas>
             </div>
         </div>
 
         <!-- 左下角：視角縮放控制 -->
-        <div class="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-md border border-white/50 z-10 flex items-center gap-3 hover:bg-white/95 transition-colors">
+        <div class="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-md border border-white/50 z-10 flex items-center gap-3 hover:bg-white/95 transition-colors pointer-events-auto">
             <label class="text-sm font-bold text-slate-700 flex items-center gap-1 cursor-pointer" for="input-zoom">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
@@ -133,7 +123,7 @@
         <canvas id="simCanvas" class="flex-1 w-full h-full"></canvas>
     </div>
 
-    <!-- 右側：控制面板與教學引導 (保持原樣) -->
+    <!-- 右側：控制面板 -->
     <div class="w-96 bg-white shadow-2xl flex flex-col z-20 border-l border-slate-200">
         <div class="p-6 border-b border-slate-100 bg-slate-50">
             <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -236,33 +226,30 @@
 
             <hr class="border-slate-200">
 
-            <!-- 向量顯示開關 -->
-            <label class="flex items-center cursor-pointer group">
-                <div class="relative">
-                    <input type="checkbox" id="toggle-vectors" class="sr-only">
-                    <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors group-hover:bg-slate-300" id="toggle-bg"></div>
-                    <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform" id="toggle-dot"></div>
-                </div>
-                <span class="ml-3 text-sm font-semibold text-slate-700">顯示力學向量 (受力圖)</span>
-            </label>
+            <!-- 向量顯示開關區 -->
+            <div class="space-y-3">
+                <label class="flex items-center cursor-pointer group">
+                    <div class="relative">
+                        <input type="checkbox" id="toggle-vectors" class="sr-only" checked>
+                        <div class="block bg-blue-500 w-10 h-6 rounded-full transition-colors group-hover:bg-blue-600" id="toggle-bg"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform" id="toggle-dot" style="transform: translateX(100%);"></div>
+                    </div>
+                    <span class="ml-3 text-sm font-semibold text-slate-700">顯示 F 與 fs/fk</span>
+                </label>
+
+                <label class="flex items-center cursor-pointer group">
+                    <div class="relative">
+                        <input type="checkbox" id="toggle-y-forces" class="sr-only">
+                        <div class="block bg-slate-200 w-10 h-6 rounded-full transition-colors group-hover:bg-slate-300" id="toggle-y-bg"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform" id="toggle-y-dot"></div>
+                    </div>
+                    <span class="ml-3 text-sm font-semibold text-slate-700">顯示 W 與 N</span>
+                </label>
+            </div>
             
-            <button id="btn-reset" class="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors border border-slate-300">
+            <button id="btn-reset" class="w-full py-2 px-4 mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors border border-slate-300">
                 重置模擬器
             </button>
-
-            <!-- 教學引導區 -->
-            <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                <h3 class="font-bold text-blue-800 mb-2 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                    </svg>
-                    教學引導
-                </h3>
-                <ol class="list-decimal list-inside text-sm text-blue-900 space-y-2">
-                    <li><strong>測量係數：</strong>在斜面模式中慢慢調高角度，物體剛好開始滑動的那一瞬間，此時的 tan(θ) 即非常接近靜摩擦係數 μ<sub>s</sub>。</li>
-                    <li><strong>滑動狀態：</strong>滑動後，摩擦力轉變為「動摩擦力」，因為 μ<sub>k</sub> 較小，下滑力大於摩擦力，物體將不斷加速。</li>
-                </ol>
-            </div>
 
         </div>
     </div>
@@ -327,6 +314,11 @@
         const toggleVectors = document.getElementById('toggle-vectors');
         const toggleBg = document.getElementById('toggle-bg');
         const toggleDot = document.getElementById('toggle-dot');
+
+        const toggleYForces = document.getElementById('toggle-y-forces');
+        const toggleYBg = document.getElementById('toggle-y-bg');
+        const toggleYDot = document.getElementById('toggle-y-dot');
+
         const btnReset = document.getElementById('btn-reset');
         const warnMu = document.getElementById('warn-mu');
         const presetMaterial = document.getElementById('preset-material');
@@ -356,11 +348,11 @@
         const graphTitleText = document.getElementById('graph-title');
 
         // --- 物理引擎核心變數 ---
-        const g = 9.8; // 重力加速度 m/s^2
+        const g = 9.8; 
         let pixelsPerMeter = 65; 
         
         let physics = {
-            mode: 'horizontal', // 'horizontal' | 'inclined'
+            mode: 'horizontal', 
             force: 0,
             angle: 0,
             mass: 10,
@@ -374,7 +366,8 @@
         };
 
         let currentMaterialVisual = 'wood-wood'; 
-        let showVectors = false;
+        let showVectors = true;
+        let showYForces = false;
         let lastTime = performance.now();
         let trees = [];
 
@@ -388,7 +381,6 @@
 
         function initTrees() {
             trees = [];
-            // 為了適應視角縮小的情況，生成範圍拉寬
             const span = canvas.width * 2 + 1600;
             const numTrees = Math.ceil(span / 200);
             for(let i=0; i<numTrees; i++) {
@@ -418,7 +410,6 @@
             controlAngle.classList.add('hidden');
             statFLabel.innerText = '推力 (F):';
             
-            // 更新圖表標題內部文字 (保留原有的 Icon)
             graphTitleText.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
@@ -498,6 +489,7 @@
             }
         });
 
+        // 向量開關 1 (F, f)
         toggleVectors.addEventListener('change', (e) => {
             showVectors = e.target.checked;
             if(showVectors) {
@@ -506,6 +498,18 @@
             } else {
                 toggleBg.classList.replace('bg-blue-500', 'bg-slate-200');
                 toggleDot.style.transform = 'translateX(0)';
+            }
+        });
+
+        // 向量開關 2 (W, N)
+        toggleYForces.addEventListener('change', (e) => {
+            showYForces = e.target.checked;
+            if(showYForces) {
+                toggleYBg.classList.replace('bg-slate-200', 'bg-blue-500');
+                toggleYDot.style.transform = 'translateX(100%)';
+            } else {
+                toggleYBg.classList.replace('bg-blue-500', 'bg-slate-200');
+                toggleYDot.style.transform = 'translateX(0)';
             }
         });
 
@@ -555,7 +559,6 @@
 
             physics.velocity += physics.acceleration * dt;
 
-            // 處理降速至停止
             if (physics.velocity < 0) {
                 physics.velocity = 0;
                 physics.acceleration = 0;
@@ -568,16 +571,15 @@
             physics.positionX += physics.velocity * dt * pixelsPerMeter;
         }
 
-        // 繪製背景 (請注意：由於加入了縮放機制，魔法數字已經加寬以防止穿幫)
+        // 完整環境渲染
         function drawEnvironment() {
             const groundY = canvas.height - 180; 
             
-            // 繪製遠山
+            // 遠山
             ctx.fillStyle = '#7dd3fc';
             ctx.beginPath();
             const mountainWidth = 800;
             const mountainOffset = (physics.positionX * 0.1) % mountainWidth;
-            // 範圍加寬以因應視角縮小
             for(let x = -mountainWidth * 2; x < canvas.width * 2 + mountainWidth * 2; x += mountainWidth) {
                 const drawX = x - mountainOffset;
                 ctx.moveTo(drawX, groundY);
@@ -588,7 +590,7 @@
             }
             ctx.fill();
 
-            // 座標系統轉換 (處理斜面旋轉)
+            // 座標旋轉
             ctx.save();
             const pivotX = canvas.width / 2;
             const pivotY = groundY;
@@ -603,7 +605,7 @@
                 drawTree(tree.x, groundY, tree.size);
             });
 
-            // 地板材質 (加寬繪製範圍到 -4000 ~ +8000)
+            // 地板材質
             ctx.fillStyle = '#cbd5e1'; 
             ctx.fillRect(-4000, groundY, canvas.width * 2 + 8000, 15);
             ctx.strokeStyle = '#94a3b8'; 
@@ -660,56 +662,74 @@
             ctx.restore();
         }
 
-        function drawArrow(startX, startY, length, angle, color, label, subLabel) {
-            if (length === 0) return;
+        // 強化的箭頭繪製函數 (解除長度限制、統一粗細、標籤放箭尾)
+        function drawArrow(startX, startY, length, angle, color, label, subLabel, globalRad = 0, pulseScale = 1) {
+            if (Math.abs(length) < 0.1) return; // 長度太小則不繪製
             
-            const arrowLen = Math.abs(length);
+            const arrowLen = Math.abs(length); 
             const isNegative = length < 0;
             const actualAngle = angle + (isNegative ? Math.PI : 0);
             
             ctx.save();
             ctx.translate(startX, startY);
             ctx.rotate(actualAngle);
+            ctx.scale(pulseScale, pulseScale); // 套用縮放脈衝效果
             
-            const shaftWidth = 24; 
-            let headLength = Math.min(35, arrowLen * 0.5); 
-            let headWidth = Math.min(55, headLength * 1.6); 
-            if (arrowLen < headLength) headLength = arrowLen;
+            // X方向與Y方向一律使用統一的粗細設計 (尺寸已放大 1.3 倍)
+            let shaftWidth = 18.2; // 原 14 * 1.3
+            let headLength = 36.4; // 原 28 * 1.3
+            let headWidth = 52;    // 原 40 * 1.3
+            
+            // 如果物理長度小於箭頭部的長度，則整體等比例縮小以防變形 (讓箭頭能從極小開始長大)
+            if (arrowLen < headLength) {
+                const shrink = arrowLen / headLength;
+                headLength = arrowLen;
+                headWidth *= shrink;
+                shaftWidth *= shrink;
+            }
+            
             const shaftLength = arrowLen - headLength;
             
+            // 繪製箭頭圖形
             ctx.beginPath();
-            ctx.moveTo(0, -shaftWidth/2); ctx.lineTo(shaftLength, -shaftWidth/2);
-            ctx.lineTo(shaftLength, -headWidth/2); ctx.lineTo(arrowLen, 0);
-            ctx.lineTo(shaftLength, headWidth/2); ctx.lineTo(shaftLength, shaftWidth/2);
-            ctx.lineTo(0, shaftWidth/2); ctx.closePath();
+            ctx.moveTo(0, -shaftWidth/2);
+            ctx.lineTo(shaftLength, -shaftWidth/2);
+            ctx.lineTo(shaftLength, -headWidth/2);
+            ctx.lineTo(arrowLen, 0);
+            ctx.lineTo(shaftLength, headWidth/2);
+            ctx.lineTo(shaftLength, shaftWidth/2);
+            ctx.lineTo(0, shaftWidth/2);
+            ctx.closePath();
             
             ctx.fillStyle = color; ctx.fill();
-            ctx.lineWidth = 4; ctx.strokeStyle = '#000000'; ctx.lineJoin = 'round'; ctx.stroke();
-            ctx.restore();
-
-            let textX = startX + arrowLen * Math.cos(actualAngle) + 35 * Math.cos(actualAngle);
-            let textY = startY + arrowLen * Math.sin(actualAngle) + 35 * Math.sin(actualAngle);
+            ctx.lineWidth = 4; // 外框粗細也微調加粗 (原 3)
+            ctx.strokeStyle = '#000000'; ctx.lineJoin = 'round'; ctx.stroke();
             
+            // --- 繪製數值文字 (統一向後放置於箭尾外側) ---
             ctx.font = 'bold 16px sans-serif';
-            const textWidth = ctx.measureText(label).width;
-            const padX = 10, padY = 6;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(textX - textWidth/2 - padX, textY - 10 - padY, textWidth + padX*2, 20 + padY*2);
-            ctx.lineWidth = 1.5; ctx.strokeStyle = '#334155';
-            ctx.strokeRect(textX - textWidth/2 - padX, textY - 10 - padY, textWidth + padX*2, 20 + padY*2);
-
-            ctx.fillStyle = '#0f172a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(label, textX, textY);
+            const textStr = `${label} = ${subLabel}`;
+            const textWidth = ctx.measureText(textStr).width;
             
-            if (subLabel) {
-                ctx.font = '12px sans-serif';
-                const subWidth = ctx.measureText(subLabel).width;
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.fillRect(textX - subWidth/2 - 8, textY + 16, subWidth + 16, 20);
-                ctx.strokeRect(textX - subWidth/2 - 8, textY + 16, subWidth + 16, 20);
-                ctx.fillStyle = '#475569';
-                ctx.fillText(subLabel, textX, textY + 26);
-            }
+            // 向箭尾 (原點左側) 退後一段距離放置文字
+            const tailOffset = -textWidth / 2 - 20; 
+            ctx.translate(tailOffset, 0);
+            
+            // 逆旋轉以抵消箭頭與斜面的旋轉，讓文字永遠正視使用者並保持水平
+            ctx.rotate(-actualAngle);
+            ctx.rotate(-globalRad);
+
+            // 繪製文字背景與框線
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.fillRect(-textWidth/2 - 10, -14, textWidth + 20, 28);
+            ctx.lineWidth = 2; ctx.strokeStyle = color;
+            ctx.strokeRect(-textWidth/2 - 10, -14, textWidth + 20, 28);
+            
+            // 繪製文字
+            ctx.fillStyle = '#0f172a'; 
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(textStr, 0, 0);
+
+            ctx.restore();
         }
 
         function drawBlockAndForces() {
@@ -728,6 +748,7 @@
             const rectX = -blockWidth / 2;
             const rectY = -blockHeight;
 
+            // 木塊渲染
             let fillColor, strokeColor;
             if (currentMaterialVisual === 'rubber-asphalt') { fillColor = '#475569'; strokeColor = '#1e293b'; }
             else if (currentMaterialVisual === 'steel-ice') { fillColor = '#94a3b8'; strokeColor = '#475569'; }
@@ -772,41 +793,56 @@
                 ctx.beginPath(); ctx.moveTo(pelvisX, pelvisY); ctx.lineTo(shoulderX, shoulderY); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(shoulderX, shoulderY); ctx.lineTo(elbowX, elbowY); ctx.lineTo(handX, handY); ctx.stroke();
                 ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(headX, headY, 18 * scaleP, 0, Math.PI * 2); ctx.fill();
-
-                if (lean > 0.6) {
-                    ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2; ctx.beginPath();
-                    ctx.moveTo(headX - 15, headY - 15); ctx.lineTo(headX - 25, headY - 20);
-                    ctx.moveTo(headX - 20, headY - 5);  ctx.lineTo(headX - 30, headY - 5);
-                    ctx.stroke();
-                }
             }
-            ctx.restore();
 
-            // 力學向量繪製
+            // --- 力學向量繪製 ---
+            const scaleF = 2.0; // 全局放大比例
+            const weight = physics.mass * g;
+            const normalForce = (physics.mode === 'inclined') ? weight * Math.cos(rad) : weight;
+            const maxStaticFriction = physics.mus * normalForce;
+
+            // 1. 顯示 W 與 N
+            if (showYForces) {
+                drawArrow(0, -blockHeight/2, weight * scaleF, Math.PI/2 - rad, '#9333ea', 'W', `${weight.toFixed(1)}N`, rad);
+                drawArrow(0, 0, normalForce * scaleF, -Math.PI/2, '#16a34a', 'N', `${normalForce.toFixed(1)}N`, rad);
+            }
+
+            // 2. 顯示 F 與 fs/fk
             if (showVectors) {
-                const centerX = pivotX + (blockHeight / 2) * Math.sin(rad);
-                const centerY = pivotY - (blockHeight / 2) * Math.cos(rad);
-                const scaleF = 1.6;
-                const weight = physics.mass * g;
-
-                drawArrow(centerX, centerY, weight * scaleF, Math.PI/2, '#9333ea', 'W', `(${weight.toFixed(1)}N)`);
-                
-                const normal = (physics.mode === 'inclined') ? weight * Math.cos(rad) : weight;
-                drawArrow(centerX, centerY, normal * scaleF, -Math.PI/2 + rad, '#16a34a', 'N', `(${normal.toFixed(1)}N)`);
-
+                // 推力 或 下滑力
                 if (physics.mode === 'horizontal' && physics.force > 0) {
-                    drawArrow(centerX, centerY, physics.force * scaleF, 0, '#3b82f6', 'F', `(${physics.force.toFixed(1)}N)`);
+                    // 以手接觸箱子的邊緣 (rectX) 作為推力箭尾起點
+                    drawArrow(rectX, -blockHeight * 0.55, physics.force * scaleF, 0, '#3b82f6', 'F', `${physics.force.toFixed(1)}N`, rad);
                 } else if (physics.mode === 'inclined' && physics.angle > 0) {
                     const drivingForce = weight * Math.sin(rad);
-                    drawArrow(centerX, centerY, drivingForce * scaleF, rad, '#3b82f6', 'mg sinθ', `下滑力 (${drivingForce.toFixed(1)}N)`);
+                    drawArrow(0, -blockHeight/2, drivingForce * scaleF, 0, '#3b82f6', 'F', `${drivingForce.toFixed(1)}N`, rad);
                 }
 
+                // 摩擦力
                 if (physics.friction > 0) {
-                    const fLabel = physics.isStatic ? 'fs' : 'fk';
-                    const fType = physics.isStatic ? '靜摩擦' : '動摩擦';
-                    drawArrow(centerX, centerY, physics.friction * scaleF, Math.PI + rad, '#ff0000', fLabel, `${fType} (${physics.friction.toFixed(1)}N)`);
+                    let fLabel = physics.isStatic ? 'fs' : 'fk';
+                    let fColor = physics.isStatic ? '#ef4444' : '#22c55e'; // 靜:紅, 動:綠
+                    let pulseScale = 1;
+
+                    if (physics.isStatic) {
+                        const drivingForce = (physics.mode === 'horizontal') ? physics.force : weight * Math.sin(rad);
+                        
+                        const fsMaxFixed = maxStaticFriction.toFixed(1);
+                        const isZeroDecimal = fsMaxFixed.endsWith('.0');
+                        const floorFsMax = Math.floor(parseFloat(fsMaxFixed));
+                        const warnLimit = isZeroDecimal ? floorFsMax - 1 : floorFsMax;
+                        
+                        if (Math.floor(drivingForce) >= warnLimit) {
+                            fLabel = 'fs.max';
+                            pulseScale = 1 + 0.15 * Math.sin(performance.now() / 100);
+                        }
+                    }
+
+                    drawArrow(0, 5, physics.friction * scaleF, Math.PI, fColor, fLabel, `${physics.friction.toFixed(1)}N`, rad, pulseScale);
                 }
             }
+            
+            ctx.restore();
         }
 
         function updateStatsDisplay() {
@@ -817,8 +853,8 @@
             statV.innerText = physics.velocity.toFixed(2) + ' m/s';
             statF.innerText = drivingForce.toFixed(1) + ' N';
             statf.innerText = physics.friction.toFixed(1) + ' N';
+            statf.className = `font-mono font-bold text-base ${physics.isStatic ? 'text-red-500' : 'text-green-500'}`;
             
-            // 更新公式面板數值
             formulaFsmax.innerText = (physics.mus * normalForce).toFixed(1);
             formulaFk.innerText = (physics.muk * normalForce).toFixed(1);
             
@@ -902,8 +938,10 @@
                 graphCtx.stroke();
 
                 const currentX = getX(physics.force), currentY = getY(physics.friction);
-                graphCtx.fillStyle = '#ef4444'; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 4, 0, Math.PI * 2); graphCtx.fill();
-                graphCtx.fillStyle = 'rgba(239, 68, 68, 0.3)'; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 8, 0, Math.PI * 2); graphCtx.fill();
+                const dotColor = physics.isStatic ? '#ef4444' : '#22c55e';
+                const dotHalo = physics.isStatic ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
+                graphCtx.fillStyle = dotColor; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 4, 0, Math.PI * 2); graphCtx.fill();
+                graphCtx.fillStyle = dotHalo; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 8, 0, Math.PI * 2); graphCtx.fill();
             } 
             else {
                 const weight = physics.mass * g;
@@ -923,7 +961,6 @@
                 graphCtx.fillStyle = '#94a3b8'; graphCtx.textAlign = 'right';
                 graphCtx.fillText('fs(max)', padLeft - 4, getY(physics.mus * weight) + 3);
 
-                // 最大靜摩擦力曲線
                 graphCtx.strokeStyle = '#94a3b8'; graphCtx.setLineDash([3, 3]); graphCtx.beginPath();
                 for (let a = 0; a <= maxAngle; a++) {
                     const rad = a * Math.PI / 180, fsm = physics.mus * weight * Math.cos(rad);
@@ -931,7 +968,6 @@
                 }
                 graphCtx.stroke(); graphCtx.setLineDash([]);
 
-                // 實際摩擦力曲線
                 graphCtx.strokeStyle = '#3b82f6'; graphCtx.lineWidth = 2; graphCtx.beginPath();
                 let hasDropped = false;
                 for (let a = 0; a <= maxAngle; a++) {
@@ -950,10 +986,11 @@
                 }
                 graphCtx.stroke();
 
-                // 當前狀態紅點
                 const currentX = getX(physics.angle), currentY = getY(physics.friction);
-                graphCtx.fillStyle = '#ef4444'; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 4, 0, Math.PI * 2); graphCtx.fill();
-                graphCtx.fillStyle = 'rgba(239, 68, 68, 0.3)'; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 8, 0, Math.PI * 2); graphCtx.fill();
+                const dotColor = physics.isStatic ? '#ef4444' : '#22c55e';
+                const dotHalo = physics.isStatic ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
+                graphCtx.fillStyle = dotColor; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 4, 0, Math.PI * 2); graphCtx.fill();
+                graphCtx.fillStyle = dotHalo; graphCtx.beginPath(); graphCtx.arc(currentX, currentY, 8, 0, Math.PI * 2); graphCtx.fill();
             }
         }
 
@@ -992,7 +1029,7 @@
 
             ctx.restore();
 
-            // 繪製UI與數據圖表 (畫在不同的 Canvas 或已脫離 scale 影響)
+            // 繪製UI與數據圖表
             updateStatsDisplay();
             drawGraph(); 
 

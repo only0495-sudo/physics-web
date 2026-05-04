@@ -58,8 +58,8 @@
 
         .panel.collapsed .panel-content {
             max-height: 0;
-            padding-top: 0;
-            padding-bottom: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
             opacity: 0;
         }
 
@@ -132,12 +132,60 @@
         }
 
         #flip-btn:hover { background: rgba(59, 130, 246, 0.4) !important; }
+        #calibrate-btn:hover { background: rgba(59, 130, 246, 0.5) !important; }
 
-        /* 全螢幕按鈕 */
+        /* 右下角即時圖表面板 */
+        #chart-panel {
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+        }
+        
+        #chart-panel .panel-content {
+            padding: 0; /* 圖表與標籤不需要原本面板的 padding，讓它貼齊邊緣 */
+        }
+
+        .chart-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .chart-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 10px 0;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .chart-tab.active {
+            color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .chart-tab:hover:not(.active) {
+            background: rgba(255,255,255,0.05);
+            color: #ddd;
+        }
+
+        #chart-canvas {
+            width: 100%;
+            height: 150px;
+            display: block;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        /* 全螢幕按鈕 - 往左移，避免跟圖表重疊 */
         #fullscreen-btn {
             position: absolute;
             bottom: 20px;
-            right: 20px;
+            right: 360px; 
             background: rgba(255,255,255,0.1);
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255,255,255,0.2);
@@ -170,6 +218,8 @@
             #controls-panel { width: 85%; max-width: 320px; }
             #info-panel { display: none; }
             #formula-panel { bottom: 85px; font-size: 1rem; }
+            #chart-panel { bottom: 85px; right: 20px; left: 20px; width: auto; }
+            #fullscreen-btn { bottom: 20px; right: 20px; }
         }
 
         #loader {
@@ -228,6 +278,9 @@
                 <label style="justify-content: center; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
                     <input type="checkbox" id="auto-rotate"> 旋轉發電機模式 (連續旋轉)
                 </label>
+                <label style="justify-content: center; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <input type="checkbox" id="auto-move"> 自動來回穿梭模式 (平移)
+                </label>
             </div>
 
             <div class="instruction">
@@ -235,7 +288,8 @@
                 1. <b>滑鼠拖曳</b> 右側磁鐵靠近線圈。<br>
                 2. <b>穿透線圈</b> 觀察穿出瞬間的磁場與電流反轉變化！<br>
                 3. 點擊 <b>單次翻轉</b> 觀察極性突變時的強大感應電流。<br>
-                4. 勾選 <b>旋轉發電機模式</b>，觀察連續旋轉如何產生交流電 (AC)！
+                4. 勾選 <b>旋轉發電機</b> 觀察連續旋轉如何產生交流電。<br>
+                5. 勾選 <b>自動來回穿梭</b> 讓磁鐵自動平移穿越線圈。
             </div>
         </div>
     </div>
@@ -260,6 +314,24 @@
     <!-- 左下角公式 -->
     <div id="formula-panel">
         𝓔 = - N (dΦ<sub>B</sub> / dt)
+    </div>
+
+    <!-- 右下角即時圖表面板 (加入收縮與校正功能) -->
+    <div class="panel" id="chart-panel">
+        <div class="panel-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <h3 style="font-size: 1.05rem; margin: 0;">📈 即時波形</h3>
+                <button id="calibrate-btn" onclick="calibrateYAxis()" title="根據當前波形重新縮放 Y 軸" style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--primary); color: var(--text); border-radius: 4px; font-size: 0.75rem; padding: 2px 6px; cursor: pointer; transition: 0.2s;">Y軸校正</button>
+            </div>
+            <button class="collapse-btn" onclick="togglePanel('chart-panel', this)" title="收起/展開面板">_</button>
+        </div>
+        <div class="panel-content">
+            <div class="chart-tabs">
+                <button class="chart-tab active" id="tab-current" onclick="switchChartMode('current')">電流 (I - t)</button>
+                <button class="chart-tab" id="tab-emf" onclick="switchChartMode('emf')">電動勢 (ε - t)</button>
+            </div>
+            <canvas id="chart-canvas" width="320" height="150"></canvas>
+        </div>
     </div>
 
     <!-- 全螢幕按鈕 -->
@@ -296,11 +368,14 @@ let magnetState = {
     x: 15,          
     isDragging: false,
     lastX: 15,
-    targetRotationY: 0  // 紀錄磁鐵的目標翻轉角度
+    velocity: 0,        
+    targetRotationY: 0,
+    phase: 0            
 };
 
 let simState = {
-    inducedCurrent: 0,   // 感應電流大小與方向
+    inducedCurrent: 0,   
+    emf: 0,
     fluxLast: 0          
 };
 
@@ -308,7 +383,23 @@ let uiState = {
     showField: false,
     showCharges: false,
     chargeType: 'positive',
-    autoRotate: false    // 新增：自動連續旋轉狀態
+    autoRotate: false,   
+    autoMove: false,
+    chartMode: 'current'
+};
+
+// 新增：圖表 Y 軸動態範圍狀態
+let chartState = {
+    currentMax: 6,
+    emfMax: 80,
+    minCurrentMax: 2, // 最小範圍，避免放大雜訊
+    minEmfMax: 20
+};
+
+// 圖表資料緩存
+const chartData = {
+    maxLen: 120, // 畫布寬度上顯示的資料點數
+    history: []
 };
 
 // 幾何常數
@@ -340,10 +431,8 @@ function init() {
     orbitControls.maxPolarAngle = Math.PI / 2 + 0.1;
     orbitControls.minDistance = 10;
     orbitControls.maxDistance = 60;
-    // 將視角焦點設在原點 (線圈中心)
     orbitControls.target.set(0, 0, 0); 
 
-    // 光源設置
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
@@ -368,10 +457,39 @@ function init() {
     setupInteraction();
     setupUI();
 
+    // 初始化填滿圖表空白資料
+    for(let i=0; i<chartData.maxLen; i++) {
+        chartData.history.push({ current: 0, emf: 0 });
+    }
+
     document.getElementById('loader').style.opacity = '0';
     setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
 
     animate();
+}
+
+/**
+ * 圖表切換與校正邏輯
+ */
+function switchChartMode(mode) {
+    uiState.chartMode = mode;
+    document.getElementById('tab-current').classList.toggle('active', mode === 'current');
+    document.getElementById('tab-emf').classList.toggle('active', mode === 'emf');
+}
+
+function calibrateYAxis() {
+    let maxC = chartState.minCurrentMax;
+    let maxE = chartState.minEmfMax;
+    
+    // 尋找當前畫面歷史紀錄中的最大絕對值
+    for (let d of chartData.history) {
+        if (Math.abs(d.current) > maxC) maxC = Math.abs(d.current);
+        if (Math.abs(d.emf) > maxE) maxE = Math.abs(d.emf);
+    }
+    
+    // 將最大值加上 20% 的視覺緩衝空間
+    chartState.currentMax = maxC * 1.2;
+    chartState.emfMax = maxE * 1.2;
 }
 
 function createFloor() {
@@ -393,7 +511,6 @@ function createFloor() {
     scene.add(grid);
 }
 
-// 螺旋線數學模型
 class HelixCurve extends THREE.Curve {
     constructor(radius, length, turns) {
         super();
@@ -416,7 +533,6 @@ function createCoil() {
     const path = new HelixCurve(COIL_RADIUS, COIL_LENGTH, COIL_TURNS);
     const tubeGeo = new THREE.TubeGeometry(path, 300, 0.4, 16, false);
     
-    // 半透明玻璃質感銅線
     const tubeMat = new THREE.MeshStandardMaterial({ 
         color: 0xd97736,
         metalness: 0.5,
@@ -430,7 +546,6 @@ function createCoil() {
     const coilMesh = new THREE.Mesh(tubeGeo, tubeMat);
     coilGroup.add(coilMesh);
 
-    // 發光電荷
     const chargeMat = new THREE.MeshBasicMaterial({ color: 0xc084fc });
     const chargeGeo = new THREE.SphereGeometry(0.3, 12, 12); 
     
@@ -569,7 +684,6 @@ function createMagnet() {
     magnet.add(meshN);
     magnet.add(meshS);
 
-    // 碰撞感應框 (將其賦值給全域變數 magnetHitBox，不再使用 const 區域變數)
     const hitGeo = new THREE.BoxGeometry(width + 2, height + 2, depth + 2);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     magnetHitBox = new THREE.Mesh(hitGeo, hitMat);
@@ -640,39 +754,35 @@ function createFieldLines() {
     coneGeo.rotateX(Math.PI / 2); 
     const coneMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
 
-    // 設定多層次磁力線：包含近距離密集圈，與遠距離超廣角圈
     const layers = [
-        { num: 8, spread: 5, extend: 8 },      // 內層短磁力線
-        { num: 12, spread: 10, extend: 16 },   // 中層磁力線
-        { num: 16, spread: 18, extend: 28 },   // 外層長磁力線
-        { num: 16, spread: 35, extend: 45 }    // 超廣角磁力線 (確保遠距離能穿過線圈)
+        { num: 8, spread: 5, extend: 8 },      
+        { num: 12, spread: 10, extend: 16 },   
+        { num: 16, spread: 18, extend: 28 },   
+        { num: 16, spread: 35, extend: 45 }    
     ];
 
     layers.forEach(layer => {
         for(let i = 0; i < layer.num; i++) {
             const angle = (i / layer.num) * Math.PI * 2;
             
-            // 使用貝茲曲線模擬真實磁偶極子磁力線路徑
             const curve = new THREE.CubicBezierCurve3(
-                new THREE.Vector3(-3, 0, 0), // 從 N 極出發
+                new THREE.Vector3(-3, 0, 0), 
                 new THREE.Vector3(-layer.extend, Math.cos(angle)*layer.spread, Math.sin(angle)*layer.spread),
                 new THREE.Vector3(layer.extend, Math.cos(angle)*layer.spread, Math.sin(angle)*layer.spread),
-                new THREE.Vector3(3, 0, 0)   // 回到 S 極
+                new THREE.Vector3(3, 0, 0)   
             );
 
-            // 越長的線給予越高的解析度使其平滑
             const points = curve.getPoints(layer.extend > 20 ? 60 : 40);
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             fieldLinesGroup.add(new THREE.Line(geometry, lineMat));
 
-            // 根據線長度動態決定箭頭數量 (長線放3個，短線放1個)
             const arrowPositions = layer.extend > 20 ? [0.25, 0.5, 0.75] : [0.5];
             arrowPositions.forEach(t => {
                 const cone = new THREE.Mesh(coneGeo, coneMat);
                 const pt = curve.getPoint(t);
                 const tangent = curve.getTangent(t);
                 cone.position.copy(pt);
-                cone.lookAt(pt.clone().add(tangent)); // 箭頭順著切線方向
+                cone.lookAt(pt.clone().add(tangent)); 
                 fieldLinesGroup.add(cone);
             });
         }
@@ -694,7 +804,6 @@ function setupInteraction() {
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        // 修正：只偵測 magnetHitBox (隱形碰撞框)，不偵測整個 magnet 群組(包含磁力線)
         const intersects = raycaster.intersectObject(magnetHitBox, false);
         if (intersects.length > 0) {
             magnetState.isDragging = true;
@@ -712,7 +821,6 @@ function setupInteraction() {
         raycaster.setFromCamera(mouse, camera);
 
         if (!magnetState.isDragging) {
-            // 修正：滑鼠懸停時也只偵測碰撞框
             const intersects = raycaster.intersectObject(magnetHitBox, false);
             container.style.cursor = intersects.length > 0 ? 'grab' : 'auto';
             return;
@@ -722,7 +830,6 @@ function setupInteraction() {
         if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
             let newX = intersectPoint.x - dragOffset.x;
             
-            // 解開邊界限制，允許穿透到負的 X 座標
             const minX = -35; 
             const maxX = 35;
             
@@ -738,6 +845,14 @@ function setupInteraction() {
         magnetState.isDragging = false;
         orbitControls.enabled = true; 
         renderer.domElement.style.cursor = 'auto';
+        
+        if (uiState.autoMove) {
+            let clampedX = Math.max(-12.5, Math.min(12.5, magnetState.x));
+            magnetState.phase = Math.asin(clampedX / 12.5);
+            if (magnetState.velocity < 0) {
+                magnetState.phase = Math.PI - magnetState.phase;
+            }
+        }
     });
 
     window.addEventListener('resize', () => {
@@ -753,22 +868,28 @@ function setupUI() {
         fieldLinesGroup.visible = uiState.showField;
     });
 
-    // 單次翻轉按鈕事件
     document.getElementById('flip-btn').addEventListener('click', () => {
         if (!uiState.autoRotate) {
             magnetState.targetRotationY += Math.PI; 
         }
     });
 
-    // 新增：連續旋轉切換事件
     document.getElementById('auto-rotate').addEventListener('change', (e) => {
         uiState.autoRotate = e.target.checked;
-        
-        // 當關閉連續旋轉時，將目標角度對齊當前磁鐵的實際角度，避免它失控轉回去
         if (!uiState.autoRotate) {
-            // 吸附到最接近的水平狀態 (0 或是 180度)
             const nearestHalfTurn = Math.round(magnet.rotation.y / Math.PI) * Math.PI;
             magnetState.targetRotationY = nearestHalfTurn;
+        }
+    });
+
+    document.getElementById('auto-move').addEventListener('change', (e) => {
+        uiState.autoMove = e.target.checked;
+        if (uiState.autoMove) {
+            let clampedX = Math.max(-12.5, Math.min(12.5, magnetState.x));
+            magnetState.phase = Math.asin(clampedX / 12.5);
+            if (magnetState.velocity < 0) {
+                magnetState.phase = Math.PI - magnetState.phase;
+            }
         }
     });
 
@@ -806,42 +927,54 @@ function setupUI() {
     });
 }
 
-/**
- * 物理引擎核心：計算磁通量
- * 使用更符合真實物理的偶極子磁通量公式 Φ ∝ 1 / (x^2 + R^2)^(3/2)
- * 確保磁鐵通過原點 (x=0) 時，曲線呈現平滑的高峰
- */
 function calculateFlux(magnetX) {
-    const rSq = COIL_RADIUS * COIL_RADIUS; // R^2 = 9
-    const distSq = magnetX * magnetX;      // x^2
-    
-    // 獲取磁鐵當前的實際渲染角度 (cos(0) = 1, cos(π) = -1)
-    // 當自動旋轉開啟時，這個值會如正弦波般連續震盪，完美模擬交流發電機！
+    const rSq = COIL_RADIUS * COIL_RADIUS; 
+    const distSq = magnetX * magnetX;      
     const currentPolarity = Math.cos(magnet.rotation.y);
-    
-    // 調整分子常數 2500 來獲取適當的視覺靈敏度
     return (2500 / Math.pow(distSq + rSq, 1.5)) * currentPolarity; 
 }
 
 function updatePhysics() {
+    magnetState.velocity = magnetState.x - magnetState.lastX;
     magnetState.lastX = magnetState.x;
     
+    if (uiState.autoMove && !magnetState.isDragging) {
+        magnetState.phase += 0.035; 
+        magnetState.x = 12.5 * Math.sin(magnetState.phase);
+        magnet.position.x = magnetState.x;
+    }
+
     const currentFlux = calculateFlux(magnetState.x);
     const dFlux = currentFlux - simState.fluxLast;
     simState.fluxLast = currentFlux;
 
-    // 將磁通量變化率轉化為目標電流
+    simState.emf = -dFlux * 150.0; 
+
     let targetCurrent = dFlux * 8.0; 
     
-    // 限制最大電流值，避免視覺失控
-    targetCurrent = Math.max(Math.min(targetCurrent, 6), -6);
+    // 【更新】放寬電流限制 (從原本的 ±6 放寬至 ±15)，搭配動態縮放讓大動作更真實
+    targetCurrent = Math.max(Math.min(targetCurrent, 15), -15);
     
-    // 緩動電流 (低通濾波) 讓視覺變化更自然
     simState.inducedCurrent += (targetCurrent - simState.inducedCurrent) * 0.2;
 
-    // 當電流極小時歸零，停止電荷動畫
     if (Math.abs(simState.inducedCurrent) < 0.005) {
         simState.inducedCurrent = 0;
+    }
+
+    // 【新增】動態擴展 Y 軸最大值 (自動往上適應，防超出邊界)
+    if (Math.abs(simState.inducedCurrent) > chartState.currentMax) {
+        chartState.currentMax = Math.abs(simState.inducedCurrent) * 1.2;
+    }
+    if (Math.abs(simState.emf) > chartState.emfMax) {
+        chartState.emfMax = Math.abs(simState.emf) * 1.2;
+    }
+
+    chartData.history.push({
+        current: simState.inducedCurrent,
+        emf: simState.emf
+    });
+    if (chartData.history.length > chartData.maxLen) {
+        chartData.history.shift();
     }
 }
 
@@ -851,17 +984,13 @@ function updateChargePosition(chargeMesh) {
 }
 
 function updateVisuals() {
-    // 0. 更新磁鐵旋轉狀態 (發電機模式 vs 單次平滑翻轉)
     if (uiState.autoRotate) {
-        // 交流發電機模式：每幀固定增加角度 (角速度 ω)
         magnet.rotation.y += 0.08; 
-        magnetState.targetRotationY = magnet.rotation.y; // 保持目標同步，防關閉時亂跳
+        magnetState.targetRotationY = magnet.rotation.y; 
     } else {
-        // 一般模式：平滑補間動畫 (Lerp) 趨近目標角度
         magnet.rotation.y += (magnetState.targetRotationY - magnet.rotation.y) * 0.15;
     }
 
-    // 1. 更新電荷軌跡
     if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0) {
         let moveDir = -Math.sign(simState.inducedCurrent);
         if (uiState.chargeType === 'electron') {
@@ -878,17 +1007,14 @@ function updateVisuals() {
         });
     }
 
-    // 2. 更新感應磁場大箭頭
     if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.1) {
         inducedBArrow.visible = true;
         
-        // 電流方向決定箭頭指向，完美呈現冷次定律的反抗特性
         const sign = Math.sign(simState.inducedCurrent);
         const targetRotY = sign > 0 ? 0 : Math.PI;
         
         inducedBArrow.rotation.y += (targetRotY - inducedBArrow.rotation.y) * 0.2;
         
-        // 電流越大，箭頭越粗且越亮
         const intensity = Math.min(Math.abs(simState.inducedCurrent) * 0.3, 1);
         inducedBArrow.scale.set(0.5 + intensity*0.8, 0.5 + intensity*0.8, 0.5 + intensity*0.8);
         inducedBArrow.children.forEach(c => c.material.emissiveIntensity = intensity);
@@ -896,9 +1022,7 @@ function updateVisuals() {
         inducedBArrow.visible = false;
     }
 
-    // 3. 更新燈泡發光效果
     if (bulbFilamentMat && bulbPointLight && bulbGlassMat) {
-        // 電流大小決定亮度
         const lightIntensity = Math.min(Math.abs(simState.inducedCurrent) * 2.0, 1.0);
         
         bulbFilamentMat.emissiveIntensity += (lightIntensity * 8.0 - bulbFilamentMat.emissiveIntensity) * 0.2;
@@ -907,11 +1031,92 @@ function updateVisuals() {
     }
 }
 
+/**
+ * 繪製即時圖表 (Canvas) - 支援動態 Y 軸與刻度
+ */
+function renderChart() {
+    const canvas = document.getElementById('chart-canvas');
+    if (!canvas) return;
+    
+    // 如果圖表面板被收起，跳過繪製以節省效能
+    if (canvas.offsetParent === null) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const midY = height / 2;
+    const leftMargin = 40; // 留出 40px 顯示數值
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 繪製 Y 軸分隔線
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftMargin, 0);
+    ctx.lineTo(leftMargin, height);
+    ctx.stroke();
+
+    // 繪製中心零位線 (水平)
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(leftMargin, midY);
+    ctx.lineTo(width, midY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const isCurrent = uiState.chartMode === 'current';
+    const maxVal = isCurrent ? chartState.currentMax : chartState.emfMax;
+    
+    // 繪製 Y 軸數值標籤
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    let displayMax = maxVal >= 10 ? Math.round(maxVal) : maxVal.toFixed(1);
+    ctx.fillText("+" + displayMax, leftMargin - 5, 10);
+    ctx.fillText("0", leftMargin - 5, midY);
+    ctx.fillText("-" + displayMax, leftMargin - 5, height - 10);
+
+    // 準備繪製波形
+    ctx.beginPath();
+    ctx.strokeStyle = isCurrent ? '#c084fc' : '#facc15'; 
+    ctx.lineWidth = 2.5;
+
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = ctx.strokeStyle;
+
+    const stepX = (width - leftMargin) / (chartData.maxLen - 1);
+
+    for (let i = 0; i < chartData.history.length; i++) {
+        const data = chartData.history[i];
+        let val = isCurrent ? data.current : data.emf;
+        
+        let normalized = val / maxVal;
+        // 限制不要超過邊界 (保留 5% 上下留白)
+        normalized = Math.max(-0.95, Math.min(0.95, normalized)); 
+        
+        const x = leftMargin + i * stepX;
+        const y = midY - (normalized * midY); 
+
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+
+    ctx.stroke();
+    ctx.shadowBlur = 0; 
+}
+
 function animate() {
     requestAnimationFrame(animate);
     orbitControls.update();
     updatePhysics();
     updateVisuals();
+    renderChart(); 
     renderer.render(scene, camera);
 }
 

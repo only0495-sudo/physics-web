@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>位能與能量轉換模擬器</title>
+    <style>
+        :root {
+            --primary-bg: rgba(20, 22, 30, 0.92);
+            --card-bg: rgba(30, 35, 50, 0.8);
+            --text-main: #f0f0f0;
+            --accent: #4da6ff;
+            --danger: #ff4d4d;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --math-font: 'Times New Roman', serif;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0c10;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+            color: var(--text-main);
+            user-select: none;
+        }
+
+        canvas { display: block; }
+
+        /* 共通面板樣式 */
+        .glass-panel {
+            position: absolute;
+            background: var(--primary-bg);
+            border-radius: 10px;
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        /* 左側資訊面板 */
+        #info-panel {
+            top: 15px;
+            left: 15px;
+            width: 320px;
+        }
+
+        #info-panel.collapsed {
+            transform: translateX(-335px);
+        }
+
+        /* 右側控制面板 */
+        #control-panel {
+            top: 15px;
+            right: 15px;
+            width: 260px;
+            background: var(--card-bg);
+        }
+
+        #control-panel.collapsed {
+            transform: translateX(275px);
+        }
+
+        .panel-toggle-wrapper {
+            position: absolute;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #info-panel .panel-toggle-wrapper { right: -42px; }
+        #control-panel .panel-toggle-wrapper { left: -42px; }
+
+        .panel-toggle {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-bg);
+            border: 1px solid var(--panel-border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: bold;
+            backdrop-filter: blur(20px);
+        }
+
+        #info-panel .panel-toggle { border-radius: 0 6px 6px 0; }
+        #control-panel .panel-toggle { border-radius: 6px 0 0 6px; }
+
+        .toggle-label {
+            writing-mode: vertical-lr;
+            color: #000;
+            padding: 8px 4px;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.3);
+        }
+
+        #info-panel .toggle-label { 
+            background: var(--accent); 
+            border-radius: 0 0 6px 6px;
+        }
+        #control-panel .toggle-label { 
+            background: var(--warning); 
+            border-radius: 0 0 0 6px;
+        }
+
+        .panel-content { padding: 18px; }
+        h1 { margin: 0 0 12px 0; font-size: 1rem; color: var(--accent); }
+
+        .formula-card {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+            border-left: 4px solid var(--accent);
+        }
+
+        .math-block {
+            display: block;
+            font-family: var(--math-font);
+            font-style: italic;
+            font-size: 1.05rem;
+            margin: 6px 0;
+            text-align: left;
+            line-height: 1.2;
+            white-space: nowrap; 
+        }
+
+        /* 模式切換 Tabs */
+        .mode-tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .mode-tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 0;
+            cursor: pointer;
+            color: #888;
+            font-size: 14px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .mode-tab.active {
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+        }
+
+        /* 控制項樣式 */
+        .control-group { margin-bottom: 15px; }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: #ccc;
+        }
+        .control-label span { color: var(--accent); font-weight: bold; }
+
+        input[type=range] {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            appearance: none;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* 大按鈕樣式 */
+        .btn-action {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 6px;
+            background: #444;
+            color: #fff;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-action:hover { filter: brightness(1.2); }
+        
+        .btn-action.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+        
+        .btn-action.warning-active.active {
+            background: var(--warning);
+            color: #000;
+        }
+
+        #btn-reset { background: var(--danger); color: #fff; margin-top: 5px; }
+        #btn-fullscreen { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+
+        /* 圖表 */
+        #chart-container {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 96vw;
+            max-width: 1200px;
+            height: 280px;
+            background: var(--primary-bg);
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        #slow-mo-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--warning);
+            color: #000;
+            padding: 4px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            display: none;
+            z-index: 50;
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 左側資訊面板 -->
+    <div id="info-panel" class="glass-panel">
+        <div class="panel-toggle-wrapper">
+            <button class="panel-toggle" id="info-toggle-btn">收起</button>
+            <div class="toggle-label">原理說明</div>
+        </div>
+        <div class="panel-content">
+            <h1 id="info-title">重力位能與能量轉換</h1>
+            <p style="font-size: 0.85rem; margin-top: 0;" id="info-desc">模擬物體在重力場中的自由落體與彈跳過程。</p>
+            
+            <div class="formula-card" id="info-formulas">
+                <!-- 內容由 JS 動態注入 -->
+            </div>
+            <p style="font-size: 0.8rem; color: #bbb; margin-bottom: 0;" id="info-hint">
+                拖曳小球至高處放開，觀察位能與動能的轉換。
+            </p>
+        </div>
+    </div>
+
+    <!-- 右側控制面板 -->
+    <div id="control-panel" class="glass-panel">
+        <div class="panel-toggle-wrapper">
+            <button class="panel-toggle" id="ctrl-toggle-btn">收起</button>
+            <div class="toggle-label">操作設定</div>
+        </div>
+        <div class="panel-content">
+            
+            <div class="mode-tabs">
+                <div class="mode-tab active" id="tab-gravity">重力位能</div>
+                <div class="mode-tab" id="tab-elastic">彈力位能</div>
+            </div>
+
+            <!-- 共用參數 -->
+            <div class="control-group">
+                <div class="control-label">物體質量 <span><span id="val-m">2.0</span> kg</span></div>
+                <input type="range" id="input-m" min="0.5" max="10" step="0.1" value="2.0">
+            </div>
+
+            <!-- 重力專屬參數 -->
+            <div id="controls-gravity">
+                <div class="control-group">
+                    <div class="control-label">重力加速度 g <span><span id="val-g">9.8</span> m/s²</span></div>
+                    <input type="range" id="input-g" min="1.0" max="20.0" step="0.1" value="9.8">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">碰撞恢復係數 e <span><span id="val-e">1.00</span></span></div>
+                    <input type="range" id="input-e" min="0" max="1" step="0.01" value="1.0">
+                </div>
+            </div>
+
+            <!-- 彈力專屬參數 -->
+            <div id="controls-elastic" style="display: none;">
+                <div class="control-group">
+                    <div class="control-label">彈力常數 k <span><span id="val-k">15.0</span> N/m</span></div>
+                    <input type="range" id="input-k" min="1" max="50" step="0.5" value="15.0">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">摩擦係數 μ <span><span id="val-mu">0.00</span></span></div>
+                    <input type="range" id="input-mu" min="0" max="1" step="0.01" value="0">
+                </div>
+            </div>
+            
+            <button class="btn-action" id="btn-slowmo">開啟慢動作模式</button>
+            <button class="btn-action warning-active" id="btn-simple-chart">能量總結圖表模式</button>
+            <button class="btn-action" id="btn-reset">重置實驗紀錄</button>
+            <hr style="border:0; border-top:1px solid #444; margin:10px 0;">
+            <button class="btn-action" id="btn-fullscreen">進入全螢幕</button>
+        </div>
+    </div>
+
+    <div id="slow-mo-indicator">慢動作模式開啟中</div>
+
+    <div id="chart-container">
+        <canvas id="energyChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <script type="module">
+        const CONFIG = {
+            maxPoints: 600,     
+            massSize: 65,
+            springCoils: 22,
+            pxPerMeter: 100 // 物理單位與像素的換算比例
+        };
+
+        let frameCount = 0;
+
+        const state = {
+            mode: 'gravity',     // 'gravity' 或 'elastic'
+            m: 2.0,
+            g: 9.8,
+            e: 1.0,             // 預設完全彈性碰撞
+            k: 15.0,
+            mu: 0.0,            
+            x: 0,               // 彈簧形變量
+            vX: 0,
+            y: 300,             // 重力高度 (px)
+            vY: 0,
+            heat: 0,          
+            isDragging: false,
+            isSlowMo: false,
+            simpleChart: false,
+            timeStep: 1/120,
+            restX: 0,           
+            wallX: 0,
+            groundY: 0,
+            initialSystemEnergy: 0 
+        };
+
+        const canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+
+        // 圖表初始化
+        const chartCtx = document.getElementById('energyChart').getContext('2d');
+        const chart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: Array(CONFIG.maxPoints).fill(''),
+                datasets: [
+                    { label: '動能 (K)', borderColor: '#2ecc71', data: Array(CONFIG.maxPoints).fill(0), borderWidth: 2, pointRadius: 0, fill: false },
+                    { label: '位能 (U)', borderColor: '#e67e22', data: Array(CONFIG.maxPoints).fill(0), borderWidth: 2, pointRadius: 0, fill: false },
+                    { label: '熱能損耗 (Q)', borderColor: '#ff4d4d', backgroundColor: 'rgba(255, 77, 77, 0.1)', data: Array(CONFIG.maxPoints).fill(0), borderWidth: 2, pointRadius: 0, fill: true },
+                    { label: '總力學能 (E)', borderColor: '#f1c40f', borderDash: [5, 5], data: Array(CONFIG.maxPoints).fill(0), borderWidth: 2, pointRadius: 0, fill: false },
+                    { label: '系統總能量 (Etotal)', borderColor: '#ffffff', borderDash: [2, 2], data: Array(CONFIG.maxPoints).fill(0), borderWidth: 1, pointRadius: 0, fill: false }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: { 
+                    legend: { 
+                        labels: { color: '#eee', font: { size: 16, weight: 'bold' }, boxWidth: 35, padding: 20 } 
+                    } 
+                },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#888', font: { size: 11 } },
+                        suggestedMax: 100, min: 0
+                    }
+                }
+            }
+        });
+
+        // 動態更新資訊面板內容
+        function updateInfoPanel() {
+            const formulas = document.getElementById('info-formulas');
+            const title = document.getElementById('info-title');
+            const desc = document.getElementById('info-desc');
+            const hint = document.getElementById('info-hint');
+
+            if (state.mode === 'gravity') {
+                title.innerText = "地表重力位能與轉換";
+                desc.innerText = "模擬物體在重力場中的自由落體與彈跳過程。";
+                formulas.innerHTML = `
+                    <div class="math-block">1. 動能: K = ½ m v²</div>
+                    <div class="math-block">2. 重力位能: U = m g h</div>
+                    <div class="math-block" style="color: var(--warning);">3. 總力學能: E = K + U</div>
+                    <div class="math-block">4. 熱能損耗: Q = 碰撞產生的熱</div>
+                    <hr style="border:0; border-top:1px solid #555; margin:8px 0;">
+                    <div class="math-block" style="font-weight: bold; color: var(--success);">系統總能量: Etotal = E + Q</div>
+                `;
+                hint.innerText = "向下拖曳可將球抓起，放開後觀察碰撞能量損耗。";
+            } else {
+                title.innerText = "彈力位能與能量轉換";
+                desc.innerText = "模擬彈簧在摩擦環境下的運動與能量變化。";
+                formulas.innerHTML = `
+                    <div class="math-block">1. 動能: K = ½ m v²</div>
+                    <div class="math-block">2. 彈力位能: U = ½ k x²</div>
+                    <div class="math-block" style="color: var(--warning);">3. 總力學能: E = K + U</div>
+                    <div class="math-block">4. 熱能損耗: Q = 摩擦產生的熱</div>
+                    <hr style="border:0; border-top:1px solid #555; margin:8px 0;">
+                    <div class="math-block" style="font-weight: bold; color: var(--success);">系統總能量: Etotal = E + Q</div>
+                `;
+                hint.innerText = "在平衡點靜止時能量為零。拉動產生位能後總能量增加。";
+            }
+        }
+        updateInfoPanel();
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            state.restX = canvas.width / 2;
+            state.wallX = state.restX - 350;
+            
+            // 重要：將撞擊面/水平軸抬高至圖表上方（預留 340px 空間給高度 280px 的圖表 + margin）
+            state.groundY = canvas.height - 340;
+            
+            if (frameCount === 0) {
+                resetSimulation();
+            }
+        }
+        window.addEventListener('resize', resize);
+
+        function updateInitialEnergy() {
+            let U, K;
+            if (state.mode === 'gravity') {
+                U = state.m * (state.g * CONFIG.pxPerMeter) * state.y;
+                K = 0.5 * state.m * Math.pow(state.vY, 2);
+            } else {
+                U = 0.5 * state.k * Math.pow(state.x, 2);
+                K = 0.5 * state.m * Math.pow(state.vX, 2);
+            }
+            state.initialSystemEnergy = U + K + state.heat;
+        }
+
+        function updatePhysics() {
+            if (state.isDragging) {
+                state.vX = 0; state.vY = 0;
+                updateInitialEnergy(); 
+                return;
+            }
+
+            const dt = state.isSlowMo ? state.timeStep * 0.2 : state.timeStep;
+            
+            if (state.mode === 'gravity') {
+                for (let i = 0; i < 2; i++) {
+                    const a = -(state.g * CONFIG.pxPerMeter); // 往下的加速度
+                    state.vY += a * (dt/2);
+                    state.y += state.vY * (dt/2);
+
+                    // 碰撞地面
+                    if (state.y <= 0) {
+                        state.y = 0;
+                        const vBefore = Math.abs(state.vY);
+                        state.vY = vBefore * state.e; // 反彈
+                        
+                        // 計算碰撞損失的動能
+                        const lostK = 0.5 * state.m * (vBefore * vBefore - state.vY * state.vY);
+                        state.heat += lostK;
+
+                        // 避免無窮微小彈跳
+                        if (state.vY < 20 && state.e < 1.0) {
+                            state.vY = 0;
+                        }
+                    }
+                }
+            } else {
+                for (let i = 0; i < 2; i++) {
+                    const fSpring = -state.k * state.x;
+                    const fFriction = -state.mu * 6.0 * state.vX; 
+                    const a = (fSpring + fFriction) / state.m;
+                    
+                    state.vX += a * (dt/2);
+                    state.x += state.vX * (dt/2);
+                }
+                state.heat += Math.abs(-state.mu * 6.0 * state.vX * state.vX) * dt;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const mSize = CONFIG.massSize;
+
+            if (state.mode === 'gravity') {
+                // 畫地面
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(0, state.groundY, canvas.width, canvas.height - state.groundY);
+                ctx.strokeStyle = '#4da6ff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, state.groundY);
+                ctx.lineTo(canvas.width, state.groundY);
+                ctx.stroke();
+
+                // 畫球
+                const ballX = canvas.width / 2;
+                const ballY = state.groundY - state.y - mSize/2;
+                
+                ctx.beginPath();
+                ctx.arc(ballX, ballY, mSize/2, 0, Math.PI * 2);
+                ctx.fillStyle = state.isDragging ? '#ff7f7f' : '#ff4d4d';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'rgba(255, 77, 77, 0.5)';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+            } else {
+                // 彈力位能視圖
+                // 將中心點移至圖表上方的可用空間中
+                const availableHeight = canvas.height - 340;
+                const groundY = Math.max(120, availableHeight / 2);
+                const mX = state.restX + state.x;
+
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, groundY + mSize/2);
+                ctx.lineTo(canvas.width, groundY + mSize/2);
+                ctx.stroke();
+
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(state.wallX - 30, groundY - 120, 30, 240);
+                
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+                ctx.beginPath();
+                ctx.moveTo(state.restX, groundY - 150);
+                ctx.lineTo(state.restX, groundY + 150);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.strokeStyle = '#95a5a6';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(state.wallX, groundY);
+                const springWidth = mX - state.wallX - mSize/2;
+                const step = springWidth / CONFIG.springCoils;
+                for(let i=1; i<=CONFIG.springCoils; i++){
+                    const px = state.wallX + i * step;
+                    const py = groundY + (i % 2 === 0 ? -25 : 25);
+                    ctx.lineTo(i === CONFIG.springCoils ? mX - mSize/2 : px, i === CONFIG.springCoils ? groundY : py);
+                }
+                ctx.stroke();
+
+                ctx.fillStyle = state.isDragging ? '#ff7f7f' : '#ff4d4d';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'rgba(255, 77, 77, 0.4)';
+                ctx.fillRect(mX - mSize/2, groundY - mSize/2, mSize, mSize);
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(mX - mSize/2, groundY - mSize/2, mSize, mSize);
+            }
+
+            // 能量計算與防溢出處理
+            let K, U;
+            if (state.mode === 'gravity') {
+                K = 0.5 * state.m * state.vY * state.vY;
+                U = state.m * (state.g * CONFIG.pxPerMeter) * state.y;
+            } else {
+                K = 0.5 * state.m * state.vX * state.vX;
+                U = 0.5 * state.k * state.x * state.x;
+            }
+            
+            const totalEnergy = state.initialSystemEnergy;
+            const mechEnergy = Math.max(0, totalEnergy - state.heat);
+
+            if (K > mechEnergy) K = mechEnergy;
+            if (U > mechEnergy) U = mechEnergy;
+            if (K + U > mechEnergy) {
+                if (K > U) K = mechEnergy - U;
+                else U = mechEnergy - K;
+            }
+
+            if (frameCount % 2 === 0) {
+                chart.data.datasets[0].data.push(K);
+                chart.data.datasets[1].data.push(U);
+                chart.data.datasets[2].data.push(state.heat);
+                chart.data.datasets[3].data.push(mechEnergy); 
+                chart.data.datasets[4].data.push(totalEnergy);
+                
+                chart.data.datasets.forEach(d => d.data.shift());
+                
+                const currentMax = Math.max(100, totalEnergy * 1.15);
+                if (currentMax > chart.options.scales.y.suggestedMax || currentMax < chart.options.scales.y.suggestedMax * 0.8) {
+                    chart.options.scales.y.suggestedMax = Math.ceil(currentMax / 50) * 50;
+                }
+                chart.update();
+            }
+        }
+
+        function resetSimulation() {
+            state.heat = 0;
+            if (state.mode === 'gravity') {
+                state.vY = 0;
+                // 動態決定球的初始高度，避免其太高超出螢幕上方
+                state.y = Math.max(100, state.groundY - 100); 
+            } else {
+                state.vX = 0;
+                state.x = 0;   // 回到平衡點
+            }
+            updateInitialEnergy();
+            chart.data.datasets.forEach(d => d.data.fill(0));
+            chart.options.scales.y.suggestedMax = 100;
+        }
+
+        // DOM 元素與事件
+        const tabGravity = document.getElementById('tab-gravity');
+        const tabElastic = document.getElementById('tab-elastic');
+        const ctrlGravity = document.getElementById('controls-gravity');
+        const ctrlElastic = document.getElementById('controls-elastic');
+
+        tabGravity.onclick = () => {
+            state.mode = 'gravity';
+            tabGravity.classList.add('active');
+            tabElastic.classList.remove('active');
+            ctrlGravity.style.display = 'block';
+            ctrlElastic.style.display = 'none';
+            updateInfoPanel();
+            resetSimulation();
+        };
+
+        tabElastic.onclick = () => {
+            state.mode = 'elastic';
+            tabElastic.classList.add('active');
+            tabGravity.classList.remove('active');
+            ctrlElastic.style.display = 'block';
+            ctrlGravity.style.display = 'none';
+            updateInfoPanel();
+            resetSimulation();
+        };
+
+        const inputM = document.getElementById('input-m');
+        const inputG = document.getElementById('input-g');
+        const inputE = document.getElementById('input-e');
+        const inputK = document.getElementById('input-k');
+        const inputMu = document.getElementById('input-mu');
+
+        const valM = document.getElementById('val-m');
+        const valG = document.getElementById('val-g');
+        const valE = document.getElementById('val-e');
+        const valK = document.getElementById('val-k');
+        const valMu = document.getElementById('val-mu');
+
+        inputM.oninput = () => { state.m = parseFloat(inputM.value); valM.innerText = state.m.toFixed(1); updateInitialEnergy(); };
+        inputG.oninput = () => { state.g = parseFloat(inputG.value); valG.innerText = state.g.toFixed(1); updateInitialEnergy(); };
+        inputE.oninput = () => { state.e = parseFloat(inputE.value); valE.innerText = state.e.toFixed(2); };
+        inputK.oninput = () => { state.k = parseFloat(inputK.value); valK.innerText = state.k.toFixed(1); updateInitialEnergy(); };
+        inputMu.oninput = () => { state.mu = parseFloat(inputMu.value); valMu.innerText = state.mu.toFixed(2); };
+
+        const btnSlowmo = document.getElementById('btn-slowmo');
+        const btnSimple = document.getElementById('btn-simple-chart');
+        const btnReset = document.getElementById('btn-reset');
+        const btnFullscreen = document.getElementById('btn-fullscreen');
+
+        btnSlowmo.onclick = () => {
+            state.isSlowMo = !state.isSlowMo;
+            btnSlowmo.classList.toggle('active', state.isSlowMo);
+            btnSlowmo.innerText = state.isSlowMo ? '慢動作：開啟' : '開啟慢動作模式';
+            document.getElementById('slow-mo-indicator').style.display = state.isSlowMo ? 'block' : 'none';
+        };
+
+        btnSimple.onclick = () => {
+            state.simpleChart = !state.simpleChart;
+            btnSimple.classList.toggle('active', state.simpleChart);
+            btnSimple.innerText = state.simpleChart ? '簡化：能量總結' : '能量總結圖表模式';
+            chart.setDatasetVisibility(0, !state.simpleChart);
+            chart.setDatasetVisibility(1, !state.simpleChart);
+            chart.update();
+        };
+
+        btnReset.onclick = resetSimulation;
+
+        btnFullscreen.onclick = () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                btnFullscreen.innerText = '退出全螢幕';
+            } else {
+                document.exitFullscreen();
+                btnFullscreen.innerText = '進入全螢幕';
+            }
+        };
+
+        // 互動拖曳
+        function getMousePos(e) {
+            return {
+                x: e.touches ? e.touches[0].clientX : e.clientX,
+                y: e.touches ? e.touches[0].clientY : e.clientY
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            if (state.mode === 'gravity') {
+                const ballX = canvas.width / 2;
+                const ballY = state.groundY - state.y - CONFIG.massSize/2;
+                if (Math.hypot(pos.x - ballX, pos.y - ballY) < CONFIG.massSize) {
+                    state.isDragging = true;
+                }
+            } else {
+                const availableHeight = canvas.height - 340;
+                const groundY = Math.max(120, availableHeight / 2);
+                const mX = state.restX + state.x;
+                if (Math.hypot(pos.x - mX, pos.y - groundY) < CONFIG.massSize) {
+                    state.isDragging = true;
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!state.isDragging) return;
+            const pos = getMousePos(e);
+            if (state.mode === 'gravity') {
+                let newY = state.groundY - pos.y - CONFIG.massSize/2;
+                state.y = Math.max(0, newY); 
+            } else {
+                const minX = state.wallX + CONFIG.massSize/2 + 25;
+                const maxX = canvas.width - CONFIG.massSize/2 - 25;
+                const screenX = Math.max(minX, Math.min(maxX, pos.x));
+                state.x = screenX - state.restX;
+            }
+        });
+
+        window.addEventListener('mouseup', () => { 
+            if(state.isDragging) { state.isDragging = false; updateInitialEnergy(); } 
+        });
+
+        // Touch 支援
+        canvas.addEventListener('touchstart', (e) => canvas.dispatchEvent(new MouseEvent('mousedown', {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY})));
+        window.addEventListener('touchmove', (e) => { if(state.isDragging) e.preventDefault(); window.dispatchEvent(new MouseEvent('mousemove', {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY}))}, {passive: false});
+        window.addEventListener('touchend', () => window.dispatchEvent(new Event('mouseup')));
+
+        // 面板收合
+        document.getElementById('info-toggle-btn').onclick = function() {
+            const isCollapsed = document.getElementById('info-panel').classList.toggle('collapsed');
+            this.innerText = isCollapsed ? '展開' : '收起';
+        };
+        document.getElementById('ctrl-toggle-btn').onclick = function() {
+            const isCollapsed = document.getElementById('control-panel').classList.toggle('collapsed');
+            this.innerText = isCollapsed ? '展開' : '收起';
+        };
+
+        resize();
+        function loop() {
+            frameCount++;
+            updatePhysics();
+            draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
