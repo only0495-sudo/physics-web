@@ -14,7 +14,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #111111;
+            background-color: #ffffff; /* 白色背景 */
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: var(--text);
             user-select: none;
@@ -142,7 +142,7 @@
         }
         
         #chart-panel .panel-content {
-            padding: 0; /* 圖表與標籤不需要原本面板的 padding，讓它貼齊邊緣 */
+            padding: 0;
         }
 
         .chart-tabs {
@@ -225,11 +225,11 @@
         #loader {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: #111111;
+            background: #ffffff;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #fff;
+            color: #333333;
             z-index: 9999;
             font-size: 1.5rem;
             transition: opacity 0.5s;
@@ -360,8 +360,8 @@ let fieldLinesGroup = new THREE.Group();
 let charges = [];
 const chargeCount = 100;
 
-// 燈泡材質參考
-let bulbFilamentMat, bulbPointLight, bulbGlassMat;
+// 燈泡材質參考與發光光芒
+let bulbFilamentMat, bulbPointLight, bulbGlassMat, bulbRays;
 
 // 物理狀態
 let magnetState = {
@@ -388,11 +388,11 @@ let uiState = {
     chartMode: 'current'
 };
 
-// 新增：圖表 Y 軸動態範圍狀態
+// 圖表 Y 軸動態範圍狀態
 let chartState = {
     currentMax: 6,
     emfMax: 80,
-    minCurrentMax: 2, // 最小範圍，避免放大雜訊
+    minCurrentMax: 2, 
     minEmfMax: 20
 };
 
@@ -411,8 +411,8 @@ function init() {
     const container = document.getElementById('canvas-container');
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color('#111111'); 
-    scene.fog = new THREE.Fog('#111111', 20, 100);
+    scene.background = new THREE.Color('#ffffff'); // 白色背景
+    scene.fog = new THREE.Fog('#ffffff', 20, 100);
 
     // 視角設置
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -421,8 +421,6 @@ function init() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -438,7 +436,6 @@ function init() {
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
     dirLight.position.set(10, 20, 15);
-    dirLight.castShadow = true;
     scene.add(dirLight);
 
     const backLight = new THREE.PointLight(0x4444ff, 0.3);
@@ -481,13 +478,11 @@ function calibrateYAxis() {
     let maxC = chartState.minCurrentMax;
     let maxE = chartState.minEmfMax;
     
-    // 尋找當前畫面歷史紀錄中的最大絕對值
     for (let d of chartData.history) {
         if (Math.abs(d.current) > maxC) maxC = Math.abs(d.current);
         if (Math.abs(d.emf) > maxE) maxE = Math.abs(d.emf);
     }
     
-    // 將最大值加上 20% 的視覺緩衝空間
     chartState.currentMax = maxC * 1.2;
     chartState.emfMax = maxE * 1.2;
 }
@@ -495,16 +490,17 @@ function calibrateYAxis() {
 function createFloor() {
     const geo = new THREE.PlaneGeometry(200, 200);
     const mat = new THREE.MeshStandardMaterial({ 
-        color: '#1a1a1a',
+        color: '#ffffff', // 【修改】將地板改為純白色
         roughness: 0.9,
         metalness: 0.1
     });
     const floor = new THREE.Mesh(geo, mat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -6;
-    floor.receiveShadow = true;
+    // (已經移除了 receiveShadow = true，所以不會有陰影)
     
-    const grid = new THREE.GridHelper(200, 50, 0x444444, 0x222222);
+    // 【修改】將網格改成淺灰色，在白底上才不會太刺眼
+    const grid = new THREE.GridHelper(200, 50, 0xdddddd, 0xeeeeee);
     grid.position.y = -5.99;
     
     scene.add(floor);
@@ -585,7 +581,6 @@ function createLightBulb() {
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 });
     const base = new THREE.Mesh(baseGeo, baseMat);
     base.position.y = -1.2;
-    base.castShadow = true;
     bulbGroup.add(base);
 
     const filamentGeo = new THREE.TorusGeometry(0.3, 0.05, 8, 16);
@@ -602,6 +597,43 @@ function createLightBulb() {
     bulbPointLight.position.set(0, 0, 0);
     bulbGroup.add(bulbPointLight);
 
+    // 【新增】：建立發光幾何線條 (光芒射線)
+    bulbRays = new THREE.Group();
+    const rayGeo = new THREE.CylinderGeometry(0.02, 0.08, 1.2, 8);
+    rayGeo.translate(0, 0.6, 0); // 將原點移至射線底部
+    const rayMat = new THREE.MeshBasicMaterial({
+        color: 0xfacc15, // 亮黃色
+        transparent: true,
+        opacity: 0,
+        depthWrite: false
+    });
+
+    // 使用費氏數列球面分佈產生均勻的光芒射線
+    const samples = 25; // 稍微增加取樣點，補足下半部被砍掉的數量
+    const offset = 2 / samples;
+    const increment = Math.PI * (3 - Math.sqrt(5));
+
+    for (let i = 0; i < samples; i++) {
+        const y = ((i * offset) - 1) + (offset / 2);
+        const r = Math.sqrt(1 - Math.pow(y, 2));
+        const phi = ((i + 1) % samples) * increment;
+
+        const x = Math.cos(phi) * r;
+        const z = Math.sin(phi) * r;
+
+        const direction = new THREE.Vector3(x, y, z);
+        
+        // 【修正】：嚴格排除朝下的射線，避免穿模到地板或黑色底座
+        // 將 y 的閾值提高到 -0.1，確保光芒只朝上半部與水平方向發射
+        if (y < -0.1) continue;
+
+        const ray = new THREE.Mesh(rayGeo, rayMat);
+        ray.position.copy(direction.multiplyScalar(1.2)); // 從玻璃表面外圍開始延伸
+        ray.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+        bulbRays.add(ray);
+    }
+    bulbGroup.add(bulbRays);
+
     scene.add(bulbGroup);
 
     const wireMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7 });
@@ -614,7 +646,6 @@ function createLightBulb() {
         new THREE.Vector3(-5.8, -5.2, 5)       
     ]);
     const wireMesh1 = new THREE.Mesh(new THREE.TubeGeometry(wirePath1, 30, 0.15, 8, false), wireMat);
-    wireMesh1.castShadow = true;
     scene.add(wireMesh1);
 
     const wirePath2 = new THREE.CatmullRomCurve3([
@@ -626,7 +657,6 @@ function createLightBulb() {
         new THREE.Vector3(-6.2, -5.2, 5)       
     ]);
     const wireMesh2 = new THREE.Mesh(new THREE.TubeGeometry(wirePath2, 40, 0.15, 8, false), wireMat);
-    wireMesh2.castShadow = true;
     scene.add(wireMesh2);
 }
 
@@ -667,7 +697,6 @@ function createMagnet() {
     ];
     const meshN = new THREE.Mesh(geoHalf, matN);
     meshN.position.x = -width/4;
-    meshN.castShadow = true;
     
     const matS = [
         new THREE.MeshStandardMaterial({ map: createTextTexture('S', '#1976d2'), roughness: 0.5 }), 
@@ -679,7 +708,6 @@ function createMagnet() {
     ];
     const meshS = new THREE.Mesh(geoHalf, matS);
     meshS.position.x = width/4;
-    meshS.castShadow = true;
 
     magnet.add(meshN);
     magnet.add(meshS);
@@ -745,14 +773,14 @@ function createInducedBArrow() {
 
 function createFieldLines() {
     const lineMat = new THREE.LineBasicMaterial({ 
-        color: 0xaaaaaa, 
+        color: 0x666666, // 加深磁力線顏色適應白底
         transparent: true, 
-        opacity: 0.25 
+        opacity: 0.4 
     });
     
     const coneGeo = new THREE.ConeGeometry(0.3, 1.0, 8);
     coneGeo.rotateX(Math.PI / 2); 
-    const coneMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
+    const coneMat = new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.8 });
 
     const layers = [
         { num: 8, spread: 5, extend: 8 },      
@@ -951,8 +979,6 @@ function updatePhysics() {
     simState.emf = -dFlux * 150.0; 
 
     let targetCurrent = dFlux * 8.0; 
-    
-    // 【更新】放寬電流限制 (從原本的 ±6 放寬至 ±15)，搭配動態縮放讓大動作更真實
     targetCurrent = Math.max(Math.min(targetCurrent, 15), -15);
     
     simState.inducedCurrent += (targetCurrent - simState.inducedCurrent) * 0.2;
@@ -961,7 +987,7 @@ function updatePhysics() {
         simState.inducedCurrent = 0;
     }
 
-    // 【新增】動態擴展 Y 軸最大值 (自動往上適應，防超出邊界)
+    // 動態延展 Y 軸
     if (Math.abs(simState.inducedCurrent) > chartState.currentMax) {
         chartState.currentMax = Math.abs(simState.inducedCurrent) * 1.2;
     }
@@ -1007,7 +1033,8 @@ function updateVisuals() {
         });
     }
 
-    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.1) {
+    // 【修改】：將門檻從 0.1 降到 0.01，捕捉極慢的移動
+    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.01) {
         inducedBArrow.visible = true;
         
         const sign = Math.sign(simState.inducedCurrent);
@@ -1015,19 +1042,33 @@ function updateVisuals() {
         
         inducedBArrow.rotation.y += (targetRotY - inducedBArrow.rotation.y) * 0.2;
         
-        const intensity = Math.min(Math.abs(simState.inducedCurrent) * 0.3, 1);
-        inducedBArrow.scale.set(0.5 + intensity*0.8, 0.5 + intensity*0.8, 0.5 + intensity*0.8);
-        inducedBArrow.children.forEach(c => c.material.emissiveIntensity = intensity);
+        const intensity = Math.min(Math.sqrt(Math.abs(simState.inducedCurrent)) * 0.6, 1);
+        
+        inducedBArrow.scale.set(0.6 + intensity*0.6, 0.6 + intensity*0.6, 0.6 + intensity*0.6);
+        inducedBArrow.children.forEach(c => c.material.emissiveIntensity = 0.2 + intensity*0.8);
     } else {
         inducedBArrow.visible = false;
     }
 
-    if (bulbFilamentMat && bulbPointLight && bulbGlassMat) {
+    if (bulbFilamentMat && bulbPointLight && bulbGlassMat && bulbRays) {
         const lightIntensity = Math.min(Math.abs(simState.inducedCurrent) * 2.0, 1.0);
         
         bulbFilamentMat.emissiveIntensity += (lightIntensity * 8.0 - bulbFilamentMat.emissiveIntensity) * 0.2;
         bulbPointLight.intensity += (lightIntensity * 3.0 - bulbPointLight.intensity) * 0.2;
         bulbGlassMat.emissiveIntensity += (lightIntensity * 0.6 - bulbGlassMat.emissiveIntensity) * 0.2;
+
+        // 動態更新幾何光芒的透明度與伸縮比例
+        const targetOpacity = lightIntensity * 0.9;
+        const targetScale = 0.5 + lightIntensity * 0.8;
+        
+        bulbRays.children.forEach(ray => {
+            ray.material.opacity += (targetOpacity - ray.material.opacity) * 0.2;
+        });
+        bulbRays.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.2);
+        
+        // 讓光芒群組微微旋轉，增加發光時的動態放射感
+        // 【修正】：取消 Z 軸旋轉，只保留 Y 軸 (水平自轉)，確保水平的光芒不會因為旋轉而倒栽蔥插進地板
+        bulbRays.rotation.y += 0.005;
     }
 }
 
@@ -1036,20 +1077,16 @@ function updateVisuals() {
  */
 function renderChart() {
     const canvas = document.getElementById('chart-canvas');
-    if (!canvas) return;
-    
-    // 如果圖表面板被收起，跳過繪製以節省效能
-    if (canvas.offsetParent === null) return;
+    if (!canvas || canvas.offsetParent === null) return;
 
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
     const midY = height / 2;
-    const leftMargin = 40; // 留出 40px 顯示數值
+    const leftMargin = 40; 
 
     ctx.clearRect(0, 0, width, height);
 
-    // 繪製 Y 軸分隔線
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1057,7 +1094,6 @@ function renderChart() {
     ctx.lineTo(leftMargin, height);
     ctx.stroke();
 
-    // 繪製中心零位線 (水平)
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
     ctx.moveTo(leftMargin, midY);
@@ -1068,7 +1104,6 @@ function renderChart() {
     const isCurrent = uiState.chartMode === 'current';
     const maxVal = isCurrent ? chartState.currentMax : chartState.emfMax;
     
-    // 繪製 Y 軸數值標籤
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'right';
@@ -1079,7 +1114,6 @@ function renderChart() {
     ctx.fillText("0", leftMargin - 5, midY);
     ctx.fillText("-" + displayMax, leftMargin - 5, height - 10);
 
-    // 準備繪製波形
     ctx.beginPath();
     ctx.strokeStyle = isCurrent ? '#c084fc' : '#facc15'; 
     ctx.lineWidth = 2.5;
@@ -1094,7 +1128,6 @@ function renderChart() {
         let val = isCurrent ? data.current : data.emf;
         
         let normalized = val / maxVal;
-        // 限制不要超過邊界 (保留 5% 上下留白)
         normalized = Math.max(-0.95, Math.min(0.95, normalized)); 
         
         const x = leftMargin + i * stepX;

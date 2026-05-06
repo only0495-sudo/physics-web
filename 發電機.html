@@ -342,6 +342,15 @@
             new THREE.Vector3(-4, 0, -7), new THREE.Vector3(-4, 0, 7)
         ], 0.35, matCopper, coilGroup);
 
+        // 新增：用於閉合線圈的導線段 (僅在不顯示外部裝置時出現)
+        const coilFrontWireGroup = new THREE.Group(); rotorGroup.add(coilFrontWireGroup);
+        const frontWireMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 8, 32), matCopper);
+        frontWireMesh.rotation.z = Math.PI / 2;
+        frontWireMesh.position.set(0, 0, 7);
+        frontWireMesh.castShadow = true;
+        coilFrontWireGroup.add(frontWireMesh);
+        coilFrontWireGroup.visible = !state.showExternal;
+
         // --- 向量標籤與箭頭 ---
         function createTextSprite(text, color) {
             const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 128;
@@ -514,6 +523,8 @@
             if (state.mode === 'AC') buildAC(); else buildDC();
             rotorExternalGroup.visible = state.showExternal;
             statorCircuitGroup.visible = state.showExternal;
+            bulbGroup.visible = state.showExternal;
+            coilFrontWireGroup.visible = !state.showExternal;
             historyData.length = 0;
         }
 
@@ -540,6 +551,8 @@
             state.showExternal = e.target.checked; 
             rotorExternalGroup.visible = state.showExternal;
             statorCircuitGroup.visible = state.showExternal;
+            bulbGroup.visible = state.showExternal;
+            coilFrontWireGroup.visible = !state.showExternal;
         });
 
         UI.playPauseBtn.addEventListener('click', () => {
