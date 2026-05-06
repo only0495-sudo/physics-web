@@ -10,8 +10,8 @@
             margin: 0;
             overflow: hidden;
             font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-            background-color: #111;
-            color: #fff;
+            background-color: #111111; /* 深色背景 */
+            color: #fff; 
             user-select: none;
         }
 
@@ -31,7 +31,7 @@
             right: 20px;
             top: 20px;
             width: 200px; 
-            max-height: calc(100vh - 90px); /* 縮小最大高度，避免蓋住右下角按鈕 */
+            max-height: calc(100vh - 90px);
             overflow-y: auto;
             background: rgba(25, 30, 40, 0.85);
             backdrop-filter: blur(10px);
@@ -47,10 +47,8 @@
         #control-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
 
         /* 原理說明開啟按鈕 */
-        #info-toggle-btn {
+        #info-toggle-btn, #control-toggle-btn {
             position: absolute;
-            left: 20px;
-            top: 20px;
             background: rgba(25, 30, 40, 0.85);
             backdrop-filter: blur(10px);
             border: 1px solid #4fc3f7;
@@ -65,31 +63,11 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
             width: auto;
         }
-        #info-toggle-btn:hover { background: rgba(79, 195, 247, 0.2); }
+        #info-toggle-btn { left: 20px; top: 20px; }
+        #control-toggle-btn { right: 20px; top: 20px; display: none; }
+        #info-toggle-btn:hover, #control-toggle-btn:hover { background: rgba(79, 195, 247, 0.2); }
 
-        /* 控制面板開啟按鈕 */
-        #control-toggle-btn {
-            position: absolute;
-            right: 20px;
-            top: 20px;
-            background: rgba(25, 30, 40, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid #4fc3f7;
-            color: #4fc3f7;
-            padding: 6px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1em;
-            z-index: 10;
-            transition: 0.2s;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            width: auto;
-            display: none; /* 預設隱藏，因為面板已開啟 */
-        }
-        #control-toggle-btn:hover { background: rgba(79, 195, 247, 0.2); }
-
-        /* UI 疊加層 - 狀態與解說面板 (預設隱藏) */
+        /* UI 疊加層 - 狀態與解說面板 */
         #info-panel {
             position: absolute;
             left: 20px;
@@ -102,7 +80,7 @@
             padding: 20px;
             z-index: 15;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            display: none; /* 預設收起 */
+            display: none;
         }
 
         /* 頁籤容器 */
@@ -142,7 +120,6 @@
             pointer-events: none;
         }
 
-        /* 排版與標題 */
         h2 { margin: 0 0 15px 0; font-size: 1.25em; color: #4fc3f7; text-align: center; }
         h3 { margin: 0 0 10px 0; font-size: 1.05em; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;}
         
@@ -163,7 +140,6 @@
 
         /* 控制元件樣式 */
         .control-group { margin-bottom: 18px; }
-        
         .radio-group {
             display: flex;
             flex-direction: column; 
@@ -201,9 +177,6 @@
         }
         button:hover { background: #455a64; transform: translateY(-2px); }
         button.active { background: #1976d2; box-shadow: 0 0 10px rgba(25, 118, 210, 0.5); }
-        
-        .slider-wrapper { display: flex; flex-direction: column; gap: 10px; }
-        input[type="range"] { width: 100%; cursor: pointer; accent-color: #4fc3f7; }
 
         /* 底部獨立滑桿容器 */
         #bottom-slider-container {
@@ -233,7 +206,6 @@
             font-weight: bold;
         }
 
-        /* 放大滑桿軌道與按鈕 */
         #bottom-slider-container input[type="range"] {
             -webkit-appearance: none;
             width: 100%;
@@ -283,7 +255,6 @@
         }
         #fullscreen-btn:hover { background: rgba(255,255,255,0.2); }
 
-        /* 圖例樣式 */
         .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 0.9em; }
         .color-box { width: 12px; height: 12px; border-radius: 3px; }
 
@@ -305,16 +276,11 @@
             font-weight: bold;
         }
 
-        /* 響應式：手機版將控制面板移到底部並可折疊 */
+        /* 響應式佈局 */
         @media (max-width: 768px) {
             #control-panel {
-                top: auto;
-                bottom: 0;
-                right: 0;
-                width: 100%;
-                border-radius: 20px 20px 0 0;
-                box-sizing: border-box;
-                padding: 15px;
+                top: auto; bottom: 0; right: 0; width: 100%;
+                border-radius: 20px 20px 0 0; box-sizing: border-box; padding: 15px;
             }
             .btn-grid { grid-template-columns: 1fr 1fr; }
             .radio-group { flex-direction: row; justify-content: space-around; }
@@ -323,9 +289,7 @@
             #control-toggle-btn { right: 20px; top: 60px; bottom: auto; }
             #formula-panel { display: none; }
             #bottom-slider-container { 
-                bottom: 160px; /* 手機版避開底部控制面板 */
-                width: 85%;
-                padding: 12px 20px;
+                bottom: 160px; width: 85%; padding: 12px 20px;
             }
         }
     </style>
@@ -334,20 +298,12 @@
 
     <!-- 3D 渲染容器 -->
     <div id="canvas-container"></div>
-
-    <!-- 提示訊息 -->
     <div id="toast-message"></div>
-
-    <!-- 全螢幕按鈕 -->
     <button id="fullscreen-btn" onclick="toggleFullScreen()" title="全螢幕">⛶ 全螢幕</button>
-
-    <!-- 原理說明開啟按鈕 -->
     <button id="info-toggle-btn" onclick="toggleInfoPanel()">原理說明</button>
-
-    <!-- 控制面板開啟按鈕 -->
     <button id="control-toggle-btn" onclick="toggleControlPanel()">控制面板</button>
 
-    <!-- 左側狀態解說面板 (多頁籤式) -->
+    <!-- 左側狀態解說面板 -->
     <div id="info-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin:0; border:none; color:#4fc3f7;">📖 狀態與原理解說</h3>
@@ -362,9 +318,7 @@
         </div>
 
         <div class="status-title" id="status-title">狀態載入中...</div>
-        <div id="status-desc" style="line-height: 1.6; font-size: 0.95em; min-height: 100px;">
-            <!-- 內容由 JS 動態生成 -->
-        </div>
+        <div id="status-desc" style="line-height: 1.6; font-size: 0.95em; min-height: 100px;"></div>
         <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 15px 0;">
         <div style="font-size: 0.85em; color: #aaa;">
             💡 <strong>原理提示：</strong> 冷次定律指出，感應電流的方向，總是會產生一個感應磁場，來<strong>反抗</strong>原磁通量的變化。
@@ -384,7 +338,7 @@
         </div>
     </div>
 
-    <!-- 右側控制面板 (已改為長條形) -->
+    <!-- 右側控制面板 -->
     <div id="control-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h2 style="margin:0; border:none; text-align: left;">冷次定律模擬器</h2>
@@ -407,7 +361,6 @@
             <div class="btn-grid">
                 <button class="active" id="btn-manual" onclick="setMode('manual')">🖐 手動拖曳</button>
                 <button id="btn-enter" onclick="setMode('enter')">▶ 自動：進入</button>
-                <button id="btn-inside" onclick="setMode('inside')">▶ 自動：在內</button>
                 <button id="btn-exit" onclick="setMode('exit')">▶ 自動：離開</button>
             </div>
         </div>
@@ -450,8 +403,9 @@
         let flowPlane;           
         let flowCtx, flowTexture; 
         let particles = [];      
-        let bulbCoreMat;         // 燈泡發光核心材質
-        let bulbLight;           // 燈泡光源點
+        let bulbCoreMat;         
+        let bulbLight;           
+        let bulbGlowSprite;      // 新增：燈泡光暈精靈圖
         
         let currentMode = 'manual';
         let flowType = 'current'; 
@@ -461,10 +415,9 @@
         let currentX = -25;
         let smoothedVelocity = 0; 
         let particleOffset = 0;   
-        let currentPhysicalState = 'outside'; // 追蹤目前實際物理狀態
-        let currentDisplayedState = 'outside'; // 追蹤面板目前顯示的解說狀態
+        let currentPhysicalState = 'outside'; 
+        let currentDisplayedState = 'outside'; 
 
-        // UI 元素參考
         const slider = document.getElementById('coilPos');
         const posValText = document.getElementById('pos-val');
 
@@ -473,6 +426,7 @@
         // ==========================================
         function init() {
             scene = new THREE.Scene();
+            // 深色背景
             scene.background = new THREE.Color(0x111111);
             scene.fog = new THREE.FogExp2(0x111111, 0.005);
 
@@ -500,7 +454,6 @@
             window.addEventListener('resize', onWindowResize);
             slider.addEventListener('input', onSliderInput);
 
-            // 預設產生「磁場外」說明內容
             showExplanation('outside');
 
             animate();
@@ -525,19 +478,8 @@
         // 3. 建立 3D 模型與場景物件
         // ==========================================
         function createEnvironment() {
-            const floorGeo = new THREE.PlaneGeometry(200, 200);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, metalness: 0.2 });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.position.y = -15;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            const trackGeo = new THREE.BoxGeometry(100, 0.5, COIL_SIZE + 2);
-            const trackMat = new THREE.MeshStandardMaterial({ color: 0x333333, transparent: true, opacity: 0.5 });
-            const track = new THREE.Mesh(trackGeo, trackMat);
-            track.position.y = -2;
-            scene.add(track);
+            // 根據需求：移除實體地板與軌道，讓畫面呈現純淨懸浮感
+            // 這裡刻意保持空白不加入任何物件
         }
 
         function createMagneticField() {
@@ -551,11 +493,12 @@
             const sMat = new THREE.MeshStandardMaterial({ color: 0x3333ff, transparent: true, opacity: 0.8 }); 
             const sPole = new THREE.Mesh(poleGeo, sMat);
             sPole.position.set(0, -14, 0);
+            sPole.receiveShadow = true; // 即使沒有地板，也能將陰影投射在南極表面
             scene.add(sPole);
 
             const arrowDir = new THREE.Vector3(0, -1, 0);
             const arrowLength = 26;
-            const arrowColor = 0x888888;
+            const arrowColor = 0x888888; // 深色背景適用的灰色
             
             for(let x = FIELD_START + 2; x <= FIELD_END - 2; x += 4) {
                 for(let z = -HALF_COIL - 2; z <= HALF_COIL + 2; z += 4) {
@@ -582,7 +525,6 @@
             wireRight.rotation.x = Math.PI / 2;
             wireRight.castShadow = true;
             
-            // 將原本一整根的左側線路切斷，以串聯燈泡
             const gapSize = 1.5;
             const segmentLength = HALF_COIL - gapSize; 
             const wireLeftGeo = new THREE.CylinderGeometry(wireRadius, wireRadius, segmentLength, 16);
@@ -610,25 +552,21 @@
 
             coilGroup.add(wireRight, wireLeftTop, wireLeftBottom, wireTop, wireBottom);
 
-            // 串聯燈泡模型 (安裝在左側線路的缺口處)
             const bulbGroup = new THREE.Group();
             bulbGroup.position.set(-HALF_COIL, 0, 0);
             
-            // 燈座 (黑色絕緣體，連接兩端線路)
             const socketGeo = new THREE.CylinderGeometry(0.7, 0.7, gapSize * 2.2, 16);
             const socketMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
             const socket = new THREE.Mesh(socketGeo, socketMat);
             socket.rotation.x = Math.PI / 2; 
             bulbGroup.add(socket);
 
-            // 燈泡金屬底座 (垂直向上)
             const baseGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 16);
             const baseMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 });
             const bulbBase = new THREE.Mesh(baseGeo, baseMat);
             bulbBase.position.y = 0.5;
             bulbGroup.add(bulbBase);
 
-            // 玻璃外殼
             const glassGeo = new THREE.SphereGeometry(1.2, 32, 32);
             const glassMat = new THREE.MeshPhysicalMaterial({
                 color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1
@@ -637,7 +575,6 @@
             bulbGlass.position.y = 2.0;
             bulbGroup.add(bulbGlass);
 
-            // 發光燈絲核心
             bulbCoreMat = new THREE.MeshStandardMaterial({
                 color: 0x333333, emissive: 0xffdd44, emissiveIntensity: 0
             });
@@ -646,7 +583,34 @@
             bulbCore.position.y = 2.0;
             bulbGroup.add(bulbCore);
 
-            // 點光源 (讓周圍也能被照亮)
+            // --- 新增：燈泡發光光暈 ---
+            const glowCanvas = document.createElement('canvas');
+            glowCanvas.width = 128;
+            glowCanvas.height = 128;
+            const gCtx = glowCanvas.getContext('2d');
+            const gGrad = gCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+            gGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');      // 中心純白
+            gGrad.addColorStop(0.2, 'rgba(255, 204, 0, 0.8)');    // 內圈金黃
+            gGrad.addColorStop(0.5, 'rgba(255, 153, 0, 0.3)');    // 外圈橘色
+            gGrad.addColorStop(1, 'rgba(255, 153, 0, 0)');        // 邊緣透明
+            gCtx.fillStyle = gGrad;
+            gCtx.fillRect(0, 0, 128, 128);
+            
+            const glowTex = new THREE.CanvasTexture(glowCanvas);
+            const glowMat = new THREE.SpriteMaterial({ 
+                map: glowTex, 
+                color: 0xffcc00,
+                transparent: true, 
+                blending: THREE.AdditiveBlending, // 關鍵：使用加法混合產生強烈的高光感
+                depthWrite: false 
+            });
+            bulbGlowSprite = new THREE.Sprite(glowMat);
+            bulbGlowSprite.scale.set(9, 9, 1); // 設定光暈範圍大小
+            bulbGlowSprite.position.y = 2.0;
+            bulbGlowSprite.material.opacity = 0; // 預設熄滅
+            bulbGroup.add(bulbGlowSprite);
+            // ------------------------------------
+
             bulbLight = new THREE.PointLight(0xffcc00, 0, 20);
             bulbLight.position.y = 2.0;
             bulbGroup.add(bulbLight);
@@ -657,7 +621,7 @@
             galvGroup.position.set(0, 0, HALF_COIL + 1);
             
             const boxGeo = new THREE.BoxGeometry(4, 3, 1);
-            const boxMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // 深色環境下依然保持白色以凸顯
             const box = new THREE.Mesh(boxGeo, boxMat);
             box.castShadow = true;
             galvGroup.add(box);
@@ -686,6 +650,8 @@
             bCanvas.height = 128;
             const bCtx = bCanvas.getContext('2d');
             bCtx.fillStyle = '#69f0ae';
+            bCtx.shadowColor = "rgba(0,0,0,0.8)"; 
+            bCtx.shadowBlur = 4;
             bCtx.font = 'bold 36px "Microsoft JhengHei", sans-serif';
             bCtx.textAlign = 'center';
             bCtx.textBaseline = 'middle';
@@ -738,6 +704,8 @@
             ctx.arc(center, center, radius, 0, Math.PI * 2);
             ctx.stroke();
 
+            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+            ctx.shadowBlur = 10;
             ctx.fillStyle = color;
             ctx.font = 'bold 56px "Microsoft JhengHei", sans-serif';
             ctx.textAlign = 'center';
@@ -764,9 +732,8 @@
         // 4. 物理邏輯與面板更新
         // ==========================================
         function updatePhysicsAndLogic(dt) {
-            // 預設為慢動作模式 (為了更容易觀察)
             const lerpSpeed = 0.02;
-            const autoSpeed = 7; // 調整速度，讓移動過程約控制在 2 秒內完成
+            const autoSpeed = 7; 
 
             // 1. 更新線圈位置
             if (currentMode === 'manual') {
@@ -797,7 +764,7 @@
             let velocity = currentX - (coilGroup.userData.lastX || currentX);
             coilGroup.userData.lastX = currentX;
             smoothedVelocity = smoothedVelocity * 0.9 + velocity * 0.1;
-            let displayIntensity = Math.abs(smoothedVelocity) * 5; // 配合慢動作放大視覺效果
+            let displayIntensity = Math.abs(smoothedVelocity) * 5;
 
             if (Math.abs(smoothedVelocity) > 0.01) {
                 if (smoothedVelocity > 0) { // 向右移動
@@ -818,14 +785,12 @@
                     }
                 }
             } else {
-                // 幾乎靜止時，判斷所在位置
                 if(cLeft >= FIELD_START && cRight <= FIELD_END) newPhysicalState = 'inside';
                 else if(cRight <= FIELD_START || cLeft >= FIELD_END) newPhysicalState = 'outside';
                 else if(cRight > FIELD_START && cLeft < FIELD_START) newPhysicalState = 'entering';
                 else if(cRight > FIELD_END && cLeft < FIELD_END) newPhysicalState = 'exiting';
             }
 
-            // 若物理狀態改變，自動切換面板頁籤
             if (newPhysicalState !== currentPhysicalState) {
                 currentPhysicalState = newPhysicalState;
                 showExplanation(currentPhysicalState);
@@ -850,22 +815,23 @@
                 if (currentDir === 1) {
                     inducedBArrow.setDirection(new THREE.Vector3(0, 1, 0));
                     inducedBArrow.position.y = -4; 
-                    // 將文字標籤移至箭頭右側 (x=6)，高度對齊箭頭尖端附近
                     inducedBLabel.position.set(6, -4 + scale * 8, 0); 
                 } else {
                     inducedBArrow.setDirection(new THREE.Vector3(0, -1, 0));
                     inducedBArrow.position.y = 4; 
-                    // 將文字標籤移至箭頭右側 (x=6)，高度對齊箭頭尖端附近
                     inducedBLabel.position.set(6, 4 - scale * 8, 0); 
                 }
                 
                 inducedBArrow.scale.set(scale, scale, scale);
 
-                // 燈泡發光
-                const glow = Math.min(intensity * 2.5, 3); // 根據速度決定亮度並限制最大值
+                // 燈泡發光 (增強版)
+                const glow = Math.min(intensity * 5, 8); // 提高發光倍率與最大亮度上限
                 bulbCoreMat.emissiveIntensity = glow;
-                bulbCoreMat.color.setHex(0xffffff); // 亮起時核心變白
-                bulbLight.intensity = glow * 1.5;
+                bulbCoreMat.color.setHex(0xffffff);
+                
+                bulbLight.intensity = glow * 2.5; // 增強場景點光源，照亮周圍金屬
+                bulbLight.distance = 40; // 擴大照亮範圍
+                if(bulbGlowSprite) bulbGlowSprite.material.opacity = glow / 8; // 光暈透明度隨亮度變化
             } else {
                 inducedBArrow.visible = false;
                 inducedBLabel.visible = false;
@@ -874,6 +840,7 @@
                 bulbCoreMat.emissiveIntensity = 0;
                 bulbCoreMat.color.setHex(0x333333);
                 bulbLight.intensity = 0;
+                if(bulbGlowSprite) bulbGlowSprite.material.opacity = 0;
             }
 
             const isElectron = (flowType === 'electron');
@@ -933,7 +900,7 @@
             if (panel.style.display === 'none' || panel.style.display === '') {
                 panel.style.display = 'block';
                 btn.style.display = 'none';
-                showExplanation('outside'); // 打開後預設看到磁場外的說明
+                showExplanation('outside'); 
             } else {
                 panel.style.display = 'none';
                 btn.style.display = 'block';
@@ -955,7 +922,6 @@
         function showExplanation(state) {
             currentDisplayedState = state;
             
-            // 更新頁籤外觀
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('tab-' + state).classList.add('active');
 
@@ -967,7 +933,6 @@
             const flowClass = isElectron ? "hl-red" : "hl-blue";
             
             if (state === 'entering') {
-                // 假設向右進入
                 let flowDirText = isElectron ? "順時針 (CW)" : "逆時針 (CCW)";
                 titleText = "原理解說：進入磁場中";
                 descHTML = `
@@ -977,7 +942,6 @@
                     3. 依右手定則，產生 <span class="${flowClass}">${flowDirText}</span> 的 ${flowName}。
                 `;
             } else if (state === 'exiting') {
-                // 假設向右離開
                 let flowDirText = isElectron ? "逆時針 (CCW)" : "順時針 (CW)";
                 titleText = "原理解說：離開磁場中";
                 descHTML = `
@@ -1020,31 +984,34 @@
             document.getElementById('btn-' + mode).classList.add('active');
 
             if (mode === 'enter') {
-                // 從剛好在磁場左側外圍出發
                 currentX = FIELD_START - HALF_COIL - 2; 
-                // 目標：直到線圈「完全進入」磁場左側邊界就停止
                 targetX = FIELD_START + HALF_COIL; 
                 slider.disabled = true;
-            } else if (mode === 'inside') {
-                targetX = 0; 
-                slider.disabled = true;
             } else if (mode === 'exit') {
-                // 從剛好完全在磁場右側內圍出發
                 currentX = FIELD_END - HALF_COIL;
-                // 目標：直到線圈「完全離開」磁場右側邊界就停止
                 targetX = FIELD_END + HALF_COIL + 2; 
                 slider.disabled = true;
             } else {
                 targetX = currentX;
                 slider.disabled = false;
             }
+
+            // 【核心修正】：瞬間移動後，立即消除殘留速度與重置歷史位置，避免產生幽靈磁通量
+            if (coilGroup) {
+                coilGroup.position.x = currentX;
+                coilGroup.userData.lastX = currentX;
+            }
+            smoothedVelocity = 0;
+            
+            // 強制熄滅燈泡與重置指針、粒子，避免畫面殘留錯誤的物理反饋
+            if (galvanometerNeedle) galvanometerNeedle.rotation.z = 0;
+            updateVisuals('none', 0, 0);
         }
 
         window.setMode = setMode;
 
         window.setFlowType = function(type) {
             flowType = type;
-            // 重新渲染當前面板以即時反映名詞變更
             showExplanation(currentDisplayedState);
             updatePhysicsAndLogic(0); 
         };
@@ -1094,7 +1061,10 @@
             renderer.render(scene, camera);
         }
 
-        init();
+        // 確保在頁面載入完畢後再執行初始化
+        window.onload = function() {
+            init();
+        };
 
     </script>
 </body>
