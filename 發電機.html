@@ -656,14 +656,16 @@
                 floatArrowBack.setLength(vecLen * 0.8, hL * 0.8, hW * 0.8);
 
                 // 2. 更新中心大圓形箭頭與標籤 (隨電流大小明顯縮放)
-                coilCurrentRight.visible = (sign > 0);
-                coilCurrentLeft.visible = (sign < 0);
+                // 修正：將大圓形箭頭的顯示條件反轉，使其完美吻合導線直線箭頭的順逆時針流向
+                coilCurrentRight.visible = (sign < 0);
+                coilCurrentLeft.visible = (sign > 0);
                 const loopScale = 0.1 + power * 1.1;
                 coilCurrentRight.scale.setScalar(loopScale);
                 coilCurrentLeft.scale.setScalar(loopScale);
                 iLabelSprite.visible = true;
 
                 // 3. 更新感應磁場 B 箭頭 (垂直線圈)
+                // 修正：嚴格遵守安培右手定則！當感應電流逆時針時，磁場必須向上 (+Y)
                 inducedBArrow.setDirection(new THREE.Vector3(0, sign, 0));
                 inducedBArrow.setLength(vecLen * 1.5, hL * 1.5, hW * 1.5);
                 bLabelSprite.position.set(0, sign * (vecLen * 1.5 + 2), 0);
