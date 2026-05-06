@@ -199,7 +199,7 @@
                 <div class="panel-content">
                     <div class="legend-item"><div class="color-box" style="background: #0284c7;"></div> N指向S的環境磁場向量</div>
                     <div class="legend-item"><div class="color-box" style="background: #ef4444;"></div> 感應電流 (紅色箭頭)</div>
-                    <div class="legend-item"><div class="color-box" style="background: #9333ea;"></div> 感應電場 B</div>
+                    <div class="legend-item"><div class="color-box" style="background: #9333ea;"></div> 感應磁場 B</div>
                 </div>
             </div>
             
@@ -278,39 +278,28 @@
         const matBrush = new THREE.MeshStandardMaterial({color:0x333333, roughness: 0.8});
         const matWire = new THREE.MeshStandardMaterial({color:0x1e293b, roughness: 0.6});
 
-        // --- 磁鐵環境標記 (新增文字貼在磁鐵上) ---
+        // 磁鐵環境
+        const magnetsGroup = new THREE.Group(); scene.add(magnetsGroup);
+        const mN = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 16), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 })); mN.position.set(-12, 0, 0); mN.receiveShadow = true; magnetsGroup.add(mN);
+        const mS = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 16), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 })); mS.position.set(12, 0, 0); mS.receiveShadow = true; magnetsGroup.add(mS);
+        for(let z = -6; z <= 6; z+=6) {
+            for(let y = -4; y <= 4; y+=4) { magnetsGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-8.5, y, z), 17, 0x0284c7, 1.2, 0.8)); }
+        }
+
         function createMagnetLabel(text) {
             const canvas = document.createElement('canvas');
             canvas.width = 128; canvas.height = 128;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(255,255,255,0)'; ctx.fillRect(0,0,128,128); // 透明背景
+            ctx.fillStyle = 'rgba(255,255,255,0)'; ctx.fillRect(0,0,128,128);
             ctx.fillStyle = 'white'; ctx.font = 'bold 80px Arial';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(text, 64, 64);
             const texture = new THREE.CanvasTexture(canvas);
             const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
-            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), mat);
-            return mesh;
+            return new THREE.Mesh(new THREE.PlaneGeometry(4, 4), mat);
         }
-
-        const magnetsGroup = new THREE.Group(); scene.add(magnetsGroup);
-        const mN = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 16), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 })); mN.position.set(-12, 0, 0); mN.receiveShadow = true; magnetsGroup.add(mN);
-        const mS = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 16), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 })); mS.position.set(12, 0, 0); mS.receiveShadow = true; magnetsGroup.add(mS);
-
-        // 貼上 N 與 S 字樣於頂部
-        const labelN = createMagnetLabel('N');
-        labelN.position.set(-12, 6.05, 0); // 稍微高於表面 0.05 避免 Z-fighting
-        labelN.rotation.x = -Math.PI / 2;
-        magnetsGroup.add(labelN);
-
-        const labelS = createMagnetLabel('S');
-        labelS.position.set(12, 6.05, 0);
-        labelS.rotation.x = -Math.PI / 2;
-        magnetsGroup.add(labelS);
-
-        for(let z = -6; z <= 6; z+=6) {
-            for(let y = -4; y <= 4; y+=4) { magnetsGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-8.5, y, z), 17, 0x0284c7, 1.2, 0.8)); }
-        }
+        const labelN = createMagnetLabel('N'); labelN.position.set(-12, 6.05, 0); labelN.rotation.x = -Math.PI / 2; magnetsGroup.add(labelN);
+        const labelS = createMagnetLabel('S'); labelS.position.set(12, 6.05, 0); labelS.rotation.x = -Math.PI / 2; magnetsGroup.add(labelS);
 
         // --- 平滑曲線導線生成函數 (用於內部轉子引線) ---
         function buildSmoothWire(points, radius, mat, group) {
@@ -337,72 +326,82 @@
         const rotorGroup = new THREE.Group(); scene.add(rotorGroup);
         const coilGroup = new THREE.Group(); rotorGroup.add(coilGroup);
         
+        // 生成ㄇ字形線圈主體
         buildSmoothWire([
             new THREE.Vector3(4, 0, 7), new THREE.Vector3(4, 0, -7),
             new THREE.Vector3(-4, 0, -7), new THREE.Vector3(-4, 0, 7)
         ], 0.35, matCopper, coilGroup);
 
-        // 新增：用於閉合線圈的導線段 (僅在不顯示外部裝置時出現)
-        const coilFrontWireGroup = new THREE.Group(); rotorGroup.add(coilFrontWireGroup);
-        const frontWireMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 8, 32), matCopper);
-        frontWireMesh.rotation.z = Math.PI / 2;
-        frontWireMesh.position.set(0, 0, 7);
-        frontWireMesh.castShadow = true;
-        coilFrontWireGroup.add(frontWireMesh);
-        coilFrontWireGroup.visible = !state.showExternal;
+        // 為了支援隱藏外部裝置時自動閉合線圈，我們繪製前方缺口並依狀態切換顯示
+        const coilFrontWire = buildSmoothWire([
+            new THREE.Vector3(-4, 0, 7), new THREE.Vector3(4, 0, 7)
+        ], 0.35, matCopper, rotorGroup);
+        coilFrontWire.visible = !state.showExternal; // 預設隱藏
 
         // --- 向量標籤與箭頭 ---
         function createTextSprite(text, color) {
             const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 128;
-            const ctx = canvas.getContext('2d'); ctx.font = 'bold 32px sans-serif'; ctx.fillStyle = color;
+            const ctx = canvas.getContext('2d'); ctx.font = 'bold 36px "Inter", sans-serif'; ctx.fillStyle = color;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 128, 64);
             const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
             sprite.scale.set(6, 3, 1); return sprite;
         }
         
         const coilVectorsGroup = new THREE.Group(); rotorGroup.add(coilVectorsGroup);
-
-        // --- 重構環狀電流箭頭 (隨線圈旋轉，且開口永遠朝下/前) ---
-        function createCoilLoop(pointsRight) {
+        
+        // --- 修正且不會爆掉的環狀電流箭頭 (CW & CCW) ---
+        function createCoilLoop(isCW) {
             const group = new THREE.Group();
             const mat = new THREE.MeshBasicMaterial({color: 0xef4444, side: THREE.DoubleSide});
+            const r = 3.5;
+            const gap = 0.4; // 缺口大小
             
-            class LoopCurve extends THREE.Curve {
+            // 在 XZ 平面繪製圓弧，缺口固定於 +Z
+            class Arc extends THREE.Curve {
                 getPoint(t) {
-                    let startAngle, endAngle;
-                    if (pointsRight) {
-                        startAngle = Math.PI / 2 + 0.3; 
-                        endAngle = Math.PI / 2 - 0.3 + Math.PI * 2;
-                    } else {
-                        startAngle = Math.PI / 2 - 0.3;
-                        endAngle = Math.PI / 2 + 0.3 - Math.PI * 2;
-                    }
-                    const angle = startAngle + t * (endAngle - startAngle);
-                    return new THREE.Vector3(Math.cos(angle)*3.5, 0, Math.sin(angle)*3.5);
+                    let angle = isCW
+                        ? (Math.PI/2 - gap) - t * (Math.PI*2 - 2*gap) // 順時針
+                        : (Math.PI/2 + gap) + t * (Math.PI*2 - 2*gap); // 逆時針
+                    return new THREE.Vector3(Math.cos(angle)*r, 0, Math.sin(angle)*r);
                 }
             }
-            group.add(new THREE.Mesh(new THREE.TubeGeometry(new LoopCurve(), 64, 0.25, 8, false), mat));
-            
+            group.add(new THREE.Mesh(new THREE.TubeGeometry(new Arc(), 64, 0.25, 8, false), mat));
+
+            // 無縫貼合箭頭頭部
             const head = new THREE.Mesh(new THREE.ConeGeometry(0.8, 2.0, 16), mat);
-            const endAngle = pointsRight ? (Math.PI / 2 - 0.3) : (Math.PI / 2 + 0.3);
-            const headPos = new THREE.Vector3(Math.cos(endAngle)*3.5, 0, Math.sin(endAngle)*3.5);
-            head.position.copy(headPos);
-            
-            const t0 = 0.95;
-            const p0 = new LoopCurve().getPoint(t0);
-            const p1 = new LoopCurve().getPoint(1.0);
-            const tangent = new THREE.Vector3().subVectors(p1, p0).normalize();
-            head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
-            
+            const arc = new Arc();
+            const p1 = arc.getPoint(1.0);
+            const p0 = arc.getPoint(0.95);
+            head.position.copy(p1);
+            // 利用切線向量精準對位
+            head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().subVectors(p1, p0).normalize());
             group.add(head);
             return group;
         }
 
-        const coilCurrentRight = createCoilLoop(true);
-        const coilCurrentLeft = createCoilLoop(false);
-        coilVectorsGroup.add(coilCurrentRight);
-        coilVectorsGroup.add(coilCurrentLeft);
+        const currentLoopCW = createCoilLoop(true);
+        const currentLoopCCW = createCoilLoop(false);
+        coilVectorsGroup.add(currentLoopCW);
+        coilVectorsGroup.add(currentLoopCCW);
         
+        const iLabelSprite = createTextSprite('感應電流', '#ef4444'); 
+        coilVectorsGroup.add(iLabelSprite);
+
+        // --- 懸浮於導線上方的直線箭頭 (左、右、後，共3個) ---
+        const statorStaticGroup = new THREE.Group(); scene.add(statorStaticGroup); // 存放在世界座標
+        const floatArrowRight = new THREE.ArrowHelper(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 1, 0xef4444, 0.5, 0.3);
+        const floatArrowLeft = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1, 0xef4444, 0.5, 0.3);
+        const floatArrowBack = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0xef4444, 0.5, 0.3);
+        statorStaticGroup.add(floatArrowRight);
+        statorStaticGroup.add(floatArrowLeft);
+        statorStaticGroup.add(floatArrowBack);
+
+        // 感應磁場 B 箭頭 (與線圈垂直)
+        const inducedBArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 0, 0x9333ea, 1.5, 1.0); 
+        coilVectorsGroup.add(inducedBArrow);
+        const bLabelSprite = createTextSprite('感應磁場 B', '#9333ea'); 
+        coilVectorsGroup.add(bLabelSprite);
+
         // --- 實體金屬圓環生成器 ---
         function createSolidPipeGeo(innerRadius, outerRadius, depth, thetaStart = 0, thetaLength = Math.PI*2) {
             const shape = new THREE.Shape();
@@ -421,31 +420,13 @@
 
         const rotorExternalGroup = new THREE.Group(); rotorGroup.add(rotorExternalGroup);
         const statorCircuitGroup = new THREE.Group(); scene.add(statorCircuitGroup);
-        const statorStaticGroup = new THREE.Group(); scene.add(statorStaticGroup); // 不旋轉、不隱藏的靜態標示群組
 
-        const iLabelSprite = createTextSprite('感應電流', '#ef4444');
-        statorStaticGroup.add(iLabelSprite); 
-        iLabelSprite.position.set(0, -0.5, 4.5);
-
-        // --- 懸浮於導線上方的直線箭頭 (左、右、後，共3個) ---
-        const floatArrowRight = new THREE.ArrowHelper(new THREE.Vector3(0,0,-1), new THREE.Vector3(0,0,0), 1, 0xef4444, 0.5, 0.3);
-        const floatArrowLeft = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1, 0xef4444, 0.5, 0.3);
-        const floatArrowBack = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0xef4444, 0.5, 0.3);
-        statorStaticGroup.add(floatArrowRight);
-        statorStaticGroup.add(floatArrowLeft);
-        statorStaticGroup.add(floatArrowBack);
-
-        // 感應電場 B 箭頭 (與線圈垂直，隨線圈旋轉)
-        const inducedBArrow = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 0, 0x9333ea, 1.5, 1.0); 
-        coilVectorsGroup.add(inducedBArrow);
-        const bLabelSprite = createTextSprite('感應電場 B', '#9333ea'); 
-        coilVectorsGroup.add(bLabelSprite);
-
-        // --- 燈座、燈泡實體與外部固定導線箭頭 ---
+        // 外部導線箭頭 (懸浮於 Z=22 水平導線上)
         const extArrow1 = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(2.5, 6.8, 22), 0.1, 0xef4444, 0.1, 0.1);
         const extArrow2 = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(-2.5, 6.8, 22), 0.1, 0xef4444, 0.1, 0.1);
         statorStaticGroup.add(extArrow1); statorStaticGroup.add(extArrow2);
 
+        // 燈座與燈泡實體
         const bulbGroup = new THREE.Group(); bulbGroup.position.set(0, 6.5, 22); statorStaticGroup.add(bulbGroup);
         const socketMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.9, 1.5, 16), new THREE.MeshStandardMaterial({color: 0x64748b})); 
         socketMesh.position.set(0, 0, 0); bulbGroup.add(socketMesh); 
@@ -523,8 +504,6 @@
             if (state.mode === 'AC') buildAC(); else buildDC();
             rotorExternalGroup.visible = state.showExternal;
             statorCircuitGroup.visible = state.showExternal;
-            bulbGroup.visible = state.showExternal;
-            coilFrontWireGroup.visible = !state.showExternal;
             historyData.length = 0;
         }
 
@@ -552,7 +531,10 @@
             rotorExternalGroup.visible = state.showExternal;
             statorCircuitGroup.visible = state.showExternal;
             bulbGroup.visible = state.showExternal;
-            coilFrontWireGroup.visible = !state.showExternal;
+            extArrow1.visible = state.showExternal;
+            extArrow2.visible = state.showExternal;
+            // 控制閉合線材顯示
+            coilFrontWire.visible = !state.showExternal;
         });
 
         UI.playPauseBtn.addEventListener('click', () => {
@@ -639,9 +621,10 @@
             if (absV > 0.1) {
                 coilVectorsGroup.visible = true;
                 
-                // 1. 更新懸浮於導線上方的直線電流箭頭 (三個邊：右、左、後)
+                // 1. 更新懸浮於導線上方的直線電流箭頭 (維持在世界座標 +Y 處，不隨線圈埋入)
                 floatArrowRight.visible = true; floatArrowLeft.visible = true; floatArrowBack.visible = true;
                 
+                // 計算旋轉後的高度，使其懸浮於上方 (基於導線位置 y，並往 +Y 偏移 1.0)
                 floatArrowRight.position.set(4*Math.cos(state.currentAngle), 4*Math.sin(state.currentAngle) + 1.0, 0);
                 floatArrowRight.setDirection(new THREE.Vector3(0, 0, -sign));
                 floatArrowRight.setLength(vecLen * 0.8, hL * 0.8, hW * 0.8);
@@ -650,28 +633,32 @@
                 floatArrowLeft.setDirection(new THREE.Vector3(0, 0, sign));
                 floatArrowLeft.setLength(vecLen * 0.8, hL * 0.8, hW * 0.8);
 
+                // 後方導線固定於 Z=-7，不因 Z 軸旋轉而改變 Z 坐標
                 floatArrowBack.position.set(0, 1.0, -7); 
                 const backDir = new THREE.Vector3(-sign * Math.cos(state.currentAngle), -sign * Math.sin(state.currentAngle), 0).normalize();
                 floatArrowBack.setDirection(backDir);
                 floatArrowBack.setLength(vecLen * 0.8, hL * 0.8, hW * 0.8);
 
-                // 2. 更新中心大圓形箭頭與標籤 (隨電流大小明顯縮放)
-                // 修正：將大圓形箭頭的顯示條件反轉，使其完美吻合導線直線箭頭的順逆時針流向
-                coilCurrentRight.visible = (sign < 0);
-                coilCurrentLeft.visible = (sign > 0);
+                // 2. 更新中心圓環箭頭 (隨電流強度縮放，且物理無縫連接)
                 const loopScale = 0.1 + power * 1.1;
-                coilCurrentRight.scale.setScalar(loopScale);
-                coilCurrentLeft.scale.setScalar(loopScale);
+                currentLoopCW.visible = (sign > 0);
+                currentLoopCCW.visible = (sign < 0);
+                currentLoopCW.scale.setScalar(loopScale);
+                currentLoopCCW.scale.setScalar(loopScale);
+                
                 iLabelSprite.visible = true;
+                iLabelSprite.position.set(0, -0.5, 3.5 * loopScale + 1.5); 
 
-                // 3. 更新感應磁場 B 箭頭 (垂直線圈)
-                // 修正：嚴格遵守安培右手定則！當感應電流逆時針時，磁場必須向上 (+Y)
-                inducedBArrow.setDirection(new THREE.Vector3(0, sign, 0));
+                // 3. 更新感應磁場 B 箭頭 (遵循右手安培定則，逆時針CCW電流產生+Y向磁場)
+                inducedBArrow.setDirection(new THREE.Vector3(0, sign > 0 ? 1 : -1, 0));
                 inducedBArrow.setLength(vecLen * 1.5, hL * 1.5, hW * 1.5);
-                bLabelSprite.position.set(0, sign * (vecLen * 1.5 + 2), 0);
+                
+                const bOffset = sign > 0 ? 1 : -1;
+                bLabelSprite.position.set(0, bOffset * (vecLen * 1.5 + 2), 0);
 
                 if (state.showExternal) {
                     extArrow1.visible = true; extArrow2.visible = true;
+                    // 在 AC 下箭頭會隨 sign 翻轉；在 DC 下永遠同方向 (+1)
                     const flowDir = (state.mode === 'AC') ? sign : 1; 
                     extArrow1.setDirection(new THREE.Vector3(-flowDir, 0, 0)); 
                     extArrow1.setLength(vecLen * 0.5, hL * 0.5, hW * 0.5);
@@ -708,7 +695,10 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        drawChart();
+        // 預設介面打開，圖例與公式收起
+        togglePanel('panel-formula');
+        togglePanel('panel-legend');
+
         animate();
     </script>
 </body>

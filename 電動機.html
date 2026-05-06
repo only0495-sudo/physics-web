@@ -364,10 +364,23 @@
             buildWireBox(0.3,4.4,0.3,0,4.3,14); buildWireBox(6.3,0.3,0.3,-3,6.5,14); buildWireBox(0.3,0.3,8.3,-6,6.5,18); buildWireBox(3,0.3,0.3,-4.5,6.5,22);
         }
 
-        const battery = new THREE.Group(); battery.position.set(0,6.5,22); scene.add(battery);
-        battery.add(new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,4,32), new THREE.MeshStandardMaterial({color:0x333333}))).rotation.z = Math.PI/2;
-        battery.add(new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,0.8,32), new THREE.MeshStandardMaterial({color:0xef4444}))).position.set(2.4,0,0); battery.children[1].rotation.z=Math.PI/2;
-        battery.add(new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,0.8,32), new THREE.MeshStandardMaterial({color:0x3b82f6}))).position.set(-2.4,0,0); battery.children[2].rotation.z=Math.PI/2;
+        // --- 電池模型 ---
+        const battery = new THREE.Group(); 
+        battery.position.set(0, 6.5, 22); 
+        scene.add(battery);
+        
+        const batBody = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 4, 32), new THREE.MeshStandardMaterial({color:0x333333, metalness: 0.7})); 
+        batBody.rotation.z = Math.PI/2;
+        
+        const batPos = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 32), new THREE.MeshStandardMaterial({color:0xef4444})); 
+        batPos.position.set(2.4, 0, 0); 
+        batPos.rotation.z = Math.PI/2;
+        
+        const batNeg = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 32), new THREE.MeshStandardMaterial({color:0x3b82f6})); 
+        batNeg.position.set(-2.4, 0, 0); 
+        batNeg.rotation.z = Math.PI/2;
+        
+        battery.add(batBody, batPos, batNeg);
 
         function switchMode(m) {
             state.mode = m; rotorExternalGroup.clear(); statorCircuitGroup.clear();
