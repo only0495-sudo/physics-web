@@ -14,6 +14,7 @@
             --text-muted: #64748b;
             --color-half: #f59e0b;
             --color-top: #e11d48; 
+            --color-speed: #10b981; /* 速度標籤綠色 */
         }
         * { box-sizing: border-box; }
         body {
@@ -54,7 +55,7 @@
         }
         #fullscreen-btn:hover { background: #e2e8f0; }
 
-        /* --- 左下角：即時數據 HUD (為全螢幕按鈕讓出空間) --- */
+        /* --- 左下角：即時數據 HUD --- */
         #hud-panel {
             position: absolute; bottom: 80px; left: 20px; width: clamp(180px, 45vw, 220px);
             background: var(--bg-glass); border: 1px solid var(--border-glass);
@@ -68,7 +69,7 @@
         .bar-k { background: #10b981; height: 100%; transition: width 0.05s; }
         .bar-u { background: #3b82f6; height: 100%; transition: width 0.05s; }
 
-        /* --- 右側/底部：操作面板 (RWD) --- */
+        /* --- 右側：操作面板 (RWD) --- */
         #control-panel {
             position: absolute; right: 20px; top: 20px;
             background: var(--bg-glass); border: 1px solid var(--border-glass);
@@ -89,7 +90,7 @@
         .mode-selector { display: flex; gap: 5px; background: #f1f5f9; padding: 5px; border-radius: 10px; border: 1px solid #cbd5e1; }
         .mode-btn {
             flex: 1; padding: 8px 0; border: none; border-radius: 6px; background: transparent;
-            font-weight: bold; font-size: clamp(0.85rem, 3.5vw, 0.95rem); color: #64748b; cursor: pointer; transition: 0.2s;
+            font-weight: bold; font-size: clamp(0.8rem, 3.5vw, 0.9rem); color: #64748b; cursor: pointer; transition: 0.2s;
         }
         .mode-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
 
@@ -101,8 +102,8 @@
             color: #1e3a8a; min-height: 45px;
         }
         
-        /* 自訂拉桿系統 (圖層疊加) */
-        .slider-group { display: flex; flex-direction: column; gap: 6px; }
+        /* 拉桿系統 */
+        .slider-group { display: flex; flex-direction: column; gap: 6px; transition: opacity 0.3s; }
         .slider-header { display: flex; justify-content: space-between; font-weight: bold; font-size: clamp(0.9rem, 3.5vw, 1rem); }
         .slider-value { color: var(--primary); font-family: monospace; font-size: clamp(1rem, 4vw, 1.2rem); }
         .slider-wrapper { position: relative; padding: 12px 0; margin: 2px 0; }
@@ -111,22 +112,20 @@
             height: 8px; background: #cbd5e1; border-radius: 4px;
             transform: translateY(-50%); z-index: 1; pointer-events: none;
         }
-        
         input[type=range] { 
             -webkit-appearance: none; width: 100%; background: transparent; 
             margin: 0; position: relative; z-index: 3; cursor: pointer;
         }
-        
         #x-slider::-webkit-slider-runnable-track { width: 100%; height: 8px; background: transparent; }
         #zoom-slider::-webkit-slider-runnable-track { width: 100%; height: 8px; background: #cbd5e1; border-radius: 4px; }
-        
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none; height: 26px; width: 26px; border-radius: 50%;
             background: var(--primary); margin-top: -9px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: 0.1s; position: relative; z-index: 4;
         }
+        input[type=range]:disabled::-webkit-slider-thumb { background: #94a3b8; cursor: not-allowed; }
         #zoom-slider::-webkit-slider-thumb { height: 20px; width: 20px; margin-top: -6px; }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        input[type=range]:not(:disabled)::-webkit-slider-thumb:hover { transform: scale(1.1); }
         
         .slider-marker {
             position: absolute; top: 50%; transform: translate(-50%, -50%);
@@ -161,22 +160,28 @@
         #diameter-label { color: #f97316; font-size: clamp(1rem, 3.5vw, 1.2rem); transform: translate(-100%, -50%); }
         #release-height-label { color: #f97316; font-size: clamp(1.1rem, 4vw, 1.3rem); transform: translate(-100%, -50%); }
 
+        /* 模式三專屬：速度展示標籤 (升級為精緻公式字體與排版) */
+        .speed-label {
+            color: var(--color-speed); font-size: clamp(1.05rem, 3.5vw, 1.25rem);
+            font-family: 'Times New Roman', Times, serif; font-weight: normal;
+            background: rgba(255, 255, 255, 0.9); padding: 6px 12px;
+            border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.4);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-shadow: none; backdrop-filter: blur(4px);
+            display: flex; align-items: center;
+        }
+
         /* RWD 手機版介面適應 */
         @media (max-width: 768px) {
             #control-panel {
                 top: 15px; right: 15px; bottom: auto; left: auto;
-                transform-origin: top right;
-                transform: scale(0.75); 
+                transform-origin: top right; transform: scale(0.75); 
             }
             #control-panel.expanded { max-height: 85vh; }
             #hud-panel {
                 top: 15px; left: 15px; bottom: auto;
-                transform-origin: top left;
-                transform: scale(0.85); 
+                transform-origin: top left; transform: scale(0.85); 
             }
-            #fullscreen-btn {
-                bottom: 20px; left: 15px; /* 手機版底部空間充裕 */
-            }
+            #fullscreen-btn { bottom: 20px; left: 15px; }
             #info-panel { display: none; } 
         }
     </style>
@@ -192,7 +197,6 @@
 </head>
 <body>
 
-    <!-- 原理說明 -->
     <div id="info-panel" class="">
         <div class="info-header" id="info-toggle">
             <span>📖 物理原理解析</span><span id="toggle-icon">▼</span>
@@ -206,7 +210,6 @@
         </div>
     </div>
 
-    <!-- HUD -->
     <div id="hud-panel">
         <div class="hud-row"><span>速度 (v):</span> <span class="hud-value" id="hud-v">0.00</span></div>
         <div class="hud-row"><span>高度 (h):</span> <span class="hud-value" id="hud-h">0.00</span></div>
@@ -217,23 +220,22 @@
         </div>
     </div>
 
-    <!-- 左下角全螢幕按鈕 -->
     <button id="fullscreen-btn" title="切換全螢幕">⛶</button>
 
-    <!-- 操作面板 -->
     <div id="control-panel" class="expanded">
         <div class="control-header" id="control-toggle">
             <span>⚙️ 實驗參數調整</span><span id="control-toggle-icon">▲</span>
         </div>
         <div class="control-body">
             <div class="mode-selector">
-                <button class="mode-btn active" id="mode1-btn">模式一：斜坡滑落</button>
-                <button class="mode-btn" id="mode2-btn">模式二：平地發射</button>
+                <button class="mode-btn active" id="mode1-btn">斜坡滑落</button>
+                <button class="mode-btn" id="mode2-btn">平地發射</button>
+                <button class="mode-btn" id="mode3-btn">連續繞圓</button>
             </div>
             
             <div class="formula-box" id="ui-formula"></div>
             
-            <div class="slider-group">
+            <div class="slider-group" id="slider-group-container">
                 <div class="slider-header">
                     <span id="ui-slider-label">放置高度倍數 (x)</span>
                     <span class="slider-value" id="x-display">2.0</span>
@@ -247,13 +249,12 @@
                 <div style="font-size: 0.85rem; color: var(--text-muted); text-align: right; font-weight: bold;" id="v-display"></div>
             </div>
 
-            <!-- 視角縮放整合進面板 -->
             <div class="slider-group" style="margin-top:-5px;">
                 <div class="slider-header"><span style="color:#64748b; font-size:0.9rem;">🔍 視角縮放</span></div>
                 <input type="range" id="zoom-slider" min="0.3" max="1.5" step="0.01" value="0.75">
             </div>
 
-            <div class="quick-btn-group">
+            <div class="quick-btn-group" id="answer-container">
                 <button class="quick-btn" id="btn-show-answer" style="background:var(--primary); color:white; border:none;">【 顯示答案 】</button>
                 <div id="answer-buttons" style="display: none; flex-direction: column; gap: 8px;">
                     <button class="quick-btn" id="btn-quick-top"><span style="color:var(--color-top); font-size:1.4em; vertical-align:middle; line-height:0;">&bull;</span> 恰好繞到最高點</button>
@@ -272,6 +273,53 @@
     <div id="height-label" class="floating-label">0.00 R</div>
     <div id="diameter-label" class="floating-label">2 R</div>
     <div id="release-height-label" class="floating-label">H = 2.0 R</div>
+    
+    <!-- 模式三專屬速度標籤 (升級 SVG 完美根號) -->
+    <div id="sl-top" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">
+                1gR
+            </div>
+        </div>
+    </div>
+    <div id="sl-mid-r" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">
+                3gR
+            </div>
+        </div>
+    </div>
+    <div id="sl-mid-l" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">
+                3gR
+            </div>
+        </div>
+    </div>
+    <div id="sl-bot" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">
+                5gR
+            </div>
+        </div>
+    </div>
+
     <canvas id="webgl-canvas"></canvas>
 
     <script type="module">
@@ -279,20 +327,11 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import * as CANNON from 'cannon-es';
 
-        // --- 全螢幕控制邏輯 ---
         document.getElementById('fullscreen-btn').addEventListener('click', function() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-                this.innerText = '✕';
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                    this.innerText = '⛶';
-                }
-            }
+            if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); this.innerText = '✕'; } 
+            else { if (document.exitFullscreen) { document.exitFullscreen(); this.innerText = '⛶'; } }
         });
 
-        // --- RWD 面板收合邏輯 ---
         const togglePanel = (btnId, panelId, iconId) => {
             document.getElementById(btnId).addEventListener('click', () => {
                 const panel = document.getElementById(panelId);
@@ -314,10 +353,9 @@
             document.getElementById('control-toggle-icon').innerText = '▲';
         }
 
-        // --- 全域變數 ---
         let scene, camera, renderer, controls, world;
         let sphereMesh, sphereBody;
-        let straightTrackMesh, rampTrackMesh;
+        let straightTrackMesh, rampTrackMesh, torusRightMesh, torusFullMesh;
         let trailGeometry, trailLine;
         const trailPositions = [];
         
@@ -327,14 +365,14 @@
         const releaseHeightLabel = document.getElementById('release-height-label');
 
         let isSimulating = false;
-        let currentMode = 1; // 1: 斜坡, 2: 平地
+        let currentMode = 1; // 1: 斜坡, 2: 平地, 3: 連續繞圓
         let ballState = 'ready'; 
+        let trappedInLoop = false; // 模式三專用捕捉鎖定
         let bounceCount = 0;     
         let initialMaxEnergy = 0;
         let maxReachedH = 0;
         let lastTime;
 
-        // --- 核心物理常數 ---
         const config = { gravity: 9.8, mass: 1, ballRadius: 0.5 };
         const R = 5.0;      
         const tubeR = 0.15; 
@@ -344,32 +382,30 @@
         const uiFormula = document.getElementById('ui-formula');
         const vDisplay = document.getElementById('v-display');
         
-        // 核心幾何方程式
         function getCenterPathY(x, mode) {
-            if (mode === 2) return 0.5; // 平地
+            if (mode === 2 || mode === 3) return 0.5; 
             if (x >= 0) return 0.5;
-            if (x >= -3) return 0.25 * x * x + 0.5; // 更陡斜坡過渡
+            if (x >= -3) return 0.25 * x * x + 0.5; 
             return -1.5 * x - 1.75; 
         }
         function getCenterPathYPrime(x, mode) {
-            if (mode === 2) return 0;
+            if (mode === 2 || mode === 3) return 0;
             if (x >= 0) return 0;
             if (x >= -3) return 0.5 * x;
             return -1.5;
         }
-        function findXForHeight(targetY) {
-            if (currentMode === 2) return -12;
+        function findXForHeight(targetY, mode) {
+            if (mode === 2 || mode === 3) return -12;
             if (targetY <= 0.5) return 0;
             if (targetY <= 2.75) return -Math.sqrt((targetY - 0.5) / 0.25);
             return -(targetY + 1.75) / 1.5;
         }
 
-        // --- UI 動態更新 ---
         function updateUI() {
             const xStr = parseFloat(xSlider.value).toFixed(1);
             document.getElementById('x-display').innerText = xStr;
             
-            if (currentMode === 2) { // 平地
+            if (currentMode === 2 || currentMode === 3) {
                 uiFormula.innerHTML = `
                     <span style="font-style:italic; font-weight:bold; margin-right:6px;">v</span> =
                     <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
@@ -383,20 +419,19 @@
                 `;
                 const v = Math.sqrt(parseFloat(xStr) * config.gravity * R);
                 vDisplay.innerText = `計算初速: ${v.toFixed(2)} m/s`;
-            } else { // 斜坡
+            } else {
                 uiFormula.innerHTML = `<span style="font-style:italic; font-weight:bold;">H</span>&nbsp;=&nbsp;${xStr}&nbsp;&middot;&nbsp;R`;
                 const h = parseFloat(xStr) * R;
                 vDisplay.innerText = `釋放高度: ${h.toFixed(2)} m`;
             }
 
             if (!isSimulating && ballState === 'ready') {
-                const targetY = currentMode === 2 ? 0.5 : parseFloat(xStr) * R + 0.5;
-                const targetX = findXForHeight(targetY);
+                const targetY = (currentMode === 2 || currentMode === 3) ? 0.5 : parseFloat(xStr) * R + 0.5;
+                const targetX = findXForHeight(targetY, currentMode);
                 sphereBody.position.set(targetX, targetY, 0);
                 sphereBody.velocity.set(0,0,0);
                 sphereMesh.position.copy(sphereBody.position);
 
-                // 更新斜坡橘色箭頭
                 if (currentMode === 1 && releaseHeightArrow) {
                     const arrowX = targetX - 1.2;
                     releaseHeightArrow.position.set(arrowX, 0.5, 0);
@@ -405,8 +440,7 @@
                     window.releaseLabelPos = new THREE.Vector3(arrowX - 0.5, (targetY + 0.5) / 2, 0);
                 }
 
-                // 更新平地紅色速度提示箭頭
-                if (currentMode === 2 && velocityArrow) {
+                if ((currentMode === 2 || currentMode === 3) && velocityArrow) {
                     const v = Math.sqrt(parseFloat(xStr) * config.gravity * R);
                     velocityArrow.position.set(targetX + config.ballRadius + 0.1, targetY, 0);
                     velocityArrow.setLength(Math.max(0.1, v * 0.3), 0.6, 0.4);
@@ -416,43 +450,74 @@
 
         function setMode(mode) {
             currentMode = mode;
-            let valHalf, valTop, maxVal;
+            let valHalf = 2.0, valTop = 5.0, maxVal = 8;
+            
+            // 介面切換
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`mode${mode}-btn`).classList.add('active');
 
-            if (mode === 2) {
-                document.getElementById('mode2-btn').classList.add('active');
-                document.getElementById('mode1-btn').classList.remove('active');
+            if (mode === 3) {
+                document.getElementById('ui-slider-label').innerText = '臨界初速 (x)';
+                xSlider.max = 8; xSlider.value = 5.0; 
+                xSlider.disabled = true;
+                document.getElementById('slider-group-container').style.opacity = '0.5';
+                document.getElementById('answer-container').style.display = 'none';
+                
+                if(torusRightMesh) torusRightMesh.visible = false;
+                if(torusFullMesh) torusFullMesh.visible = true;
+                if(straightTrackMesh) straightTrackMesh.visible = true;
+                if(rampTrackMesh) rampTrackMesh.visible = false;
+            } else if (mode === 2) {
                 document.getElementById('ui-slider-label').innerText = '初速倍數 (x)';
                 maxVal = 8; valHalf = 2.0; valTop = 5.0;
-                xSlider.max = maxVal; xSlider.value = 3.0; // 模式二預設改為 3.0
-                straightTrackMesh.visible = true; rampTrackMesh.visible = false;
+                xSlider.max = maxVal; xSlider.value = 3.0; 
+                xSlider.disabled = false;
+                document.getElementById('slider-group-container').style.opacity = '1';
+                document.getElementById('answer-container').style.display = 'flex';
+                
+                if(torusRightMesh) torusRightMesh.visible = true;
+                if(torusFullMesh) torusFullMesh.visible = false;
+                if(straightTrackMesh) straightTrackMesh.visible = true;
+                if(rampTrackMesh) rampTrackMesh.visible = false;
             } else {
-                document.getElementById('mode1-btn').classList.add('active');
-                document.getElementById('mode2-btn').classList.remove('active');
                 document.getElementById('ui-slider-label').innerText = '放置高度倍數 (x)';
                 maxVal = 4; valHalf = 1.0; valTop = 2.5;
-                xSlider.max = maxVal; xSlider.value = 2.0; // 模式一預設改為 2.0
-                straightTrackMesh.visible = false; rampTrackMesh.visible = true;
+                xSlider.max = maxVal; xSlider.value = 2.0; 
+                xSlider.disabled = false;
+                document.getElementById('slider-group-container').style.opacity = '1';
+                document.getElementById('answer-container').style.display = 'flex';
+                
+                if(torusRightMesh) torusRightMesh.visible = true;
+                if(torusFullMesh) torusFullMesh.visible = false;
+                if(straightTrackMesh) straightTrackMesh.visible = false;
+                if(rampTrackMesh) rampTrackMesh.visible = true;
             }
             
-            // 拉桿標記線定位 (扣除 thumb 誤差)
             document.getElementById('marker-half').style.left = `calc(13px + (100% - 26px) * ${valHalf / maxVal})`;
             document.getElementById('marker-top').style.left = `calc(13px + (100% - 26px) * ${valTop / maxVal})`;
 
             if (diameterLine && releaseHeightArrow && velocityArrow) {
                 if (currentMode === 1) { 
-                    diameterLine.visible = true;
-                    diameterLabel.style.display = 'block';
-                    releaseHeightArrow.visible = true;
-                    releaseHeightLabel.style.display = 'block';
+                    diameterLine.visible = true; diameterLabel.style.display = 'block';
+                    releaseHeightArrow.visible = true; releaseHeightLabel.style.display = 'block';
                     velocityArrow.visible = false;
-                } else { 
-                    diameterLine.visible = true;
-                    diameterLabel.style.display = 'block';
-                    releaseHeightArrow.visible = false;
-                    releaseHeightLabel.style.display = 'none';
+                } else if (currentMode === 2) { 
+                    diameterLine.visible = true; diameterLabel.style.display = 'block';
+                    releaseHeightArrow.visible = false; releaseHeightLabel.style.display = 'none';
+                    velocityArrow.visible = true;
+                } else {
+                    diameterLine.visible = true; diameterLabel.style.display = 'block';
+                    releaseHeightArrow.visible = false; releaseHeightLabel.style.display = 'none';
                     velocityArrow.visible = true;
                 }
             }
+
+            // 模式三標籤顯示控制
+            const slIds = ['sl-top', 'sl-mid-r', 'sl-mid-l', 'sl-bot'];
+            slIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = (mode === 3) ? 'block' : 'none';
+            });
 
             updateUI();
             resetSimulation();
@@ -460,6 +525,7 @@
 
         document.getElementById('mode1-btn').addEventListener('click', () => setMode(1));
         document.getElementById('mode2-btn').addEventListener('click', () => setMode(2));
+        document.getElementById('mode3-btn').addEventListener('click', () => setMode(3));
         
         let showAnswers = false;
         document.getElementById('btn-show-answer').addEventListener('click', () => {
@@ -467,7 +533,6 @@
             document.getElementById('answer-buttons').style.display = showAnswers ? 'flex' : 'none';
             document.getElementById('marker-half').style.display = showAnswers ? 'block' : 'none';
             document.getElementById('marker-top').style.display = showAnswers ? 'block' : 'none';
-            
             const btn = document.getElementById('btn-show-answer');
             btn.innerText = showAnswers ? '【 隱藏答案 】' : '【 顯示答案 】';
             btn.style.background = showAnswers ? '#64748b' : 'var(--primary)';
@@ -475,32 +540,25 @@
 
         document.getElementById('btn-quick-top').addEventListener('click', () => { 
             xSlider.value = currentMode === 2 ? 5.0 : 2.5; 
-            if(ballState !== 'ready') resetSimulation();
-            else updateUI();
+            if(ballState !== 'ready') resetSimulation(); else updateUI();
         });
         document.getElementById('btn-quick-half').addEventListener('click', () => { 
             xSlider.value = currentMode === 2 ? 2.0 : 1.0; 
-            if(ballState !== 'ready') resetSimulation();
-            else updateUI();
+            if(ballState !== 'ready') resetSimulation(); else updateUI();
         });
         
-        // 拖動拉桿即時歸位功能
         xSlider.addEventListener('input', () => {
-            if (ballState !== 'ready') {
-                resetSimulation();
-            } else {
-                updateUI();
-            }
+            if (ballState !== 'ready') resetSimulation(); else updateUI();
         });
 
         document.getElementById('btn-launch').addEventListener('click', () => {
             resetSimulation();
             collapseAllPanels(); 
             
-            if (velocityArrow) velocityArrow.visible = false; // 啟動隱藏箭頭
+            if (velocityArrow) velocityArrow.visible = false; 
 
             const x = parseFloat(xSlider.value);
-            if (currentMode === 2) { 
+            if (currentMode === 2 || currentMode === 3) { 
                 const v0 = Math.sqrt(x * config.gravity * R);
                 sphereBody.velocity.set(v0, 0, 0);
                 initialMaxEnergy = 0.5 * config.mass * v0 * v0 + config.mass * config.gravity * 0.5; 
@@ -513,7 +571,6 @@
             ballState = 'moving';
             isSimulating = true;
             
-            // 隱藏輔助標籤
             if (diameterLabel) diameterLabel.style.display = 'none';
             if (releaseHeightLabel) releaseHeightLabel.style.display = 'none';
         });
@@ -523,7 +580,6 @@
             expandAllPanels();
         });
 
-        // --- WebGL 初始化 ---
         init();
         animate();
 
@@ -549,7 +605,6 @@
             dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
             scene.add(dirLight);
 
-            // 地板網格精準置於軌道下方
             const grid = new THREE.GridHelper(80, 80, 0x94a3b8, 0xe2e8f0);
             grid.position.y = -0.3; 
             scene.add(grid);
@@ -605,9 +660,14 @@
 
         function buildVisualTrack() {
             const mat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.5 });
-            const torus = new THREE.Mesh(new THREE.TorusGeometry(5.65, tubeR, 32, 64, Math.PI), mat);
-            torus.position.set(0, CY, 0); torus.rotation.z = -Math.PI / 2; torus.receiveShadow = true;
-            scene.add(torus);
+            
+            torusRightMesh = new THREE.Mesh(new THREE.TorusGeometry(5.65, tubeR, 32, 64, Math.PI), mat);
+            torusRightMesh.position.set(0, CY, 0); torusRightMesh.rotation.z = -Math.PI / 2; torusRightMesh.receiveShadow = true;
+            scene.add(torusRightMesh);
+
+            torusFullMesh = new THREE.Mesh(new THREE.TorusGeometry(5.65, tubeR, 32, 128, Math.PI * 2), mat);
+            torusFullMesh.position.set(0, CY, 0); torusFullMesh.receiveShadow = true;
+            scene.add(torusFullMesh);
 
             straightTrackMesh = new THREE.Mesh(new THREE.BoxGeometry(30, tubeR*2, tubeR*2), mat);
             straightTrackMesh.position.set(-15, -0.15, 0); straightTrackMesh.receiveShadow = true;
@@ -630,7 +690,6 @@
             scene.add(rampTrackMesh);
         }
 
-        // --- 核心物理：完美脫離與落地判定 ---
         function applyAnalyticalConstraint() {
             if (!isSimulating || ballState === 'landed' || ballState === 'ready') return;
             
@@ -662,7 +721,6 @@
                 
                 if (hitWall) {
                     if (currentMode === 2) {
-                        // 平地模式：彈跳兩次結束
                         bounceCount++;
                         if (bounceCount >= 2) {
                             vel.set(0,0,0); ballState = 'landed'; isSimulating = false; expandAllPanels(); 
@@ -674,7 +732,6 @@
                             }
                         }
                     } else {
-                        // 斜坡模式：一碰到即刻凍結
                         vel.set(0,0,0); ballState = 'landed'; isSimulating = false; expandAllPanels(); 
                     }
                 }
@@ -683,7 +740,12 @@
 
             let T = new CANNON.Vec3(1, 0, 0);
 
-            if (pos.x <= 0) {
+            // 模式三：跨過原點即啟動全圓周鎖定
+            if (currentMode === 3 && pos.x >= 0 && ballState !== 'falling') {
+                trappedInLoop = true;
+            }
+
+            if (!trappedInLoop && pos.x <= 0) {
                 const targetY = getCenterPathY(pos.x, currentMode);
                 if (pos.y <= targetY + 0.1) {
                     pos.y = targetY; 
@@ -702,7 +764,7 @@
                 let requiredKE = initialMaxEnergy - currentPE;
                 let currentV2 = (requiredKE > 0) ? (2 * requiredKE / config.mass) : 0;
                 
-                // 【脫離軌道檢查】：向心力不足 (4.9gR 修正點)
+                // 脫離檢查 (模式三由於初速足夠，不會觸發此條件)
                 if (dy > 0 && currentV2 < config.gravity * dy - 0.01) {
                     ballState = 'falling'; 
                     const requiredV = Math.sqrt(Math.max(0, currentV2));
@@ -739,6 +801,7 @@
             isSimulating = false;
             ballState = 'ready';
             bounceCount = 0;
+            trappedInLoop = false;
             updateUI(); 
             trailPositions.length = 0; 
             trailGeometry.setFromPoints(trailPositions);
@@ -755,12 +818,14 @@
             sphereBody.wakeUp(); 
             sphereBody.velocity.set(0,0,0);
 
-            // 恢復顯示輔助標籤
             if (diameterLine) {
                 diameterLabel.style.display = 'block';
                 if (currentMode === 1) {
                     releaseHeightLabel.style.display = 'block';
                     velocityArrow.visible = false;
+                } else if (currentMode === 2) {
+                    releaseHeightLabel.style.display = 'none';
+                    velocityArrow.visible = true;
                 } else {
                     releaseHeightLabel.style.display = 'none';
                     velocityArrow.visible = true;
@@ -791,6 +856,15 @@
             }
         }
 
+        // 統一更新 HTML 標籤的函式
+        function updateLabelPos(id, vec) {
+            const el = document.getElementById(id);
+            if(el && el.style.display !== 'none') {
+                el.style.left = `${(vec.x * 0.5 + 0.5) * window.innerWidth}px`;
+                el.style.top = `${-(vec.y * 0.5 - 0.5) * window.innerHeight}px`;
+            }
+        }
+
         function animate(time) {
             requestAnimationFrame(animate);
 
@@ -803,15 +877,15 @@
                 updateHUD(v, currentH);
 
                 trailPositions.push(new THREE.Vector3(sphereBody.position.x, sphereBody.position.y, 0));
-                if (trailPositions.length > 500) trailPositions.shift();
+                // 模式三因為會繞很多圈，保留更多軌跡
+                if (trailPositions.length > (currentMode === 3 ? 1200 : 500)) trailPositions.shift();
                 trailGeometry.setFromPoints(trailPositions);
 
-                // 一脫離軌道即停止最大高度的計算
                 if (sphereBody.position.x > 0 && currentH > maxReachedH && ballState !== 'falling') {
                     maxReachedH = currentH;
                 }
 
-                if (maxReachedH > 0.05) {
+                if (maxReachedH > 0.05 && currentMode !== 3) {
                     heightArrow.visible = true;
                     heightArrow.position.set(R + 1.2, 0.5, 0);
                     heightArrow.setLength(maxReachedH, 0.6, 0.4);
@@ -821,24 +895,34 @@
                     
                     const tipPos = new THREE.Vector3(R + 1.2, maxReachedH + 0.5, 0);
                     tipPos.project(camera);
-                    heightLabel.style.left = `${(tipPos.x * 0.5 + 0.5) * window.innerWidth}px`;
-                    heightLabel.style.top = `${-(tipPos.y * 0.5 - 0.5) * window.innerHeight}px`;
+                    updateLabelPos('height-label', tipPos);
                 }
             }
             if (time !== undefined) lastTime = time;
 
             // 投影 2D HTML 標籤
             if (diameterLabel && diameterLabel.style.display !== 'none') {
-                const diaPos = new THREE.Vector3(-0.6, 5.5, 0); 
-                diaPos.project(camera);
-                diameterLabel.style.left = `${(diaPos.x * 0.5 + 0.5) * window.innerWidth}px`;
-                diameterLabel.style.top = `${-(diaPos.y * 0.5 - 0.5) * window.innerHeight}px`;
+                const diaPos = new THREE.Vector3(-0.6, CY, 0); diaPos.project(camera);
+                updateLabelPos('diameter-label', diaPos);
             }
             if (currentMode === 1 && releaseHeightLabel && releaseHeightLabel.style.display !== 'none' && window.releaseLabelPos) {
-                const relPos = window.releaseLabelPos.clone();
-                relPos.project(camera);
-                releaseHeightLabel.style.left = `${(relPos.x * 0.5 + 0.5) * window.innerWidth}px`;
-                releaseHeightLabel.style.top = `${-(relPos.y * 0.5 - 0.5) * window.innerHeight}px`;
+                const relPos = window.releaseLabelPos.clone(); relPos.project(camera);
+                updateLabelPos('release-height-label', relPos);
+            }
+            
+            // 模式三：更新 4 個速度標籤位置
+            if (currentMode === 3) {
+                const pTop = new THREE.Vector3(0, CY + R + 1.0, 0); pTop.project(camera);
+                updateLabelPos('sl-top', pTop);
+                
+                const pMidR = new THREE.Vector3(R + 1.5, CY, 0); pMidR.project(camera);
+                updateLabelPos('sl-mid-r', pMidR);
+                
+                const pMidL = new THREE.Vector3(-R - 1.5, CY, 0); pMidL.project(camera);
+                updateLabelPos('sl-mid-l', pMidL);
+                
+                const pBot = new THREE.Vector3(0, CY - R - 0.8, 0); pBot.project(camera);
+                updateLabelPos('sl-bot', pBot);
             }
 
             sphereMesh.position.copy(sphereBody.position);
