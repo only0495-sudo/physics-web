@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>瑋澤老師的物理模擬器</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body { 
+            font-family: 'Segoe UI', 'Microsoft JhengHei', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
+            background-color: #f4f6f9; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+
+        h1 { color: #333; text-align: center; margin-bottom: 10px; }
+        h2 { 
+            color: #444; 
+            border-left: 5px solid #0066cc; 
+            padding-left: 10px; 
+            margin-top: 30px; 
+            margin-bottom: 15px;
+            font-size: 1.2em; 
+        }
+
+        /* 網格設定 */
+        ol {
+            padding: 0;
+            list-style: none; 
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+            gap: 15px; 
+        }
+
+        li { display: flex; }
+
+        /* 卡片樣式優化 */
+        li a {
+            width: 100%;
+            min-height: 90px; 
+            background-color: white;
+            border: 1px solid #e1e4e8; 
+            border-radius: 10px;       
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            
+            display: flex;
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center;     
+            text-align: center;      
+            
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            font-size: 17px; 
+            padding: 10px;
+            position: relative; /* 為了放小圖示 */
+        }
+
+        /* 滑鼠懸停效果 */
+        li a:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            border-color: #0066cc;
+            color: #0066cc;
+            background-color: #fff;
+        }
+
+        /* 加入一個「新視窗開啟」的小提示圖示 */
+        li a::after {
+            content: '↗';
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .sub-text {
+            display: block;
+            font-size: 0.75em; 
+            color: #888;
+            margin-top: 3px;
+            font-weight: normal;
+        }
+
+        /* 回饋按鈕 */
+        .feedback-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .feedback-btn {
+            display: inline-block;
+            background-color: #0066cc; 
+            color: #fff;
+            padding: 8px 20px; 
+            border-radius: 50px;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 0.9em;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        .feedback-btn:hover {
+            background-color: #004c99;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>建議用平板(橫向)/電腦運行</h1>
+    
+    <div class="feedback-container">
+        <!-- 修正了 _blank 屬性的語法錯誤 -->
+        <a href="https://forms.gle/BY8D79neJCmNMdeh9" target="_blank" class="feedback-btn">
+            📝 填寫回饋問卷 (Bug 回報 / 許願)
+        </a>
+    </div>
+
+    <h2>牛頓力學</h2>
+    <ol>
+        <!-- 加入 target="_blank" 確保另開分頁 -->
+        <li><a href="運動函數圖.html" target="_blank">運動函數圖</a></li>
+        <li><a href="卡文迪西實驗裝置.html" target="_blank">卡文迪西實驗裝置</a></li>
+        <li><a href="SHM.html" target="_blank">簡諧運動</a></li>
+        <li><a href="等速圓周運動-錐動擺.html" target="_blank">等速圓周運動<br>錐動擺</a></li>
+        <li><a href="圓周.html" target="_blank">等速圓周運動<br>常見例子</a></li>
+        <li><a href="曲率半徑.html" target="_blank">曲率半徑</a></li>
+        <li><a href="摩擦.html" target="_blank">摩擦力</a></li>
+        <li><a href="腳踏車的摩擦力.html" target="_blank">腳踏車的摩擦力</a></li>
+        <li><a href="正向力與視重.html" target="_blank">正向力與視重</a></li>
+        <li><a href="質重心.html" target="_blank">質心與重心</a></li>
+        <li><a href="碰撞.html" target="_blank">一維碰撞</a></li>
+        <li><a href="位能.html" target="_blank">位能</a></li>
+        <li><a href="鉛質圓周運動.html" target="_blank">鉛質圓周運動</a></li>
+    </ol>
+
+    <h2>電磁學</h2>
+    <ol>
+        <li><a href="冷次定律(磁鐵動).html" target="_blank">冷次定律<span class="sub-text">(磁鐵動)</span></a></li>
+        <li><a href="冷次定律(線圈動).html" target="_blank">冷次定律<span class="sub-text">(線圈動)</span></a></li>
+        <li><a href="發電機.html" target="_blank">發電機</a></li>
+        <li><a href="電動機.html" target="_blank">電動機</a></li>
+        <li><a href="01圓形載流導線周圍磁場.html" target="_blank">圓形載流導線周圍磁場<span class="sub-text">(By柏均老師)</span></a></li>
+        <li><a href="帶電質點於磁場中運動.html" target="_blank">帶電質點於磁場中運動</a></li>
+    </ol>
+
+    <h2>波動學</h2>
+    <ol>
+        <li><a href="惠更斯原理.html" target="_blank">惠更斯原理</a></li>
+        <li><a href="波的折射、反射與全反射.html" target="_blank">波的折射與<br>全反射</a></li> 
+        <li><a href="波的繞射現象.html" target="_blank">波的繞射現象</a></li>
+        <li><a href="波的干涉與雙波源.html" target="_blank">波的干涉與<br>雙波源</a></li>
+        <li><a href="都卜勒效應.html" target="_blank">都卜勒效應</a></li>
+        <li><a href="波前.html" target="_blank">什麼是波前?(2D)</a></li>
+        <li><a href="波前與雙狹縫3D.html" target="_blank">3D的波前與<br>雙波源干涉</a></li>
+    </ol>
+
+    <h2>近代物理</h2>
+    <ol>
+        <li><a href="黑體輻射.html" target="_blank">黑體輻射</a></li>
+        <li><a href="波耳氫原子模型.html" target="_blank">波耳氫原子模型</a></li>
+        <li><a href="光電效應.html" target="_blank">光電效應</a></li>
+        <li><a href="光譜實驗室.html" target="_blank">光譜實驗室</a></li>
+    </ol>
+
+    <h2>基礎物理</h2>
+    <ol>
+        <li><a href="陰極射線.html" target="_blank">陰極射線</a></li>
+    </ol>
+
+</body>
+</html>
