@@ -370,6 +370,53 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import * as CANNON from 'cannon-es';
 
+        // --- 自訂立體粗箭頭類別 (突破 WebGL 線寬 1px 限制) ---
+        class ThickArrow extends THREE.Group {
+            constructor(dir, origin, length, color, headLength = 0.8, headWidth = 0.6) {
+                super();
+                this.color = color;
+                // 使用 Basic 材質保持與原本相同的亮度與純色感
+                const mat = new THREE.MeshBasicMaterial({ color: color });
+                
+                // 箭身 (圓柱體)，將原點移至底部
+                const shaftGeom = new THREE.CylinderGeometry(1, 1, 1, 12);
+                shaftGeom.translate(0, 0.5, 0);
+                
+                // 箭頭 (圓錐體)，將原點移至底部
+                const headGeom = new THREE.ConeGeometry(1, 1, 12);
+                headGeom.translate(0, 0.5, 0);
+                
+                this.shaft = new THREE.Mesh(shaftGeom, mat);
+                this.head = new THREE.Mesh(headGeom, mat);
+                
+                this.add(this.shaft);
+                this.add(this.head);
+                
+                this.position.copy(origin);
+                this.setDirection(dir);
+                this.setLength(length, headLength, headWidth);
+            }
+            
+            setDirection(dir) {
+                if (dir.lengthSq() > 0.0001) {
+                    this.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+                }
+            }
+            
+            setLength(length, headLength = 0.8, headWidth = 0.6) {
+                // 這裡控制箭身的粗細 (原本 1px 的線，現在設定為實體半徑 0.12)
+                const shaftRadius = 0.12; 
+                
+                // 動態保護，避免向量太短時產生破圖矩陣
+                const actualHeadLength = Math.max(0.0001, Math.min(length, headLength));
+                const shaftLength = Math.max(0.0001, length - actualHeadLength);
+                
+                this.shaft.scale.set(shaftRadius, shaftLength, shaftRadius);
+                this.head.scale.set(headWidth / 2, actualHeadLength, headWidth / 2);
+                this.head.position.y = shaftLength;
+            }
+        }
+
         document.getElementById('fullscreen-btn').addEventListener('click', function() {
             if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); this.innerText = '✕'; } 
             else { if (document.exitFullscreen) { document.exitFullscreen(); this.innerText = '⛶'; } }
@@ -645,9 +692,6 @@
             sphereBody.wakeUp(); 
             ballState = 'moving';
             isSimulating = true;
-            
-            if (diameterLabel) diameterLabel.style.display = 'none';
-            if (releaseHeightLabel) releaseHeightLabel.style.display = 'none';
         });
 
         document.getElementById('btn-reset').addEventListener('click', () => {
@@ -725,9 +769,10 @@
             stringLine = new THREE.Line(stringGeo, stringMat);
             stringLine.visible = false; scene.add(stringLine);
 
-            fcArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0xeab308, 0.4, 0.3);
-            tArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0x06b6d4, 0.4, 0.3);
-            mgArrow = new THREE.ArrowHelper(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 1, 0x10b981, 0.4, 0.3);
+            // 將原本細線的 ArrowHelper 替換成剛剛自訂的立體 ThickArrow
+            fcArrow = new ThickArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0xeab308, 0.4, 0.3);
+            tArrow = new ThickArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0x06b6d4, 0.4, 0.3);
+            mgArrow = new ThickArrow(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 1, 0x10b981, 0.4, 0.3);
             scene.add(fcArrow); scene.add(tArrow); scene.add(mgArrow);
 
             document.getElementById('zoom-slider').addEventListener('input', (e) => {
