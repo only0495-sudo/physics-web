@@ -3,454 +3,660 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>波的繞射現象</title>
+    <title>波的繞射現象 - 專業物理模擬器</title>
+    
+    <!-- 引入 MathJax 用於渲染物理公式 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
     <style>
+        /* 整體排版設定 */
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             margin: 0;
-            padding: 20px;
-        }
-
-        h1 { color: #333; font-weight: normal; margin-bottom: 5px; }
-        
-        .container {
-            position: relative;
-            background: #fff;
-            padding: 10px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.05);
-            border-radius: 4px;
-        }
-
-        canvas {
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background-color: #ffffff;
-            border: 2px solid #333;
+            color: #333333;
+            overflow: hidden; /* 防止滾動條 */
+        }
+
+        /* 滿版畫布，作為最底層背景 */
+        #simCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1;
             display: block;
         }
 
-        .controls {
-            margin-top: 20px;
+        /* 右側懸浮操作面板 */
+        .controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 340px;
+            max-height: calc(100vh - 40px);
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
             display: flex;
+            flex-direction: column;
             gap: 20px;
-            background: #f9f9f9;
-            padding: 15px 25px;
+            overflow-y: auto;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: left;
+            margin-bottom: 5px;
+        }
+
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 1.6rem;
+            color: #2c3e50;
+        }
+
+        .header p {
+            margin: 0;
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        /* 知識與公式面板 */
+        .info-panel {
+            background: #f8f9fa;
+            padding: 15px;
             border-radius: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-            max-width: 800px;
+            border-left: 4px solid #00b894;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            min-width: 160px;
+            gap: 10px;
         }
 
-        label {
-            font-size: 0.9em;
+        .control-group label {
             font-weight: bold;
-            color: #555;
+            font-size: 1.05rem;
+            color: #2c3e50;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        input[type="number"] {
-            width: 70px;
-            padding: 3px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            text-align: right;
-            font-family: monospace;
+        .val-display {
             color: #00b894;
-            font-weight: bold;
+            font-family: monospace;
+            font-size: 1.1rem;
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 6px;
         }
 
-        input[type="range"] { cursor: pointer; width: 100%; }
+        /* 大型拉桿樣式 */
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: #dee2e6;
+            border-radius: 4px;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #00b894;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 184, 148, 0.4);
+            transition: transform 0.1s;
+        }
 
-        .checkbox-group {
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* 按鈕與開關 */
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 2px solid #ced4da;
+            background: #ffffff;
+            color: #495057;
+            transition: all 0.2s;
+        }
+
+        button.active {
+            background: #2c3e50;
+            color: #ffffff;
+            border-color: #2c3e50;
+        }
+
+        button.play-btn {
+            background: #0984e3;
+            color: white;
+            border-color: #0984e3;
+            font-size: 1.1rem;
+            padding: 15px;
+            margin-top: 5px;
+        }
+        button.play-btn:hover { background: #074b83; }
+
+        .checkbox-row {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            font-size: 1.05rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: #00b894;
+        }
+
+        /* --- 新增：面板收合與懸浮按鈕樣式 --- */
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #999;
+            padding: 5px;
+            transition: color 0.2s;
+            z-index: 2;
+        }
+        .close-btn:hover { color: #333; }
+
+        .floating-btn {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #2c3e50;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 5;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             gap: 8px;
-            background: #fff;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-            user-select: none;
         }
-        .checkbox-group:hover { background: #f0f0f0; }
-        .checkbox-group label { cursor: pointer; flex: 1; }
-        .checkbox-group input { cursor: pointer; margin: 0; }
+        .floating-btn:hover {
+            background: #ffffff;
+            transform: scale(1.05);
+        }
 
-        .btn-group { display: flex; gap: 5px; }
-        button {
-            flex: 1;
-            padding: 8px 15px;
-            border: 1px solid #ccc;
-            background: #fff;
-            cursor: pointer;
-            border-radius: 4px;
-            font-weight: bold;
-            color: #555;
-            transition: 0.2s;
+        .open-panel-btn {
+            top: 20px;
+            right: 20px;
+            display: none; /* 面板展開時預設隱藏 */
         }
-        button.active {
-            background: #333;
-            color: #fff;
-            border-color: #333;
+
+        .controls-panel {
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
         }
-        
-        .replay-btn {
-            background-color: #d63031;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 1em;
+
+        .controls-panel.collapsed {
+            transform: translateX(120%);
+            opacity: 0;
+            pointer-events: none;
         }
-        .replay-btn:hover { background-color: #c0392b; }
+
+        /* 手機端排版調整 */
+        @media (max-width: 768px) {
+            .controls-panel {
+                top: auto;
+                bottom: 0;
+                right: 0;
+                width: 100%;
+                max-height: 50vh;
+                border-radius: 20px 20px 0 0;
+                padding: 20px;
+            }
+            .controls-panel.collapsed {
+                transform: translateY(120%);
+            }
+        }
     </style>
 </head>
 <body>
 
-    <h1>📏 波的繞射現象</h1>
+    <!-- 滿版畫布 -->
+    <canvas id="simCanvas"></canvas>
 
-    <div class="container">
-        <canvas id="geoCanvas" width="600" height="400"></canvas>
-    </div>
+    <!-- 獨立的懸浮按鈕：開啟面板 -->
+    <button id="btnOpenPanel" class="floating-btn open-panel-btn">⚙️ 操作介面</button>
 
-    <div class="controls">
+    <!-- 右側/底部懸浮操作面板 -->
+    <div class="controls-panel">
+        
+        <button id="btnClosePanel" class="close-btn" title="收起面板">✖</button>
+
+        <div class="header">
+            <h1>📐 波的繞射實驗</h1>
+            <p>觀察波在通過狹縫或遇到障礙物時的幾何繞射與能量衰減現象</p>
+        </div>
+        
+        <!-- 知識面板 -->
+        <div class="info-panel" id="formula-container">
+            公式載入中...
+        </div>
+        
         <div class="control-group">
-            <label>模式</label>
-            <div class="btn-group">
-                <button class="active" onclick="setMode('slit')">單狹縫</button>
-                <button onclick="setMode('obstacle')">障礙物</button>
+            <label style="margin-bottom: 5px;">實驗模式</label>
+            <div class="btn-row">
+                <button id="btnSlit" class="active" onclick="setMode('slit')">單狹縫</button>
+                <button id="btnObstacle" onclick="setMode('obstacle')">障礙物</button>
             </div>
         </div>
 
         <div class="control-group">
             <label>
-                波長 (λ) 
-                <input type="number" id="lambdaNum" step="0.01" min="0.10" max="2.00" value="0.60">
+                波長 (λ)
+                <span class="val-display" id="valWavelength">0.60 m</span>
             </label>
-            <input type="range" id="lambdaRange" min="10" max="200" value="60">
+            <input type="range" id="sliderWavelength" min="0.1" max="2.0" step="0.01" value="0.60">
         </div>
 
         <div class="control-group">
             <label>
                 開口寬度 (d)
-                <input type="number" id="widthNum" step="0.01" min="0.10" max="2.00" value="1.20">
+                <span class="val-display" id="valWidth">1.20 m</span>
             </label>
-            <input type="range" id="widthRange" min="10" max="200" value="120">
+            <input type="range" id="sliderWidth" min="0.1" max="2.0" step="0.01" value="1.20">
         </div>
 
         <div class="control-group">
-            <label>輔助顯示</label>
-            <div class="checkbox-group">
-                <input type="checkbox" id="triangleCheck">
-                <label for="triangleCheck">顯示陰影區</label>
-            </div>
-            <div class="checkbox-group">
-                <input type="checkbox" id="huygensCheck">
-                <label for="huygensCheck">顯示惠更斯子波</label>
+            <label>
+                波速
+                <span class="val-display" id="valSpeed">2.5</span>
+            </label>
+            <input type="range" id="sliderSpeed" min="0.5" max="5.0" step="0.1" value="2.5">
+        </div>
+
+        <div class="control-group">
+            <label style="margin-bottom: 5px;">輔助視覺化</label>
+            <div class="checkbox-row">
+                <!-- 預設關閉陰影區 -->
+                <label class="checkbox-item">
+                    <input type="checkbox" id="chkShadow"> 顯示幾何陰影區
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" id="chkHuygens"> 顯示惠更斯子波
+                </label>
             </div>
         </div>
 
-        <button class="replay-btn" onclick="init()">🔄 重播 / 開始</button>
+        <div class="btn-row">
+            <button class="play-btn" id="btnPlay" onclick="togglePlay()">⏸ 暫停模擬</button>
+            <button class="play-btn" id="btnFullscreen" style="background: #2d3436; border-color: #2d3436;">⛶ 全螢幕</button>
+        </div>
+
     </div>
 
 <script>
-    const canvas = document.getElementById('geoCanvas');
+    // --- 系統常數與畫布設定 ---
+    const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
-
-    const PIXELS_PER_METER = 100;
+    const PIXELS_PER_METER = 150; 
     
-    let mode = 'slit'; 
-    let waves = []; 
-    let speed = 2.0; 
-    let animationId = null;
+    // 物理與狀態參數
+    let state = {
+        mode: 'slit',
+        wavelength: 0.60,
+        slitWidth: 1.20,
+        speed: 2.5,
+        showShadow: false, // 預設關閉
+        showHuygens: false,
+        isPlaying: true
+    };
 
-    // DOM
-    const lambdaRange = document.getElementById('lambdaRange');
-    const lambdaNum = document.getElementById('lambdaNum');
-    const widthRange = document.getElementById('widthRange');
-    const widthNum = document.getElementById('widthNum');
-    const triangleCheck = document.getElementById('triangleCheck');
-    const huygensCheck = document.getElementById('huygensCheck');
-    const btns = document.querySelectorAll('.btn-group button');
+    let waves = [];
+    let logicalW = 0;
+    let logicalH = 0;
 
-    function syncLambda(source) {
-        if (source === 'range') {
-            const px = parseInt(lambdaRange.value);
-            lambdaNum.value = (px / PIXELS_PER_METER).toFixed(2);
-        } else {
-            let m = parseFloat(lambdaNum.value);
-            if (m < 0.1) m = 0.1; if (m > 2.0) m = 2.0;
-            lambdaRange.value = m * PIXELS_PER_METER;
-        }
-    }
-
-    function syncWidth(source) {
-        if (source === 'range') {
-            const px = parseInt(widthRange.value);
-            widthNum.value = (px / PIXELS_PER_METER).toFixed(2);
-        } else {
-            let m = parseFloat(widthNum.value);
-            if (m < 0.1) m = 0.1; if (m > 2.0) m = 2.0;
-            widthRange.value = m * PIXELS_PER_METER;
-        }
-    }
-
-    function init() {
-        waves = [];
-        if (animationId) cancelAnimationFrame(animationId);
-        loop();
-    }
-
-    function update() {
-        const lambdaPx = parseInt(lambdaRange.value);
+    // --- 畫布自適應全螢幕 (維持視網膜級高畫質) ---
+    function resizeCanvas() {
+        logicalW = window.innerWidth;
+        logicalH = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
         
-        // 移動
-        for (let i = 0; i < waves.length; i++) {
-            waves[i] += speed;
-        }
+        canvas.width = logicalW * dpr;
+        canvas.height = logicalH * dpr;
+        ctx.scale(dpr, dpr);
+        canvas.style.width = `${logicalW}px`;
+        canvas.style.height = `${logicalH}px`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
-        // 生成
-        if (waves.length === 0) {
-            waves.push(0);
+    // --- DOM 元素綁定與事件監聽 ---
+    const sliderWavelength = document.getElementById('sliderWavelength');
+    const valWavelength = document.getElementById('valWavelength');
+    const sliderWidth = document.getElementById('sliderWidth');
+    const valWidth = document.getElementById('valWidth');
+    const sliderSpeed = document.getElementById('sliderSpeed');
+    const valSpeed = document.getElementById('valSpeed');
+    const chkShadow = document.getElementById('chkShadow');
+    const chkHuygens = document.getElementById('chkHuygens');
+    const btnPlay = document.getElementById('btnPlay');
+    
+    sliderWavelength.addEventListener('input', (e) => {
+        state.wavelength = parseFloat(e.target.value);
+        valWavelength.innerText = state.wavelength.toFixed(2) + ' m';
+        updateMathJax();
+    });
+
+    sliderWidth.addEventListener('input', (e) => {
+        state.slitWidth = parseFloat(e.target.value);
+        valWidth.innerText = state.slitWidth.toFixed(2) + ' m';
+        updateMathJax();
+    });
+
+    sliderSpeed.addEventListener('input', (e) => {
+        state.speed = parseFloat(e.target.value);
+        valSpeed.innerText = state.speed.toFixed(1);
+    });
+
+    chkShadow.addEventListener('change', (e) => state.showShadow = e.target.checked);
+    chkHuygens.addEventListener('change', (e) => state.showHuygens = e.target.checked);
+
+    function setMode(m) {
+        state.mode = m;
+        document.getElementById('btnSlit').classList.toggle('active', m === 'slit');
+        document.getElementById('btnObstacle').classList.toggle('active', m === 'obstacle');
+        waves = []; // 切換模式時清空波場
+        updateMathJax();
+    }
+
+    function togglePlay() {
+        state.isPlaying = !state.isPlaying;
+        btnPlay.innerHTML = state.isPlaying ? '⏸ 暫停模擬' : '▶️ 繼續模擬';
+        btnPlay.style.background = state.isPlaying ? '#0984e3' : '#e17055';
+        btnPlay.style.borderColor = state.isPlaying ? '#0984e3' : '#e17055';
+    }
+
+    // --- 動態公式更新 ---
+    function updateMathJax() {
+        const ratio = state.wavelength / state.slitWidth;
+        const infoDiv = document.getElementById('formula-container');
+        if(ratio >= 1) {
+            infoDiv.innerHTML = `<div style="color:#e74c3c; font-weight:bold;">發生完全繞射 (點波源發散)</div><div style="font-size:0.9em; margin-top:5px; color:#555;">條件：波長 (λ) ≥ 開口寬度 (d)<br>\\( \\sin(\\theta) \\approx 1 \\)</div>`;
         } else {
-            let newestWaveX = waves[waves.length - 1];
-            if (newestWaveX >= lambdaPx) {
-                waves.push(0);
-            }
+            const angle = Math.asin(ratio) * (180 / Math.PI);
+            infoDiv.innerHTML = `<div style="font-weight:bold; color:#2c3e50;">第一極小值繞射角：\\( \\theta \\approx ${angle.toFixed(1)}^\\circ \\)</div>
+                <div style="font-size:0.9em; margin-top:5px; color:#555;">公式：\\( \\sin(\\theta) = \\frac{\\lambda}{d} \\)</div>`;
+        }
+        if(window.MathJax) {
+            MathJax.typesetPromise([infoDiv]).catch(err => console.log(err));
+        }
+    }
+
+    // --- 漸變繞射波繪製演算法 (解決交叉與生硬邊界) ---
+    function drawDiffractingArc(cx, cy, r, angleDir, spreadLimit, boundaryY) {
+        let maxAngle = spreadLimit;
+        
+        // 如果半徑已經碰到了限制軸線 (boundaryY)，則精確計算交會角度，確保在中心線無縫接合
+        let distToBoundary = Math.abs(boundaryY - cy);
+        if (r > distToBoundary && distToBoundary > 0) {
+            let intersectAngle = Math.asin(distToBoundary / r);
+            maxAngle = Math.min(spreadLimit, intersectAngle);
         }
 
-        // 清除
-        if (waves.length > 0 && waves[0] > canvas.width * 1.5) {
+        // 將圓弧打斷成多個小線段，以便做「漸淡」效果
+        let segments = Math.max(1, Math.ceil(maxAngle * (180 / Math.PI) / 2)); // 每 2 度切一段
+        let step = maxAngle / segments;
+
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+
+        for (let i = 0; i < segments; i++) {
+            let theta1 = i * step;
+            let theta2 = (i + 1) * step;
+
+            // 核心邏輯：角度越大，透明度越低，模擬真實繞射能量衰減
+            // 使用二次方衰減讓過渡更平滑柔和
+            let progress = (theta1 + theta2) / 2 / (Math.PI / 2);
+            let alpha = Math.max(0, 1.0 - Math.pow(progress, 2.0)); 
+
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(0, 184, 148, ${alpha})`;
+            
+            let a1 = theta1 * angleDir;
+            let a2 = theta2 * angleDir;
+            
+            ctx.arc(cx, cy, r, a1, a2, angleDir < 0);
+            ctx.stroke();
+        }
+    }
+
+    // --- 核心渲染引擎 ---
+    function update() {
+        if (!state.isPlaying) return;
+        
+        const lambdaPx = state.wavelength * PIXELS_PER_METER;
+        
+        for (let i = 0; i < waves.length; i++) {
+            waves[i] += state.speed;
+        }
+
+        if (waves.length === 0 || waves[waves.length - 1] >= lambdaPx) {
+            waves.push(0);
+        }
+
+        if (waves.length > 0 && waves[0] > logicalW * 1.5) {
             waves.shift();
         }
     }
 
     function draw() {
-        const widthPx = parseInt(widthRange.value);
-        const lambdaPx = parseInt(lambdaRange.value);
+        ctx.clearRect(0, 0, logicalW, logicalH);
+
+        const widthPx = state.slitWidth * PIXELS_PER_METER;
+        const lambdaPx = state.wavelength * PIXELS_PER_METER;
         
-        const wallX = 200; 
-        const cy = canvas.height / 2;
+        // 將牆壁固定在畫面左側 30% 或最大 350px 處
+        const wallX = Math.min(logicalW * 0.3, 350); 
+        const cy = logicalH / 2;
         const halfW = widthPx / 2;
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // --- 1. 計算繞射參數 ---
         let ratio = lambdaPx / widthPx;
-        let spreadAngle;
-        if (ratio >= 0.98) {
-            spreadAngle = Math.PI / 2;
-        } else {
-            spreadAngle = Math.asin(ratio); 
-        }
+        let spreadAngle = (ratio >= 0.98) ? Math.PI / 2 : Math.asin(ratio);
 
-        // --- 2. 繪製陰影區 (最底層) ---
-        if (triangleCheck.checked) {
+        // -- 1. 幾何陰影區繪製 (如開啟) --
+        if (state.showShadow) {
             ctx.save();
             ctx.strokeStyle = '#e74c3c';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.setLineDash([5, 5]);
-            ctx.fillStyle = 'rgba(231, 76, 60, 0.1)';
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.05)';
 
-            if (mode === 'obstacle') {
-                // === 障礙物模式：中間的空白三角形 ===
-                // L = 陰影長度
-                let L;
-                if (spreadAngle >= Math.PI / 2 - 0.05) { L = 0; } else { L = halfW / Math.tan(spreadAngle); }
-                let tipX = wallX + L;
-
+            if (state.mode === 'obstacle') {
+                let L = (spreadAngle >= Math.PI / 2 - 0.05) ? 0 : halfW / Math.tan(spreadAngle);
                 ctx.beginPath();
                 ctx.moveTo(wallX, cy - halfW);
-                ctx.lineTo(tipX, cy);
+                ctx.lineTo(wallX + L, cy);
                 ctx.lineTo(wallX, cy + halfW);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
-
             } else {
-                // === 單狹縫模式：上下兩側的動態梯形陰影 ===
-                // 陰影邊界隨著 spreadAngle 改變
-                // 波傳播範圍是 +/- spreadAngle
-                // 所以陰影邊界線的角度也是 spreadAngle
-
-                let remainingWidth = canvas.width - wallX;
+                let remainingWidth = logicalW - wallX;
                 let yOffset = remainingWidth * Math.tan(spreadAngle);
 
-                // 1. 上方陰影區
                 ctx.beginPath();
-                ctx.moveTo(wallX, 0);                 // 左上 (牆壁頂)
-                ctx.lineTo(canvas.width, 0);          // 右上 (畫面頂)
-                // 陰影下邊界 (波的上邊界)
-                let waveTopY = (cy - halfW) - yOffset;
-                ctx.lineTo(canvas.width, waveTopY);   
-                ctx.lineTo(wallX, cy - halfW);        // 回到狹縫上緣
-                ctx.closePath();
+                ctx.moveTo(wallX, 0); ctx.lineTo(logicalW, 0);
+                ctx.lineTo(logicalW, (cy - halfW) - yOffset); ctx.lineTo(wallX, cy - halfW);
                 ctx.fill();
-                
-                // 畫出分界線
-                ctx.beginPath();
-                ctx.moveTo(wallX, cy - halfW);
-                ctx.lineTo(canvas.width, waveTopY);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(wallX, cy - halfW); ctx.lineTo(logicalW, (cy - halfW) - yOffset); ctx.stroke();
 
-                // 2. 下方陰影區
                 ctx.beginPath();
-                ctx.moveTo(wallX, canvas.height);     // 左下 (牆壁底)
-                ctx.lineTo(canvas.width, canvas.height); // 右下 (畫面底)
-                // 陰影上邊界 (波的下邊界)
-                let waveBottomY = (cy + halfW) + yOffset;
-                ctx.lineTo(canvas.width, waveBottomY);
-                ctx.lineTo(wallX, cy + halfW);        // 回到狹縫下緣
-                ctx.closePath();
+                ctx.moveTo(wallX, logicalH); ctx.lineTo(logicalW, logicalH);
+                ctx.lineTo(logicalW, (cy + halfW) + yOffset); ctx.lineTo(wallX, cy + halfW);
                 ctx.fill();
-
-                // 畫出分界線
-                ctx.beginPath();
-                ctx.moveTo(wallX, cy + halfW);
-                ctx.lineTo(canvas.width, waveBottomY);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(wallX, cy + halfW); ctx.lineTo(logicalW, (cy + halfW) + yOffset); ctx.stroke();
             }
             ctx.restore();
         }
 
-        // --- 3. 繪製綠色波前 (主層) ---
+        // -- 2. 主波前繪製 --
         waves.forEach(x => {
-            ctx.beginPath();
-            ctx.strokeStyle = '#00b894'; 
-            ctx.lineWidth = 3;            
+            ctx.strokeStyle = '#00b894';
+            ctx.lineWidth = 2.5; 
             ctx.lineCap = 'round';
 
             if (x <= wallX) {
-                // 左側平面波
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-            } 
-            else {
+                // 入射波
+                ctx.beginPath();
+                ctx.moveTo(x, 0); ctx.lineTo(x, logicalH);
+                ctx.stroke();
+            } else {
                 let r = x - wallX;
-
-                if (mode === 'slit') {
-                    // 單狹縫 (寬度修正版)
+                if (state.mode === 'slit') {
+                    let topY = cy - halfW;
+                    let bottomY = cy + halfW;
+                    
+                    // 中央直波段
+                    ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, bottomY); ctx.stroke();
+                    
+                    // 上下漸變繞射弧
+                    drawDiffractingArc(wallX, topY, r, -1, spreadAngle, -9999);
+                    drawDiffractingArc(wallX, bottomY, r, 1, spreadAngle, 9999);
+                } else {
                     let topY = cy - halfW;
                     let bottomY = cy + halfW;
 
-                    // 中間直波
-                    ctx.moveTo(x, topY);
-                    ctx.lineTo(x, bottomY);
+                    // 上下直波段
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, topY); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(x, bottomY); ctx.lineTo(x, logicalH); ctx.stroke();
 
-                    // 上邊緣弧
-                    ctx.moveTo(x, topY);
-                    ctx.arc(wallX, topY, r, 0, -spreadAngle, true);
-
-                    // 下邊緣弧
-                    ctx.moveTo(x, bottomY);
-                    ctx.arc(wallX, bottomY, r, 0, spreadAngle, false);
-                } 
-                else {
-                    // 障礙物
-                    // 上直波
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, cy - halfW);
-                    // 下直波
-                    ctx.moveTo(x, cy + halfW);
-                    ctx.lineTo(x, canvas.height);
-
-                    // 繞射波
-                    ctx.moveTo(x, cy - halfW);
-                    ctx.arc(wallX, cy - halfW, r, 0, spreadAngle);
-
-                    ctx.moveTo(x, cy + halfW);
-                    ctx.arc(wallX, cy + halfW, r, 0, -spreadAngle, true);
+                    // 障礙物後方的繞射波 (使用中心軸 cy 作為完美接合邊界)
+                    drawDiffractingArc(wallX, topY, r, 1, spreadAngle, cy);
+                    drawDiffractingArc(wallX, bottomY, r, -1, spreadAngle, cy);
                 }
             }
-            ctx.stroke();
         });
 
-        // --- 4. 繪製惠更斯子波 (上層) ---
-        if (huygensCheck.checked) {
+        // -- 3. 惠更斯子波 --
+        if (state.showHuygens) {
             waves.forEach(x => {
-                if (x > wallX) { 
+                if (x > wallX) {
                     ctx.save();
-                    ctx.strokeStyle = 'rgba(100, 100, 255, 0.5)';
+                    ctx.strokeStyle = 'rgba(9, 132, 227, 0.4)';
                     ctx.lineWidth = 1;
-                    
-                    let subwaveR = x - wallX; 
+                    let subwaveR = x - wallX;
 
-                    if (mode === 'slit') {
-                        // 狹縫
+                    if (state.mode === 'slit') {
                         let topY = cy - halfW;
-                        const numSources = Math.max(2, Math.floor(widthPx / 20)); 
+                        const numSources = Math.max(3, Math.floor(widthPx / 15));
                         const stepY = widthPx / (numSources - 1);
 
                         for (let i = 0; i < numSources; i++) {
-                            let sourceY = topY + i * stepY;
                             ctx.beginPath();
-                            ctx.arc(wallX, sourceY, subwaveR, -Math.PI/2, Math.PI/2); 
+                            ctx.arc(wallX, topY + i * stepY, subwaveR, -Math.PI/2, Math.PI/2);
                             ctx.stroke();
                         }
                     } else {
-                        // 障礙物：上下邊緣，只畫右半圓
-                        ctx.beginPath();
-                        ctx.arc(wallX, cy - halfW, subwaveR, -Math.PI/2, Math.PI/2); 
-                        ctx.stroke();
-
-                        ctx.beginPath();
-                        ctx.arc(wallX, cy + halfW, subwaveR, -Math.PI/2, Math.PI/2); 
-                        ctx.stroke();
+                        ctx.beginPath(); ctx.arc(wallX, cy - halfW, subwaveR, -Math.PI/2, Math.PI/2); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(wallX, cy + halfW, subwaveR, -Math.PI/2, Math.PI/2); ctx.stroke();
                     }
                     ctx.restore();
                 }
             });
         }
 
-        // --- 5. 繪製牆壁 (遮擋層) ---
+        // -- 4. 遮擋層邊界 --
         ctx.fillStyle = '#2d3436';
-        if (mode === 'slit') {
-            ctx.fillRect(wallX - 3, 0, 6, cy - halfW);
-            ctx.fillRect(wallX - 3, cy + halfW, 6, canvas.height);
+        const wallThickness = 10;
+        if (state.mode === 'slit') {
+            ctx.beginPath();
+            ctx.roundRect(wallX - wallThickness/2, 0, wallThickness, cy - halfW, [0, 0, 4, 4]);
+            ctx.roundRect(wallX - wallThickness/2, cy + halfW, wallThickness, logicalH - (cy + halfW), [4, 4, 0, 0]);
+            ctx.fill();
         } else {
-            ctx.fillRect(wallX - 3, cy - halfW, 6, widthPx);
+            ctx.beginPath();
+            ctx.roundRect(wallX - wallThickness/2, cy - halfW, wallThickness, widthPx, [4]);
+            ctx.fill();
         }
     }
 
     function loop() {
         update();
         draw();
-        animationId = requestAnimationFrame(loop);
+        requestAnimationFrame(loop);
     }
 
-    function setMode(m) {
-        mode = m;
-        btns.forEach(b => b.classList.remove('active'));
-        if(m==='slit') {
-            btns[0].classList.add('active');
-            btns[1].classList.remove('active');
+    // --- 面板收合與全螢幕邏輯 ---
+    const controlsPanel = document.querySelector('.controls-panel');
+    const btnClosePanel = document.getElementById('btnClosePanel');
+    const btnOpenPanel = document.getElementById('btnOpenPanel');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+
+    btnClosePanel.addEventListener('click', () => {
+        controlsPanel.classList.add('collapsed');
+        btnOpenPanel.style.display = 'flex';
+    });
+
+    btnOpenPanel.addEventListener('click', () => {
+        controlsPanel.classList.remove('collapsed');
+        btnOpenPanel.style.display = 'none';
+    });
+
+    btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
         } else {
-            btns[1].classList.add('active');
-            btns[0].classList.remove('active');
+            document.exitFullscreen();
         }
-        init();
-    }
+    });
 
-    lambdaRange.addEventListener('input', () => syncLambda('range'));
-    lambdaNum.addEventListener('input', () => syncLambda('num'));
-    
-    widthRange.addEventListener('input', () => syncWidth('range'));
-    widthNum.addEventListener('input', () => syncWidth('num'));
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+            btnFullscreen.innerHTML = '✖ 退出全螢幕';
+        } else {
+            btnFullscreen.innerHTML = '⛶ 全螢幕';
+        }
+    });
 
-    syncLambda('range'); 
-    syncWidth('range');
-    init();
+    // 初始化
+    setTimeout(updateMathJax, 500);
+    loop();
 
 </script>
 </body>
