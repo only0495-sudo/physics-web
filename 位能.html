@@ -60,8 +60,21 @@
             right: 15px;
             width: clamp(260px, 90vw, 280px);
             background: var(--card-bg);
-            max-height: 90vh;
+        }
+        
+        /* 將捲動軸移至內容區，避免把外掛的收起按鈕給裁切隱藏 */
+        #control-panel .panel-content {
+            max-height: 80vh;
             overflow-y: auto;
+        }
+        
+        /* 美化滾動條 */
+        #control-panel .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        #control-panel .panel-content::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
         }
 
         #control-panel.collapsed {
@@ -254,7 +267,7 @@
             transform: translateX(-50%);
             width: 96vw;
             max-width: 1200px;
-            height: 340px; /* 增加高度讓 E-x 圖表更大更清晰 */
+            height: 340px; 
             background: var(--primary-bg);
             border-radius: 12px;
             border: 1px solid var(--panel-border);
@@ -266,7 +279,7 @@
             box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
         }
 
-        /* 當切換到長條圖時微調版面，縮小寬度使其不那麼空曠 */
+        /* 當切換到長條圖時微調版面 */
         #chart-container.narrow {
             max-width: 700px;
         }
@@ -288,7 +301,7 @@
                 transform: scale(0.85) translateX(-375px);
             }
             #chart-container {
-                height: 250px; /* 手機端稍微降低圖表高度以保留上方觀察視野 */
+                height: 250px; 
             }
         }
 
@@ -346,7 +359,6 @@
             <!-- 共用的圖表顯示模式 -->
             <div class="control-label" style="margin-top: 0px; color: #888;">圖表顯示模式</div>
             <div class="radio-group" id="chart-mode-group">
-                <!-- 預設改為顯示長條圖 -->
                 <label class="radio-item active-text" id="label-chart-bar" style="color: var(--success);">
                     <input type="radio" name="chart-type" value="bar" checked> 長條圖 (瞬時能量佔比)
                 </label>
@@ -401,7 +413,7 @@
     <div id="chart-container">
         <canvas id="energyChart" class="hidden"></canvas>
         <canvas id="energyXChart" class="hidden"></canvas>
-        <canvas id="energyBarChart"></canvas> <!-- 預設顯示長條圖 Canvas -->
+        <canvas id="energyBarChart"></canvas>
     </div>
 
     <!-- 載入 Chart.js -->
@@ -419,7 +431,7 @@
 
         const state = {
             mode: 'gravity',     
-            chartType: 'bar', // 將預設圖表改為長條圖 (bar)
+            chartType: 'bar', 
             m: 2.0,
             g: 9.8,
             e: 1.0,             
@@ -498,8 +510,8 @@
                     x: {
                         type: 'linear', position: 'bottom',
                         title: { display: true, text: '距離平衡點位移 x (m)', color: chartTextColor, font: { size: 14, weight: 'bold' } },
-                        // 將 X 軸顯示範圍調整至與 rangeMeters (-6 ~ 6) 一致，讓開口顯示更大更完整
-                        grid: { color: chartGridColor }, ticks: { color: chartTextColor }, min: -6, max: 6
+                        // X 軸改為完全動態調整，以符合不同拖曳力量
+                        grid: { color: chartGridColor }, ticks: { color: chartTextColor }, min: -3, max: 3
                     },
                     y: {
                         title: { display: true, text: '能量 (Joule)', color: chartTextColor, font: { size: 14, weight: 'bold' } },
@@ -800,8 +812,10 @@
             }
 
             if (frameCount % 2 === 0) {
-                const currentMax = Math.max(100, totalEnergy * 1.15);
-                const yMax = Math.ceil(currentMax / 50) * 50;
+                // 將 Y 軸預設最大下限從 100 降至 20，讓小能量輸入時 Y 軸依然能緊密貼合
+                const currentMax = Math.max(20, totalEnergy * 1.15);
+                // 減少網格間距跳動的粗糙度
+                const yMax = Math.ceil(currentMax / 20) * 20;
 
                 // 1. 更新 E-t 圖
                 if (state.chartType === 'time') {
@@ -820,17 +834,23 @@
 
                 // 2. 更新 E-x 圖 (動態函數運算)
                 if (state.mode === 'elastic' && state.chartType === 'disp') {
-                    const rangeMeters = 6; 
+                    // 自動計算當前能量所能達到的最大振幅 (x = sqrt(2E/k))
+                    let maxAmp = Math.sqrt((2 * totalEnergy) / state.k) / CONFIG.pxPerMeter;
+                    if (isNaN(maxAmp) || maxAmp < 1.0) maxAmp = 1.0; 
+                    // 在 X 軸給予約 30% 寬裕度，讓曲線能填滿整個畫面，且視覺更「陡峭」
+                    const chartRangeMeters = Math.ceil(maxAmp * 1.3 * 10) / 10; 
+                    
                     const uCurveData = [];
                     const kCurveData = [];
                     const energyLineData = [];
                     
-                    for(let xv = -rangeMeters; xv <= rangeMeters; xv += 0.1) {
+                    for(let xv = -chartRangeMeters; xv <= chartRangeMeters; xv += 0.05) {
                         const pxValue = xv * CONFIG.pxPerMeter;
                         const potE = 0.5 * state.k * pxValue * pxValue;
                         const kinE = mechEnergy - potE;
 
-                        if (potE <= yMax * 1.5) {
+                        // 限制圖表數據只繪製到 Y 軸天花板附近，防止過高的數值強行將 Y 軸拉長，導致曲線被「壓扁」
+                        if (potE <= yMax * 1.05) {
                             uCurveData.push({x: xv, y: potE});
                         }
                         if (kinE >= 0) {
@@ -838,15 +858,17 @@
                         }
                         energyLineData.push({x: xv, y: mechEnergy});
                     }
-
+                    
+                    const currentXMeters = state.x / CONFIG.pxPerMeter;
                     chartDisp.data.datasets[0].data = uCurveData;
                     chartDisp.data.datasets[1].data = kCurveData;
                     chartDisp.data.datasets[2].data = energyLineData;
-                    
-                    const currentXMeters = state.x / CONFIG.pxPerMeter;
                     chartDisp.data.datasets[3].data = [{x: currentXMeters, y: U}];
                     chartDisp.data.datasets[4].data = [{x: currentXMeters, y: K}];
 
+                    // 動態更新 Chart.js 邊界
+                    chartDisp.options.scales.x.min = -chartRangeMeters;
+                    chartDisp.options.scales.x.max = chartRangeMeters;
                     chartDisp.options.scales.y.suggestedMax = yMax;
                     chartDisp.update();
                 }
