@@ -43,6 +43,21 @@
             z-index: 1;
         }
 
+        /* 啟動畫面 */
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(240, 244, 248, 0.95); z-index: 1000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s; backdrop-filter: blur(10px);
+        }
+        #start-overlay h1 { font-size: 2.5rem; color: var(--text-color); margin-bottom: 10px; }
+        #start-overlay button {
+            padding: 12px 30px; font-size: 1.2rem; background: var(--primary-cyan);
+            color: white; border: none; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 151, 167, 0.4); transition: transform 0.2s;
+        }
+        #start-overlay button:hover { transform: scale(1.05); }
+
         /* 視角標籤 */
         .view-label {
             position: absolute;
@@ -74,10 +89,10 @@
             transition: opacity 0.3s;
         }
 
-        /* 動態狀態描述文字 (置中於樹頂) */
+        /* 動態狀態描述文字 */
         #status-text {
             position: absolute;
-            top: max(120px, calc(50vh - 250px)); /* 動態計算在樹頂上方的安全位置 */
+            top: max(120px, calc(50vh - 250px));
             left: 50%;
             transform: translateX(-50%);
             font-size: 1.4rem;
@@ -95,7 +110,7 @@
             white-space: nowrap;
         }
 
-        /* 重播按鈕 (常駐於左上角，模式二專用) */
+        /* 重播按鈕 */
         #replay-btn {
             position: absolute;
             top: 20px;
@@ -114,12 +129,7 @@
             z-index: 100;
             display: none;
         }
-
-        #replay-btn:hover {
-            background: var(--primary-cyan);
-            color: white;
-            transform: scale(1.05);
-        }
+        #replay-btn:hover { background: var(--primary-cyan); color: white; transform: scale(1.05); }
 
         /* 高質感自訂控制面板 */
         #custom-gui {
@@ -137,53 +147,23 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* 面板收起狀態 */
-        #custom-gui.collapsed {
-            width: 180px;
-            padding-bottom: 15px;
-        }
-        #custom-gui.collapsed .gui-content {
-            display: none;
-        }
+        #custom-gui.collapsed { width: 180px; padding-bottom: 15px; }
+        #custom-gui.collapsed .gui-content { display: none; }
 
         .gui-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;
         }
-
-        .gui-title {
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-
+        .gui-title { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-color); }
         .toggle-btn {
-            background: rgba(0,0,0,0.05);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            border-radius: 6px;
-            padding: 4px 10px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
+            background: rgba(0,0,0,0.05); border: 1px solid var(--border-color);
+            color: var(--text-color); border-radius: 6px; padding: 4px 10px;
+            font-size: 0.8rem; cursor: pointer; font-weight: bold; transition: 0.2s;
         }
         .toggle-btn:hover { background: rgba(0,0,0,0.1); }
+        .gui-content { display: block; }
 
-        .gui-content {
-            display: block;
-        }
-
-        .view-mode-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
+        .view-mode-group { display: flex; gap: 8px; margin-bottom: 20px; }
         .view-btn {
             flex: 1; padding: 8px 0; background: rgba(0,0,0,0.05); border: 1px solid var(--border-color);
             border-radius: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text-color); font-weight: 600;
@@ -198,25 +178,86 @@
         }
         .control-group label span { color: var(--text-color); font-weight: bold; }
 
-        /* 歸零按鈕 */
         .reset-btn {
-            background: rgba(255, 255, 255, 0.5);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            border-radius: 4px;
-            padding: 2px 8px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            margin-right: 8px;
-            transition: 0.2s;
+            background: rgba(255, 255, 255, 0.5); border: 1px solid var(--border-color);
+            color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem;
+            cursor: pointer; margin-right: 8px; transition: 0.2s;
         }
-        .reset-btn:hover {
-            background: rgba(0, 151, 167, 0.1);
-            color: var(--primary-cyan);
-            border-color: var(--primary-cyan);
+        .reset-btn:hover { background: rgba(0, 151, 167, 0.1); color: var(--primary-cyan); border-color: var(--primary-cyan); }
+
+        /* ================= 新增：動態方向箭頭控制器樣式 ================= */
+        .arrow-slider-container {
+            position: relative;
+            width: 100%;
+            height: 24px;
+            cursor: pointer;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            touch-action: none; /* 防止手機拖曳時畫面捲動 */
+        }
+        
+        .arrow-track {
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            height: 4px;
+            background: rgba(0,0,0,0.08);
+            border-radius: 2px;
+            transform: translateY(-50%);
+        }
+        
+        .arrow-center {
+            position: absolute;
+            top: 10%; bottom: 10%; left: 50%;
+            width: 3px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 1px;
+            transform: translateX(-50%);
+        }
+        
+        .arrow-vector {
+            position: absolute;
+            top: 50%; left: 50%;
+            height: 6px;
+            background: currentColor;
+            transform-origin: left center;
+            transform: translateY(-50%);
+            pointer-events: none;
+            border-radius: 3px;
+            /* 移除了 transition，讓拖曳完全跟隨滑鼠/手指，不再有卡頓感 */
+        }
+        
+        /* 預設：繪製箭頭頭部 */
+        .arrow-vector::after {
+            content: '';
+            position: absolute;
+            right: -2px; /* 箭頭稍微突出 */
+            top: 50%;
+            border-left: 10px solid currentColor;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            transform: translateY(-50%);
         }
 
-        /* 美化滑桿 (Range Slider) */
+        /* 歸零狀態：當數值為 0 時，變成一個圓點按鈕 */
+        .arrow-slider-container.is-zero .arrow-vector {
+            height: 0; /* 隱藏箭頭的線條 */
+        }
+        
+        .arrow-slider-container.is-zero .arrow-vector::after {
+            right: -8px; /* 將圓點完美置中於 0 的位置 */
+            border: none;
+            width: 16px;
+            height: 16px;
+            background-color: currentColor;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3); /* 增加立體感，提示可拖曳 */
+        }
+
+        .source-color { color: var(--primary-pink); }
+        .observer-color { color: var(--primary-cyan); }
+        /* ============================================================= */
+
+        /* 傳統滑桿 (保留給頻率與音量使用) */
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type=range]:focus { outline: none; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: rgba(0, 0, 0, 0.1); border-radius: 4px; }
@@ -226,9 +267,7 @@
             border: 2px solid #ccc; transition: transform 0.2s;
         }
         input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
-        
-        #slider-vs::-webkit-slider-thumb { border-color: var(--primary-pink); }
-        #slider-vo::-webkit-slider-thumb { border-color: var(--primary-cyan); }
+        #slider-freq::-webkit-slider-thumb { border-color: #f59e0b; }
         #slider-vol::-webkit-slider-thumb { border-color: #64748b; }
 
         .btn-group { display: flex; gap: 10px; margin-top: 20px; }
@@ -239,79 +278,25 @@
         }
         .mode-btn.active { background: #e2e8f0; border-color: #94a3b8; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
 
-        /* 物理公式疊加層 (右上角，巨大化) */
+        /* 物理公式疊加層 */
         #formula-panel {
-            position: absolute;
-            top: 25px;
-            right: 40px;
-            background: var(--panel-bg);
-            padding: 20px 40px;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            z-index: 10;
-            backdrop-filter: blur(12px);
+            position: absolute; top: 25px; right: 40px; background: var(--panel-bg);
+            padding: 20px 40px; border-radius: 20px; border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; align-items: center;
+            z-index: 10; backdrop-filter: blur(12px);
         }
-
         .formula-text {
-            font-size: 3.8rem;
-            font-weight: 700;
-            font-family: 'Times New Roman', serif;
-            font-style: italic;
-            display: flex;
-            align-items: center;
-            color: var(--text-color);
+            font-size: 3.8rem; font-weight: 700; font-family: 'Times New Roman', serif;
+            font-style: italic; display: flex; align-items: center; color: var(--text-color);
         }
-
-        .fraction {
-            position: relative;
-            width: 45px;
-            height: 1.5em;
-            margin-left: 15px;
-        }
-
+        .fraction { position: relative; width: 45px; height: 1.5em; margin-left: 15px; }
         .fraction-line {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background-color: var(--text-color);
-            transform: translateY(-50%);
-            border-radius: 2px;
-            z-index: 1;
+            position: absolute; top: 50%; left: 0; width: 100%; height: 4px;
+            background-color: var(--text-color); transform: translateY(-50%); border-radius: 2px; z-index: 1;
         }
-
-        .top-container {
-            position: absolute;
-            bottom: 50%;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            margin-bottom: 4px;
-            z-index: 2;
-        }
-
-        .bottom-container {
-            position: absolute;
-            top: 50%;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            margin-top: 8px;
-            z-index: 2;
-        }
-
-        /* 動態放大與發光特效 */
-        .symbol {
-            display: inline-block;
-            transition: transform 0.1s ease-out, color 0.3s, text-shadow 0.3s;
-            transform-origin: center;
-        }
+        .top-container { position: absolute; bottom: 50%; left: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 4px; z-index: 2; }
+        .bottom-container { position: absolute; top: 50%; left: 0; width: 100%; display: flex; justify-content: center; margin-top: 8px; z-index: 2; }
+        .symbol { display: inline-block; transition: transform 0.1s ease-out, color 0.3s, text-shadow 0.3s; transform-origin: center; }
 
         /* 全螢幕按鈕 */
         #fullscreen-btn {
@@ -339,7 +324,7 @@
     <div id="start-overlay">
         <h1>雙視角都卜勒效應</h1>
         <p style="margin-bottom: 40px; font-size: 1.2rem; color: #475569;">點擊下方按鈕解鎖音效與互動</p>
-        <button onclick="startSimulation()">開始體驗</button>
+        <button onclick="hideOverlayAndStart()">開始體驗</button>
     </div>
 
     <!-- 重播按鈕 (常駐於左上角，模式二專用) -->
@@ -358,13 +343,9 @@
         <span class="formula-text">
             <span>f = </span>
             <span class="fraction">
-                <span class="top-container">
-                    <span class="symbol" id="sym-v">v</span>
-                </span>
+                <span class="top-container"><span class="symbol" id="sym-v">v</span></span>
                 <span class="fraction-line"></span>
-                <span class="bottom-container">
-                    <span class="symbol" id="sym-lambda">λ</span>
-                </span>
+                <span class="bottom-container"><span class="symbol" id="sym-lambda">λ</span></span>
             </span>
         </span>
     </div>
@@ -382,31 +363,43 @@
                 <button class="view-btn" id="btn-mode2" onclick="setViewMode(2)">二：呼嘯而過</button>
             </div>
 
+            <!-- 使用向量箭頭替代波源速度拉桿 -->
             <div class="control-group">
                 <label>波源速度 (v_s) 
                     <div style="display:flex; align-items:center;">
-                        <button class="reset-btn" onclick="resetSpeed('vSource', 'slider-vs', 'val-vs')">歸零</button>
+                        <button class="reset-btn" onclick="resetSpeed('vSource', 'vector-vs', 'val-vs')">歸零</button>
                         <span id="val-vs">0.0 m/s</span>
                     </div>
                 </label>
-                <input type="range" id="slider-vs" min="-100" max="100" step="1" value="0">
+                <div class="arrow-slider-container" id="container-vs">
+                    <div class="arrow-track"></div>
+                    <div class="arrow-center"></div>
+                    <div class="arrow-vector source-color" id="vector-vs"></div>
+                </div>
             </div>
 
+            <!-- 使用向量箭頭替代觀察者速度拉桿 -->
             <div class="control-group">
                 <label>觀察者速度 (v_o) 
                     <div style="display:flex; align-items:center;">
-                        <button class="reset-btn" onclick="resetSpeed('vObserver', 'slider-vo', 'val-vo')">歸零</button>
+                        <button class="reset-btn" onclick="resetSpeed('vObserver', 'vector-vo', 'val-vo')">歸零</button>
                         <span id="val-vo">0.0 m/s</span>
                     </div>
                 </label>
-                <input type="range" id="slider-vo" min="-100" max="100" step="1" value="0">
+                <div class="arrow-slider-container" id="container-vo">
+                    <div class="arrow-track"></div>
+                    <div class="arrow-center"></div>
+                    <div class="arrow-vector observer-color" id="vector-vo"></div>
+                </div>
             </div>
 
+            <!-- 頻率保留拉桿 (因為只有正值，不需要箭頭) -->
             <div class="control-group">
                 <label>發射頻率 (f₀) <span id="val-freq">10.0 Hz</span></label>
                 <input type="range" id="slider-freq" min="1" max="30" step="0.5" value="10.0">
             </div>
 
+            <!-- 音量保留拉桿 -->
             <div class="control-group">
                 <label>音量大小 <span id="val-vol">50 %</span></label>
                 <input type="range" id="slider-vol" min="0" max="1" step="0.01" value="0.5">
@@ -426,7 +419,7 @@
 
     <script>
         /**
-         * 物理與系統狀態
+         * 物理與系統狀態 (保持不變)
          */
         const STATE = {
             viewMode: 1,           
@@ -453,8 +446,8 @@
 
         let sourceX = 0;
         let observerX = 400; 
-        let bgSourceX = 0;       // 用於背景滾動平滑解耦
-        let bgObserverX = 400;   // 用於背景滾動平滑解耦
+        let bgSourceX = 0;       
+        let bgObserverX = 400;   
         let sourceY, observerY;
         
         let waves = [];
@@ -471,6 +464,11 @@
         const symLambda = document.getElementById('sym-lambda');
         let statusEl;
 
+        function hideOverlayAndStart() {
+            document.getElementById('start-overlay').style.display = 'none';
+            startSimulation();
+        }
+
         function toggleGUI() {
             const gui = document.getElementById('custom-gui');
             const btn = document.getElementById('gui-toggle-btn');
@@ -482,10 +480,41 @@
             }
         }
 
-        function resetSpeed(stateKey, sliderId, valId) {
-            STATE[stateKey] = 0;
-            document.getElementById(sliderId).value = 0;
-            document.getElementById(valId).innerText = `0.0 m/s`;
+        /**
+         * 設定向量箭頭的值並更新 CSS 表現
+         */
+        function setArrowSliderValue(vectorId, stateKey, valId, val) {
+            STATE[stateKey] = val;
+            const vector = document.getElementById(vectorId);
+            const valEl = document.getElementById(valId);
+            const container = vector.parentElement;
+            
+            valEl.innerText = `${val.toFixed(1)} m/s`;
+
+            // 動態切換歸零時的圓點狀態與非零時的箭頭狀態
+            if (val === 0) {
+                container.classList.add('is-zero');
+            } else {
+                container.classList.remove('is-zero');
+            }
+
+            // 計算長度比例 (最大 100m/s，對應一半軌道寬度 50%)
+            let pct = Math.abs(val) / 100;
+            vector.style.width = `calc(50% * ${pct})`;
+
+            // 設定箭頭方向：正值向右 (0度)，負值向左 (180度)
+            if (val >= 0) {
+                vector.style.transform = `translateY(-50%) rotate(0deg)`;
+            } else {
+                vector.style.transform = `translateY(-50%) rotate(180deg)`;
+            }
+        }
+
+        /**
+         * 歸零按鈕邏輯
+         */
+        function resetSpeed(stateKey, vectorId, valId) {
+            setArrowSliderValue(vectorId, stateKey, valId, 0);
             updateFormulaStyle();
             
             if (!STATE.isRunning || STATE.isDragging) {
@@ -524,12 +553,9 @@
         }
 
         function startMode2Scenario() {
-            STATE.vSource = 80;
-            STATE.vObserver = -80;
-            document.getElementById('slider-vs').value = 80;
-            document.getElementById('val-vs').innerText = '80.0 m/s';
-            document.getElementById('slider-vo').value = -80;
-            document.getElementById('val-vo').innerText = '-80.0 m/s';
+            // 更新 UI 與狀態為呼嘯而過預設值
+            setArrowSliderValue('vector-vs', 'vSource', 'val-vs', 80);
+            setArrowSliderValue('vector-vo', 'vObserver', 'val-vo', -80);
             updateFormulaStyle();
 
             let relSpeed = STATE.vSource - STATE.vObserver; 
@@ -560,7 +586,6 @@
             STATE.isDragging = false;
             
             const currentF = freqHistory[freqHistory.length - 1]?.f || STATE.baseAudioFreq;
-
             if (STATE.audioMode === 'Beep' && STATE.isRunning) {
                 playBeep(currentF);
             }
@@ -604,10 +629,80 @@
             freqHistory.push({ t: realTime, f: currentDopplerFreq });
         }
 
+        /**
+         * 綁定向量箭頭滑動事件
+         */
+        function bindArrowSlider(containerId, vectorId, stateKey, valId, updateFn) {
+            const container = document.getElementById(containerId);
+            let isDraggingSlider = false;
+
+            function updateFromEvent(e) {
+                const rect = container.getBoundingClientRect();
+                let clientX = e.clientX;
+                if (e.touches && e.touches.length > 0) clientX = e.touches[0].clientX;
+
+                // 計算相對軌道的 X 座標並映射到 -100 ~ 100
+                let x = clientX - rect.left;
+                let pct = x / rect.width; 
+                let val = (pct - 0.5) * 200; 
+                val = Math.max(-100, Math.min(100, val));
+                val = Math.round(val); // 取整數
+
+                setArrowSliderValue(vectorId, stateKey, valId, val);
+                updateFn();
+            }
+
+            container.addEventListener('mousedown', (e) => {
+                isDraggingSlider = true;
+                startDrag();
+                updateFromEvent(e);
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingSlider) updateFromEvent(e);
+            });
+            window.addEventListener('mouseup', () => {
+                if (isDraggingSlider) {
+                    isDraggingSlider = false;
+                    endDrag();
+                }
+            });
+
+            // 支援手機觸控
+            container.addEventListener('touchstart', (e) => {
+                isDraggingSlider = true;
+                startDrag();
+                updateFromEvent(e);
+            }, {passive: false});
+            window.addEventListener('touchmove', (e) => {
+                if (isDraggingSlider) updateFromEvent(e);
+            }, {passive: false});
+            window.addEventListener('touchend', () => {
+                if (isDraggingSlider) {
+                    isDraggingSlider = false;
+                    endDrag();
+                }
+            });
+        }
+
         function setupUI() {
+            // 1. 綁定新版的向量箭頭 (波源)
+            bindArrowSlider('container-vs', 'vector-vs', 'vSource', 'val-vs', () => {
+                updateFormulaStyle();
+                if (STATE.isDragging || !STATE.isRunning) recalculateWavesPreview();
+            });
+
+            // 2. 綁定新版的向量箭頭 (觀察者)
+            bindArrowSlider('container-vo', 'vector-vo', 'vObserver', 'val-vo', () => {
+                updateFormulaStyle();
+                if (STATE.isDragging || !STATE.isRunning) recalculateWavesPreview();
+            });
+
+            // 初始化向量箭頭長度與方向
+            setArrowSliderValue('vector-vs', 'vSource', 'val-vs', 0);
+            setArrowSliderValue('vector-vo', 'vObserver', 'val-vo', 0);
+
+            // 3. 原有的傳統滑桿綁定 (頻率與音量保留)
             const sliders = [
-                { id: 'slider-vs', stateKey: 'vSource', valId: 'val-vs', unit: 'm/s' },
-                { id: 'slider-vo', stateKey: 'vObserver', valId: 'val-vo', unit: 'm/s' },
                 { id: 'slider-freq', stateKey: 'baseFreq', valId: 'val-freq', unit: 'Hz' },
                 { id: 'slider-vol', stateKey: 'volume', valId: 'val-vol', unit: '%' }
             ];
@@ -623,16 +718,11 @@
 
                 el.addEventListener('input', (e) => {
                     STATE[s.stateKey] = parseFloat(e.target.value);
-                    
                     if (s.id === 'slider-vol') {
                         valEl.innerText = `${Math.round(STATE[s.stateKey] * 100)} %`;
                     } else {
                         valEl.innerText = `${STATE[s.stateKey].toFixed(1)} ${s.unit}`;
-                        updateFormulaStyle();
-                        
-                        if (STATE.isDragging || !STATE.isRunning) {
-                            recalculateWavesPreview();
-                        }
+                        if (STATE.isDragging || !STATE.isRunning) recalculateWavesPreview();
                     }
                 });
             });
@@ -687,12 +777,8 @@
             statusEl = document.getElementById('status-text');
             generateForest();
             setupUI();
-            
-            // 自動啟動模擬器
-            startSimulation(); 
         }
 
-        // 監聽第一次點擊或觸控來恢復 AudioContext (解決瀏覽器自動播放限制)
         function resumeAudioOnInteraction() {
             if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume();
@@ -703,7 +789,6 @@
 
         function generateForest() {
             trees = [];
-            // 建立 5000 公尺的無限循環模板，樹木變得更密集
             for(let x = 0; x < 5000; x += random(40, 100)) {
                 trees.push({
                     x: x + random(-15, 15),
@@ -716,7 +801,7 @@
         }
 
         function startSimulation() {
-            initAudio();
+            if(!audioCtx) initAudio();
             STATE.isRunning = true;
             lastWaveEmitTime = simTime;
         }
@@ -727,7 +812,7 @@
         }
 
         function playBeep(frequency) {
-            if (STATE.audioMode !== 'Beep') return;
+            if (STATE.audioMode !== 'Beep' || !audioCtx) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
             if (STATE.volume <= 0.01) return;
@@ -747,6 +832,7 @@
             osc.stop(audioCtx.currentTime + 0.16);
         }
 
+        // ================= 物理運算與繪圖邏輯皆維持原樣 ================= //
         function draw() {
             if (!STATE.isRunning && STATE.mode2State !== 'paused' && !STATE.isDragging) return;
 
@@ -767,26 +853,21 @@
 
             let sCamPx = sourceX * STATE.pixelScale;
             let oCamPx = observerX * STATE.pixelScale;
-            
-            // 使用完全獨立的背景相機座標解決閃爍
             let sBgPx = bgSourceX * STATE.pixelScale;
             let oBgPx = bgObserverX * STATE.pixelScale;
 
             if (STATE.viewMode === 1) {
-                // 波源視角
                 push();
                 drawingContext.save();
                 drawingContext.beginPath();
                 drawingContext.rect(0, 0, width / 2, height);
                 drawingContext.clip();
                 
-                // 1. 繪製平滑的背景
                 push();
                 translate(width / 4 - sBgPx, 0); 
                 drawBackground(sBgPx, width / 2);
                 pop();
                 
-                // 2. 繪製波及實體
                 push();
                 translate(width / 4 - sCamPx, 0); 
                 drawEntities();
@@ -795,20 +876,17 @@
                 drawingContext.restore();
                 pop();
 
-                // 觀察者視角
                 push();
                 drawingContext.save();
                 drawingContext.beginPath();
                 drawingContext.rect(width / 2, 0, width / 2, height);
                 drawingContext.clip();
                 
-                // 1. 繪製平滑的背景
                 push();
                 translate(width * 0.75 - oBgPx, 0); 
                 drawBackground(oBgPx, width / 2);
                 pop();
                 
-                // 2. 繪製波及實體
                 push();
                 translate(width * 0.75 - oCamPx, 0); 
                 drawEntities();
@@ -833,7 +911,6 @@
 
             drawFreqGraph();
 
-            // 更新位於樹頂上方的動態狀態描述
             let curF = freqHistory.length > 0 ? freqHistory[freqHistory.length - 1].f : STATE.baseAudioFreq;
             if (curF > STATE.baseAudioFreq * 1.005) {
                 statusEl.innerHTML = "相對接近，頻率上升 f⭡";
@@ -856,8 +933,11 @@
         function updatePhysics(dt, physTime) {
             sourceX += STATE.vSource * dt;
             observerX += STATE.vObserver * dt;
-            bgSourceX += STATE.vSource * dt;
-            bgObserverX += STATE.vObserver * dt;
+            
+            // 新增：背景移動速度倍率，數字越大，樹木往後退的速度感越強
+            const bgSpeedFactor = 3.5; 
+            bgSourceX += STATE.vSource * dt * bgSpeedFactor;
+            bgObserverX += STATE.vObserver * dt * bgSpeedFactor;
 
             if (STATE.viewMode === 1) {
                 let dist = observerX - sourceX;
@@ -892,7 +972,7 @@
                     STATE.mode2Phase = 'departing';
                     STATE.mode2CrossTime = realTime;
                 } 
-                else if (STATE.mode2Phase === 'departing' && (realTime - STATE.mode2CrossTime >= 10.0)) { // 延長為 10 秒
+                else if (STATE.mode2Phase === 'departing' && (realTime - STATE.mode2CrossTime >= 10.0)) {
                     STATE.mode2State = 'paused';
                     STATE.isRunning = false;
                 }
@@ -1003,7 +1083,6 @@
             pop();
         }
 
-        // 背景與實體解耦，用獨立相機位移避免重播時跳針
         function drawBackground(camOffsetPx, paneWidth) {
             stroke(0, 0, 0, 40);
             strokeWeight(2);
@@ -1016,7 +1095,6 @@
             noStroke();
             drawingContext.shadowBlur = 0;
             
-            // 無限森林演算法 (Tiling)
             let templateWidth = 5000 * STATE.pixelScale;
             let startCycle = Math.floor(viewLeft / templateWidth);
             let endCycle = Math.floor(viewRight / templateWidth);
@@ -1076,13 +1154,11 @@
             strokeWeight(4);
             fill(colorCode);
             
-            // 長度放大 2 倍
             const length = velocity * 2.0; 
             const endX = x + length;
             
             line(x, y, endX, y);
             
-            // 箭頭放大為 16
             const arrowSize = 16;
             const dir = Math.sign(velocity);
             triangle(
