@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>位能與能量轉換模擬器</title>
     <style>
         :root {
@@ -25,6 +25,7 @@
             font-family: 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
             color: var(--text-main);
             user-select: none;
+            touch-action: none; /* 防止滑動視角時觸發網頁滾動 */
         }
 
         canvas { display: block; }
@@ -46,23 +47,25 @@
         #info-panel {
             top: 15px;
             left: 15px;
-            width: 320px;
+            width: clamp(280px, 90vw, 320px);
         }
 
         #info-panel.collapsed {
-            transform: translateX(-335px);
+            transform: translateX(-355px);
         }
 
         /* 右側控制面板 */
         #control-panel {
             top: 15px;
             right: 15px;
-            width: 280px;
+            width: clamp(260px, 90vw, 280px);
             background: var(--card-bg);
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         #control-panel.collapsed {
-            transform: translateX(295px);
+            transform: translateX(315px);
         }
 
         .panel-toggle-wrapper {
@@ -251,7 +254,7 @@
             transform: translateX(-50%);
             width: 96vw;
             max-width: 1200px;
-            height: 280px;
+            height: 340px; /* 增加高度讓 E-x 圖表更大更清晰 */
             background: var(--primary-bg);
             border-radius: 12px;
             border: 1px solid var(--panel-border);
@@ -259,13 +262,34 @@
             z-index: 10;
             padding: 15px;
             box-sizing: border-box;
-            transition: max-width 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            transition: max-width 0.4s cubic-bezier(0.19, 1, 0.22, 1), height 0.4s ease;
             box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
         }
 
-        /* 當切換到 E-x 圖表或長條圖時可以微調版面 */
+        /* 當切換到長條圖時微調版面，縮小寬度使其不那麼空曠 */
         #chart-container.narrow {
             max-width: 700px;
+        }
+
+        /* 手機端 RWD 控制面板微縮策略 */
+        @media (max-width: 768px) {
+            #control-panel {
+                transform: scale(0.85);
+                transform-origin: top right;
+            }
+            #control-panel.collapsed {
+                transform: scale(0.85) translateX(335px);
+            }
+            #info-panel {
+                transform: scale(0.85);
+                transform-origin: top left;
+            }
+            #info-panel.collapsed {
+                transform: scale(0.85) translateX(-375px);
+            }
+            #chart-container {
+                height: 250px; /* 手機端稍微降低圖表高度以保留上方觀察視野 */
+            }
         }
 
         #slow-mo-indicator {
@@ -322,11 +346,12 @@
             <!-- 共用的圖表顯示模式 -->
             <div class="control-label" style="margin-top: 0px; color: #888;">圖表顯示模式</div>
             <div class="radio-group" id="chart-mode-group">
-                <label class="radio-item active-text" id="label-chart-time">
-                    <input type="radio" name="chart-type" value="time" checked> E-t 圖 (能量-時間連續紀錄)
+                <!-- 預設改為顯示長條圖 -->
+                <label class="radio-item active-text" id="label-chart-bar" style="color: var(--success);">
+                    <input type="radio" name="chart-type" value="bar" checked> 長條圖 (瞬時能量佔比)
                 </label>
-                <label class="radio-item" id="label-chart-bar" style="color: var(--success);">
-                    <input type="radio" name="chart-type" value="bar"> 長條圖 (瞬時能量佔比)
+                <label class="radio-item" id="label-chart-time">
+                    <input type="radio" name="chart-type" value="time"> E-t 圖 (能量-時間連續紀錄)
                 </label>
                 <label class="radio-item" id="label-chart-disp" style="color: var(--warning);">
                     <input type="radio" name="chart-type" value="disp"> E-x 圖 (位能井空間分佈)
@@ -374,9 +399,9 @@
     <div id="slow-mo-indicator">慢動作模式開啟中</div>
 
     <div id="chart-container">
-        <canvas id="energyChart"></canvas>
+        <canvas id="energyChart" class="hidden"></canvas>
         <canvas id="energyXChart" class="hidden"></canvas>
-        <canvas id="energyBarChart" class="hidden"></canvas> <!-- 新增長條圖 Canvas -->
+        <canvas id="energyBarChart"></canvas> <!-- 預設顯示長條圖 Canvas -->
     </div>
 
     <!-- 載入 Chart.js -->
@@ -394,7 +419,7 @@
 
         const state = {
             mode: 'gravity',     
-            chartType: 'time', // 統一管理時間(time)、位移(disp)、長條圖(bar)
+            chartType: 'bar', // 將預設圖表改為長條圖 (bar)
             m: 2.0,
             g: 9.8,
             e: 1.0,             
@@ -473,7 +498,8 @@
                     x: {
                         type: 'linear', position: 'bottom',
                         title: { display: true, text: '距離平衡點位移 x (m)', color: chartTextColor, font: { size: 14, weight: 'bold' } },
-                        grid: { color: chartGridColor }, ticks: { color: chartTextColor }, min: -5, max: 5
+                        // 將 X 軸顯示範圍調整至與 rangeMeters (-6 ~ 6) 一致，讓開口顯示更大更完整
+                        grid: { color: chartGridColor }, ticks: { color: chartTextColor }, min: -6, max: 6
                     },
                     y: {
                         title: { display: true, text: '能量 (Joule)', color: chartTextColor, font: { size: 14, weight: 'bold' } },
@@ -488,7 +514,7 @@
         const chartBar = new Chart(chartBarCtx, {
             type: 'bar',
             data: {
-                labels: ['動能 (K)', '位能 (U)', '熱能損耗 (Q)', '力學能 (E)', '總能量 (Etotal)'],
+                labels: ['動能 (K)', '重力位能 (U)', '熱能損耗 (Q)', '力學能 (E)', '總能量 (Etotal)'],
                 datasets: [{
                     label: '能量大小 (J)',
                     data: [0, 0, 0, 0, 0],
@@ -533,7 +559,7 @@
             if (state.mode === 'gravity') {
                 labelDisp.style.display = 'none';
                 if (state.chartType === 'disp') {
-                    state.chartType = 'bar'; // 強制切換回長條圖或 E-t 圖
+                    state.chartType = 'bar'; // 強制切換回長條圖
                     document.querySelector('input[value="bar"]').checked = true;
                 }
             } else {
@@ -553,13 +579,16 @@
 
             if (state.chartType === 'time') {
                 canvasTime.classList.remove('hidden');
+                // E-t 圖不需要縮減寬度
                 container.classList.remove('narrow');
             } else if (state.chartType === 'disp') {
                 canvasDisp.classList.remove('hidden');
-                container.classList.add('narrow'); // 縮小版面
+                // 解除 E-x 圖的 narrow 限制，讓它可以使用最大寬度 (1200px)，顯示更大更完整
+                container.classList.remove('narrow');
             } else if (state.chartType === 'bar') {
                 canvasBar.classList.remove('hidden');
-                container.classList.add('narrow'); // 長條圖也稍微縮小版面比較好看
+                // 只有長條圖加入 narrow，因為長條圖如果太寬會顯得很空曠
+                container.classList.add('narrow'); 
             }
         }
 
@@ -632,6 +661,12 @@
 
         function updatePhysics() {
             if (state.isDragging) {
+                // 智能隱藏 UI 面板 (Smart Collapse)
+                document.getElementById('info-panel').classList.add('collapsed');
+                document.getElementById('info-toggle-btn').innerText = '展開';
+                document.getElementById('control-panel').classList.add('collapsed');
+                document.getElementById('ctrl-toggle-btn').innerText = '展開';
+
                 state.vX = 0; state.vY = 0;
                 updateInitialEnergy(); 
                 return;
@@ -825,7 +860,8 @@
                         chartBar.data.datasets[0].backgroundColor = [colorQ, colorE, colorTotal];
                     } else {
                         // 正常模式顯示所有能量
-                        chartBar.data.labels = ['動能 (K)', '位能 (U)', '熱能損耗 (Q)', '力學能 (E)', '總能量 (Etotal)'];
+                        const uLabel = state.mode === 'gravity' ? '重力位能 (U)' : '彈力位能 (U)';
+                        chartBar.data.labels = ['動能 (K)', uLabel, '熱能損耗 (Q)', '力學能 (E)', '總能量 (Etotal)'];
                         chartBar.data.datasets[0].data = [K, U, state.heat, mechEnergy, totalEnergy];
                         chartBar.data.datasets[0].backgroundColor = [colorK, colorU, colorQ, colorE, colorTotal];
                     }
@@ -985,7 +1021,16 @@
         });
 
         window.addEventListener('mouseup', () => { 
-            if(state.isDragging) { state.isDragging = false; updateInitialEnergy(); } 
+            if(state.isDragging) { 
+                state.isDragging = false; 
+                updateInitialEnergy();
+                
+                // 恢復物理模擬時，自動展開 UI 面板
+                document.getElementById('info-panel').classList.remove('collapsed');
+                document.getElementById('info-toggle-btn').innerText = '收起';
+                document.getElementById('control-panel').classList.remove('collapsed');
+                document.getElementById('ctrl-toggle-btn').innerText = '收起';
+            } 
         });
 
         canvas.addEventListener('touchstart', (e) => canvas.dispatchEvent(new MouseEvent('mousedown', {clientX: e.touches[0].clientX, clientY: e.touches[0].clientY})));
