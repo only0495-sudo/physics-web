@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 禁用預設縮放，支援觸控與視角分離 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 確保手機與平板上的縮放被鎖定，並完美貼合螢幕 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>專業物理模擬器 - 波的繞射與惠更斯原理</title>
     
     <!-- 引入 MathJax 用於渲染物理公式 -->
@@ -35,6 +35,9 @@
             position: fixed;
             top: 0;
             left: 0;
+            /* 【修復關鍵】：強制設定 CSS 尺寸，避免 Retina 螢幕將畫布實體像素撐開 */
+            width: 100vw;
+            height: 100vh;
             z-index: 1;
             display: block;
         }
@@ -44,7 +47,6 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            /* 採用 clamp 實現流體寬度，確保手機與桌面皆適配 */
             width: clamp(300px, 90vw, 360px);
             max-height: calc(100vh - 40px);
             background: var(--panel-bg);
@@ -305,10 +307,18 @@
     function resizeCanvas() {
         logicalW = window.innerWidth;
         logicalH = window.innerHeight;
+        // 取得設備像素比，平板通常為 2 或更高
         const dpr = window.devicePixelRatio || 1;
         
+        // 設定 Canvas 實體像素（放大以保持清晰）
         canvas.width = logicalW * dpr;
         canvas.height = logicalH * dpr;
+        
+        // 【修復關鍵】：必須強制透過 style 指定 CSS 尺寸為視窗寬高，否則畫布會超出視窗
+        canvas.style.width = logicalW + 'px';
+        canvas.style.height = logicalH + 'px';
+        
+        // 縮放繪圖環境，讓後續的繪圖 API (如 ctx.arc) 參數對應回邏輯像素
         ctx.scale(dpr, dpr);
     }
     window.addEventListener('resize', resizeCanvas);
@@ -406,14 +416,14 @@
         let step = maxAngle / segments;
 
         ctx.lineWidth = 3;
-        // 【修復關鍵】：改用 butt 避免兩端突出造成的 Alpha 疊加異常
+        // 改用 butt 避免兩端突出造成的 Alpha 疊加異常
         ctx.lineCap = 'butt'; 
 
         for (let i = 0; i < segments; i++) {
             let theta1 = i * step;
             let theta2 = (i + 1) * step;
             
-            // 【修復關鍵】：微幅延長每一段角度，確保與下一段無縫接合，消除黑白間隙
+            // 微幅延長每一段角度，確保與下一段無縫接合，消除黑白間隙
             if (i < segments - 1) theta2 += 0.05;
 
             // 能量衰減曲線優化
@@ -461,7 +471,6 @@
             ctx.setLineDash([5, 5]);
             ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
 
-            // 【修復關鍵】：限制最高計算角度為 88.8 度，防止 Tan 函數暴衝引發渲染無限大崩潰
             let safeAngle = Math.min(spreadAngle, Math.PI / 2 - 0.02);
 
             if (state.mode === 'obstacle') {
@@ -509,11 +518,11 @@
                     let bottomY = cy + halfW;
                     
                     // 中央平面波段
-                    ctx.lineCap = 'round'; // 使直線上下端圓潤，自然覆蓋圓弧起點
+                    ctx.lineCap = 'round'; 
                     ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, bottomY); ctx.stroke();
                     
-                    // 上下繞射弧段 (內部自動處理 lineCap=butt)
-                    ctx.shadowBlur = 0; // 漸變弧線關閉 shadow 避免重疊污跡
+                    // 上下繞射弧段
+                    ctx.shadowBlur = 0; 
                     drawDiffractingArc(wallX, topY, r, -1, spreadAngle, -9999);
                     drawDiffractingArc(wallX, bottomY, r, 1, spreadAngle, 9999);
                     ctx.shadowBlur = 15;
