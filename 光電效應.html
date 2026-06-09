@@ -3,287 +3,356 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>光電效應</title>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <title>專業級光電效應互動模擬器 V3.0</title>
+    <!-- 引入 MathJax 用於方程式，Chart.js 用於繪製物理函數圖 -->
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* --- 全局與現代化變數設定 --- */
         :root {
-            --bg-color: #f4f7f9;
+            --bg-color: #eef2f5;
             --panel-bg: #ffffff;
-            --accent-color: #34495e;
-            --highlight: #2980b9;
-            --text-main: #2c3e50;
+            --accent-dark: #1e293b;
+            --accent-blue: #3b82f6;
+            --text-main: #334155;
+            --text-light: #64748b;
+            --border-color: #cbd5e1;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
         }
 
+        * { box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-            margin: 0; padding: 0; background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif;
+            margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-main);
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
 
-        /* --- Header --- */
+        /* --- 頂部導覽列 --- */
         header {
-            background-color: var(--accent-color); color: white; padding: 10px 15px;
-            font-size: 1.1rem; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            background-color: var(--accent-dark); color: white; padding: 12px 20px;
+            font-size: 1.2rem; font-weight: 600; flex-shrink: 0; box-shadow: var(--shadow-md);
             display: flex; justify-content: space-between; align-items: center; z-index: 20;
+            letter-spacing: 1px;
         }
+        .header-title { display: flex; align-items: center; gap: 12px; }
         .toggle-guide-btn {
-            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
-            color: white; padding: 5px 12px; border-radius: 4px; cursor: pointer;
-            font-size: 0.9rem; display: none;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+            font-size: 1rem; display: none; transition: all 0.2s;
         }
+        .toggle-guide-btn:hover { background: rgba(255,255,255,0.2); }
 
-        /* --- Layout --- */
+        /* --- 主要佈局 --- */
         .main-container { display: flex; flex: 1; height: 100%; overflow: hidden; position: relative; }
 
-        /* --- Sidebar --- */
+        /* --- 左側學習引導面板 --- */
         .guide-sidebar {
-            width: 280px; background: #fff; border-right: 1px solid #ddd;
-            display: flex; flex-direction: column; padding: 15px; overflow-y: auto;
-            transition: transform 0.3s ease, width 0.3s ease; position: relative; z-index: 10;
-            flex-shrink: 0; /* 防止被擠壓 */
+            width: 300px; background: var(--panel-bg); border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; padding: 20px; overflow-y: auto;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s ease; 
+            position: relative; z-index: 10; flex-shrink: 0; box-shadow: var(--shadow-sm);
         }
         .guide-sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border: none; }
         
-        .guide-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--highlight); padding-bottom: 8px; }
-        
-        /* 加大的收起按鈕 */
-        .collapse-btn { 
-            background: #f1f1f1; border: 1px solid #ccc; color: #555; 
-            font-size: 0.9rem; cursor: pointer; padding: 4px 10px; border-radius: 4px;
+        .guide-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 20px; border-bottom: 2px solid var(--accent-blue); padding-bottom: 10px; 
+            font-weight: bold; font-size: 1.1rem;
         }
-        .collapse-btn:hover { background: #e0e0e0; }
+        .collapse-btn { 
+            background: #f1f5f9; border: 1px solid #e2e8f0; color: var(--text-light); 
+            font-size: 0.85rem; cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: 0.2s;
+        }
+        .collapse-btn:hover { background: #e2e8f0; color: var(--text-main); }
         
         .question-btn {
-            background: #f8f9fa; border: 1px solid #dee2e6; padding: 12px; margin-bottom: 10px;
-            border-radius: 6px; text-align: left; cursor: pointer; font-size: 0.95rem;
-            position: relative; line-height: 1.4; color: var(--text-main);
+            background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; margin-bottom: 12px;
+            border-radius: 8px; text-align: left; cursor: pointer; font-size: 0.95rem;
+            line-height: 1.5; color: var(--text-main); transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .question-btn:hover { background: #e2e6ea; border-color: #adb5bd; }
+        .question-btn:hover { background: #f1f5f9; border-color: #cbd5e1; transform: translateY(-1px); }
         .question-btn::before {
-            content: "Q"; display: inline-block; background: var(--highlight); color: white;
-            width: 22px; height: 22px; text-align: center; line-height: 22px;
-            border-radius: 50%; font-size: 0.8rem; margin-right: 8px;
+            content: "?"; display: inline-block; background: var(--accent-blue); color: white;
+            width: 24px; height: 24px; text-align: center; line-height: 24px;
+            border-radius: 50%; font-size: 0.9rem; margin-right: 10px; font-weight: bold;
         }
-        .question-btn.advanced::before { background: #d9534f; content: "進"; }
+        .question-btn.advanced::before { background: #ef4444; content: "!"; }
 
-        /* --- Canvas Area --- */
+        /* --- 中央畫布與圖表區域 (暗黑實驗室風格) --- */
         .canvas-area {
             flex: 1; position: relative;
-            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
             display: flex; justify-content: center; align-items: center; overflow: hidden;
-            transition: all 0.3s ease; /* 讓變大變小有動畫 */
         }
-        canvas { border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); background: #fff; }
+        canvas { 
+            border-radius: 12px; box-shadow: 0 0 40px rgba(0,0,0,0.5); 
+            background: transparent; 
+        }
 
-        /* --- Big Expand Button (New) --- */
+        /* 函數圖表容器 */
+        .graph-container {
+            display: none; /* 預設隱藏，由切換按鈕控制 */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            padding: 40px; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            z-index: 15; box-sizing: border-box;
+        }
+
+        /* 即時動態方程式 HUD */
+        .equation-hud {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(59, 130, 246, 0.5);
+            backdrop-filter: blur(8px); padding: 10px 25px; border-radius: 30px;
+            color: white; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            pointer-events: none; z-index: 5; text-align: center;
+        }
+
         #expandBtn {
-            position: absolute; left: 0; top: 20px; z-index: 30;
-            display: none; /* JS controls this */
-            background-color: var(--highlight);
-            color: white;
-            border: none;
-            padding: 12px 18px 12px 12px;
-            font-size: 1rem;
-            font-weight: bold;
-            border-radius: 0 30px 30px 0; /* 半圓標籤狀 */
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-            cursor: pointer;
-            transition: background 0.2s;
+            position: absolute; left: 0; top: 20px; z-index: 30; display: none; 
+            background-color: var(--accent-blue); color: white; border: none;
+            padding: 10px 15px 10px 10px; font-size: 0.9rem; font-weight: bold;
+            border-radius: 0 20px 20px 0; box-shadow: var(--shadow-md); cursor: pointer; transition: 0.2s;
         }
-        #expandBtn:hover { background-color: #1a5276; padding-left: 15px; }
+        #expandBtn:hover { padding-left: 15px; background-color: #2563eb; }
 
-        /* --- Zoom Controls --- */
         .zoom-toolbar {
             position: absolute; bottom: 20px; right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 8px 15px; border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            display: flex; align-items: center; gap: 10px;
-            z-index: 5; border: 1px solid #ccc;
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
+            padding: 8px 15px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; gap: 10px; z-index: 5; color: white;
         }
-        .zoom-label { font-size: 0.9rem; font-weight: bold; color: #555; display:flex; align-items:center; gap:5px; }
-        .zoom-slider { width: 100px; cursor: pointer; }
+        .zoom-slider { width: 100px; cursor: pointer; accent-color: var(--accent-blue); }
 
-        /* --- Right Controls --- */
+        /* --- 右側控制面板 --- */
         .controls-area {
-            width: 340px; padding: 15px; background-color: var(--panel-bg);
-            border-left: 1px solid #ddd; overflow-y: auto;
-            display: flex; flex-direction: column; gap: 12px;
-            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+            width: 360px; padding: 20px; background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color); overflow-y: auto;
+            display: flex; flex-direction: column; gap: 15px; box-shadow: var(--shadow-lg); z-index: 10;
         }
-        .control-group { background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 12px; }
-        .control-header { font-weight: bold; font-size: 0.9rem; margin-bottom: 8px; color: #555; display: flex; justify-content: space-between; align-items: center;}
+        .control-group { 
+            background: white; border: 1px solid var(--border-color); border-radius: 10px; 
+            padding: 15px; box-shadow: var(--shadow-sm);
+        }
+        .control-header { 
+            font-weight: 700; font-size: 0.95rem; margin-bottom: 12px; color: var(--accent-dark); 
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;
+        }
 
-        /* Buttons & Sliders */
-        .slider-wrapper { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
-        .adj-btn {
-            width: 30px; height: 30px; border: 1px solid #ccc; background: #e0e0e0;
-            border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;
-            display: flex; justify-content: center; align-items: center; padding: 0; flex-shrink: 0;
+        /* 分頁切換器 (Segmented Control) */
+        .view-tab {
+            background: transparent; border: none; padding: 8px 5px; font-weight: 600;
+            color: var(--text-light); border-radius: 6px; cursor: pointer; transition: 0.2s;
+            font-size: 0.85rem; flex: 1; text-align: center;
         }
-        input[type="range"] { flex: 1; cursor: pointer; height: 6px; }
+        .view-tab.active { background: white; color: var(--accent-blue); box-shadow: var(--shadow-sm); }
+        .view-tab:hover:not(.active) { color: var(--text-main); }
+
+        /* 客製化滑桿與按鈕 */
+        .slider-wrapper { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .adj-btn {
+            width: 32px; height: 32px; border: 1px solid #cbd5e1; background: #f8fafc;
+            border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold;
+            color: var(--text-light); transition: 0.2s; flex-shrink: 0;
+        }
+        .adj-btn:hover { background: #e2e8f0; color: var(--text-main); }
+        input[type="range"] { 
+            flex: 1; cursor: pointer; height: 6px; border-radius: 3px; 
+            background: #e2e8f0; outline: none; accent-color: var(--accent-blue);
+        }
+
+        .action-btn {
+            color: white; border: none; padding: 8px 10px;
+            border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem;
+            transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
         .vis-toggle {
-            display: flex; align-items: center; cursor: pointer; padding: 8px;
-            background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 4px;
-            font-size: 0.9rem; font-weight: bold; color: #2e7d32; flex: 1;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 10px;
+            background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+            font-size: 0.9rem; font-weight: 600; color: #166534; flex: 1; transition: 0.2s;
         }
-        .vis-toggle input { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; }
+        .vis-toggle:hover { background: #dcfce7; }
+        .vis-toggle input { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; accent-color: #166534; }
 
         .reset-btn {
-            background: #e74c3c; color: white; border: none; padding: 8px 12px;
-            border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem;
-            transition: background 0.2s; 
+            background: #ef4444; color: white; border: none; padding: 10px 15px;
+            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; 
         }
-        .reset-btn:hover { background: #c0392b; }
+        .reset-btn:hover { background: #dc2626; box-shadow: 0 2px 4px rgba(239,68,68,0.3); }
 
-        /* Data */
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .data-box { background: #f8f9fa; border: 1px solid #e9ecef; padding: 8px; border-radius: 4px; text-align: center; }
-        .data-val { font-size: 1.1rem; font-weight: bold; color: #2c3e50; font-family: monospace; }
-        .unit { font-size: 0.8rem; color: #666; }
+        /* 儀表數據區 */
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .data-box { 
+            background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; 
+            border-radius: 8px; text-align: center; 
+        }
+        .data-val { font-size: 1.2rem; font-weight: bold; color: var(--accent-dark); font-family: 'Courier New', monospace; margin-top: 4px; }
+        .unit { font-size: 0.8rem; color: var(--text-light); font-weight: 600; }
 
-        /* Modal */
+        /* 光譜漸層條 */
+        .spectrum-bar {
+            height: 10px; width: 100%; border-radius: 5px; margin-top: 8px;
+            background: linear-gradient(to right, 
+                #475569 0%, #475569 25%, /* UV */
+                #8b00ff 30%, #0000ff 40%, #00ff00 50%, #ffff00 60%, #ff0000 70%, 
+                #475569 80%, #475569 100%); /* IR */
+            border: 1px solid #cbd5e1;
+            position: relative;
+        }
+        .spectrum-marker {
+            position: absolute; top: -4px; width: 4px; height: 18px; 
+            background: white; border: 1px solid black; border-radius: 2px;
+            transition: left 0.1s; pointer-events: none;
+        }
+
+        select {
+            width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);
+            background: #f8fafc; font-size: 1rem; color: var(--text-main); font-weight: 600; cursor: pointer;
+        }
+
+        /* 彈出視窗 Modal */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;
+            background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px);
+            z-index: 1000; justify-content: center; align-items: center;
         }
         .modal-content {
-            background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 600px;
-            max-height: 85vh; overflow-y: auto; position: relative;
+            background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 600px;
+            max-height: 85vh; overflow-y: auto; position: relative; box-shadow: var(--shadow-lg);
         }
-        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; }
-        .highlight-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 10px; margin: 10px 0; }
-
-        /* Spectrum */
-        .spectrum-bar {
-            height: 8px; width: 100%; border-radius: 4px; margin-top: 5px;
-            background: linear-gradient(to right, 
-                #cccccc 0%, #cccccc 34%, 
-                #8b00ff 35%, #0000ff 40%, #00ff00 50%, #ffff00 58%, #ff0000 70%, 
-                #cccccc 76%, #cccccc 100%);
-            border: 1px solid #ddd;
+        .close-btn { 
+            position: absolute; top: 15px; right: 20px; font-size: 1.8rem; cursor: pointer; 
+            color: var(--text-light); transition: 0.2s; line-height: 1;
         }
+        .close-btn:hover { color: #ef4444; }
 
-        /* Mobile */
+        /* RWD 行動裝置適配 */
         @media (max-width: 900px) {
             .main-container { flex-direction: column; }
             .guide-sidebar {
-                position: absolute; left: 0; top: 0; bottom: 0; width: 85%; max-width: 300px;
-                box-shadow: 2px 0 10px rgba(0,0,0,0.3); transform: translateX(-100%);
+                position: absolute; left: 0; top: 0; bottom: 0; width: 85%; max-width: 320px;
+                box-shadow: 4px 0 15px rgba(0,0,0,0.3); transform: translateX(-100%); z-index: 50;
             }
-            .guide-sidebar.active { transform: translateX(0); width: 85%; padding: 15px; }
+            .guide-sidebar.active { transform: translateX(0); width: 85%; padding: 20px; }
             .toggle-guide-btn { display: block; }
-            .canvas-area { min-height: 45vh; flex: none; }
-            .controls-area { width: 100%; flex: 1; border-left: none; border-top: 1px solid #ddd; padding: 10px; }
-            header { padding: 8px 12px; }
-            .zoom-toolbar { bottom: 10px; right: 10px; padding: 5px 10px; }
-            #expandBtn { top: 10px; } /* Mobile adjustments */
+            .canvas-area { min-height: 40vh; flex: none; }
+            .graph-container { padding: 10px; }
+            .controls-area { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border-color); padding: 15px; }
+            .equation-hud { font-size: 0.9rem; padding: 6px 15px; top: 10px; width: 90%; }
         }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="display:flex; align-items:center; gap:10px;">
-        <button class="toggle-guide-btn" onclick="toggleMobileSidebar()">☰</button>
-        <span style="font-weight:bold;">光電效應 V17 (大視野版)</span>
+    <div class="header-title">
+        <button class="toggle-guide-btn" onclick="toggleMobileSidebar()">☰ 選單</button>
+        <span>⚡ 光電效應模擬器 (Photoelectric Effect)</span>
     </div>
 </header>
 
 <div class="main-container">
+    <!-- 左側面板 -->
     <div class="guide-sidebar" id="guideSidebar">
         <div class="guide-header">
-            <span>學習引導</span>
+            <span>📚 學習引導</span>
             <button class="collapse-btn" onclick="toggleSidebarDesktop()">收起 ◀</button>
         </div>
         
         <div class="question-btn" onclick="showHelp('trap')">
-            <span style="color:#d35400;">實驗起手式：</span><br>為什麼把強度開到最大，還是沒有電流？
+            <span style="color:#ea580c; font-weight:bold;">實驗起手式：</span><br>為什麼把強度開到最大，還是沒有電流？
         </div>
         <div class="question-btn" onclick="showHelp('cond')">
-            產生光電效應的條件 (底限頻率)
+            產生光電效應的核心條件 (底限頻率)
         </div>
         <div class="question-btn" onclick="showHelp('energy')">
-            光的能量與強度有何不同？
+            光的「能量」與「強度」有何不同？
         </div>
         <div class="question-btn advanced" onclick="showHelp('speed')">
-            進階：電子跑出來的速度為何不同？
+            進階解析：電子跑出來的速度為何不同？
         </div>
         <div class="question-btn" onclick="showHelp('equation')">
-            光電方程式的物理意義
-        </div>
-        <div style="margin-top:auto; font-size:0.8rem; color:#888; text-align:center;">
-            預設顯示：展開
+            愛因斯坦光電方程式的物理意義
         </div>
     </div>
 
+    <!-- 中央畫布 -->
     <div class="canvas-area" id="canvasContainer">
         <button id="expandBtn" onclick="toggleSidebarDesktop()">引導 ▶</button>
         
-        <div class="zoom-toolbar">
-            <span class="zoom-label">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-                Zoom
-            </span>
-            <input type="range" class="zoom-slider" min="100" max="200" value="100" id="zoomSlider" oninput="updateZoom()">
-            <span id="zoomVal" style="font-size:0.8rem; color:#666; width:30px; text-align:right;">1.0x</span>
+        <!-- 動態方程式 HUD -->
+        <div class="equation-hud" id="hudEquation">
+            <span style="color:#60a5fa; font-weight:bold;">E</span> = 
+            <span style="color:#fb923c; font-weight:bold;">Φ</span> + 
+            <span style="color:#4ade80; font-weight:bold;">K<sub>max</sub></span>
         </div>
 
+        <div class="zoom-toolbar" id="zoomToolbar">
+            <span style="display:flex; align-items:center; gap:5px; font-weight:bold; font-size:0.9rem;">
+                🔍 縮放
+            </span>
+            <input type="range" class="zoom-slider" min="80" max="250" value="100" id="zoomSlider" oninput="updateZoom()">
+            <span id="zoomVal" style="font-size:0.85rem; width:35px; text-align:right;">1.0x</span>
+        </div>
+
+        <!-- 視圖 1: 物理動畫 -->
         <canvas id="simCanvas"></canvas>
+
+        <!-- 視圖 2 & 3: 函數圖表 -->
+        <div id="graphContainer" class="graph-container">
+            <canvas id="graphCanvas"></canvas>
+        </div>
     </div>
 
+    <!-- 右側控制 -->
     <div class="controls-area">
-        <div class="control-group">
-            <div class="control-header">觀察模式 (View Mode)</div>
-            <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
-                <label class="vis-toggle">
-                    <input type="checkbox" id="photonModeCheck" onchange="togglePhotonMode()">
-                    <span>顯示光子模型 (波包)</span>
-                </label>
-                <button class="reset-btn" onclick="resetElectrons()">重置</button>
-            </div>
-            <div style="font-size:0.75rem; color:#666; margin-top:5px;" id="modeDesc">
-                預設：連續光束 (巨觀)。勾選可觀察單顆光子 (微觀)。
+        <!-- 模式切換器 (新增) -->
+        <div class="control-group" style="padding: 10px;">
+            <div style="display: flex; gap: 5px; background: #f1f5f9; padding: 5px; border-radius: 8px;">
+                <button class="view-tab active" onclick="switchView('sim')">實驗室</button>
+                <button class="view-tab" onclick="switchView('iv')">I-V 圖</button>
+                <button class="view-tab" onclick="switchView('millikan')">密立坎實驗</button>
             </div>
         </div>
 
         <div class="control-group">
-            <div class="control-header">實驗讀數 (2秒平均)</div>
+            <div class="control-header">實驗即時讀數</div>
             <div class="data-grid">
-                <div class="data-box" style="background:#e3f2fd; border-color:#90caf9;">
-                    <div class="unit">電流 (Current)</div>
-                    <div class="data-val" id="currDisp" style="color:#0277bd;">0.00</div>
+                <div class="data-box" style="background:#eff6ff; border-color:#bfdbfe;">
+                    <div class="unit">電路電流 (Current)</div>
+                    <div class="data-val" id="currDisp" style="color:#2563eb;">0.00</div>
+                </div>
+                <div class="data-box" style="background:#fef2f2; border-color:#fecaca;">
+                    <div class="unit">理論遏止電壓 ($V_s$)</div>
+                    <div class="data-val" id="stopVoltDisp" style="color:#dc2626;">0.00 V</div>
                 </div>
                 <div class="data-box">
-                    <div class="unit">理論遏止電壓</div>
-                    <div class="data-val" id="stopVoltDisp" style="color:#c0392b;">0.00 V</div>
-                </div>
-                <div class="data-box">
-                    <div class="unit">光子能量 (hf)</div>
+                    <div class="unit">入射光子能量 ($hf$)</div>
                     <div class="data-val" id="energyDisp">0.00 eV</div>
                 </div>
                 <div class="data-box">
-                    <div class="unit">最大動能 (Kmax)</div>
+                    <div class="unit">電子最大動能 ($K_{max}$)</div>
                     <div class="data-val" id="kmaxDisp">0.00 eV</div>
                 </div>
             </div>
         </div>
 
         <div class="control-group">
-            <div class="control-header">陰極材料 (Metal)</div>
-            <select id="metalSelect" onchange="updatePhysics()" style="width:100%; padding:8px; border-radius:4px; border:1px solid #ccc;">
-            </select>
+            <div class="control-header">陰極金屬材料 (Target Metal)</div>
+            <select id="metalSelect" onchange="updatePhysics()"></select>
         </div>
 
         <div class="control-group">
             <div class="control-header">
                 光源參數
-                <span id="lightTypeDisp" style="font-size:0.8rem; background:#eee; padding:2px 6px; border-radius:4px;">Visible</span>
+                <span id="lightTypeDisp" style="font-size:0.8rem; background:#f1f5f9; padding:3px 8px; border-radius:12px; border:1px solid #cbd5e1;">Visible</span>
             </div>
             
-            <div style="font-size:0.85rem; margin-bottom:2px;">光強度: <span id="intDisp" style="font-weight:bold; color:var(--highlight);">0%</span></div>
+            <div style="font-size:0.85rem; margin-bottom:4px; font-weight:600;">光強度 (Intensity): <span id="intDisp" style="color:var(--accent-blue);">0%</span></div>
             <div class="slider-wrapper">
                 <button class="adj-btn" onclick="adjust('intensity', -10)">-10</button>
                 <button class="adj-btn" onclick="adjust('intensity', -1)">-1</button>
@@ -292,41 +361,49 @@
                 <button class="adj-btn" onclick="adjust('intensity', 10)">+10</button>
             </div>
 
-            <div style="font-size:0.85rem; margin-bottom:2px;">波長 (顏色/頻率): <span id="nmDisp" style="font-weight:bold; color:var(--highlight);">600 nm</span></div>
+            <div style="font-size:0.85rem; margin-bottom:4px; font-weight:600; margin-top:10px;">波長 (Wavelength): <span id="nmDisp" style="color:var(--accent-blue);">600 nm</span></div>
             <div class="slider-wrapper">
                 <button class="adj-btn" onclick="adjust('wavelength', -10)">-10</button>
                 <button class="adj-btn" onclick="adjust('wavelength', -1)">-1</button>
-                <input type="range" id="wavelengthSlider" min="50" max="1000" value="600" oninput="updatePhysics()">
+                <input type="range" id="wavelengthSlider" min="100" max="850" value="600" oninput="updatePhysics()">
                 <button class="adj-btn" onclick="adjust('wavelength', 1)">+1</button>
                 <button class="adj-btn" onclick="adjust('wavelength', 10)">+10</button>
             </div>
-            <div class="spectrum-bar"></div>
-            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#888;">
-                <span>50nm (UV)</span>
-                <span>1000nm (IR)</span>
+            <div class="spectrum-bar">
+                <div class="spectrum-marker" id="wlMarker"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-light); margin-top:4px;">
+                <span>100nm (UV)</span>
+                <span>850nm (IR)</span>
             </div>
         </div>
 
         <div class="control-group">
             <div class="control-header">
-                電路電壓 (V)
-                <span id="voltDisp" style="font-family:monospace; color:var(--highlight);">0.00 V</span>
+                外加電壓 (Voltage)
+                <span id="voltDisp" style="font-family:monospace; color:var(--accent-blue); font-size:1.1rem;">0.00 V</span>
             </div>
             <div class="slider-wrapper">
-                <button class="adj-btn" onclick="adjust('voltage', -10)">-10</button>
-                <button class="adj-btn" onclick="adjust('voltage', -1)">-1</button>
-                <input type="range" id="voltageSlider" min="-500" max="500" value="0" oninput="updatePhysics()">
-                <button class="adj-btn" onclick="adjust('voltage', 1)">+1</button>
-                <button class="adj-btn" onclick="adjust('voltage', 10)">+10</button>
+                <button class="adj-btn" onclick="adjust('voltage', -10)">-1.0</button>
+                <button class="adj-btn" onclick="adjust('voltage', -1)">-0.1</button>
+                <input type="range" id="voltageSlider" min="-80" max="80" value="0" oninput="updatePhysics()">
+                <button class="adj-btn" onclick="adjust('voltage', 1)">+0.1</button>
+                <button class="adj-btn" onclick="adjust('voltage', 10)">+1.0</button>
             </div>
-            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#666; margin-top:2px;">
-                <span>◀ 遏止 (-5V)</span>
-                <span>加速 (+5V) ▶</span>
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-light); margin-top:4px; font-weight:600;">
+                <span style="color:#ef4444;">◀ 遏止電壓 (-8V)</span>
+                <span style="color:#10b981;">加速電壓 (+8V) ▶</span>
+            </div>
+            <!-- 新增快捷按鈕 -->
+            <div style="display:flex; gap: 8px; margin-top: 12px;">
+                <button class="action-btn" style="flex:1; background:#64748b;" onclick="setVoltage(0)">歸零 (0 V)</button>
+                <button class="action-btn" style="flex:1.5; background:#f59e0b;" onclick="setToStoppingVoltage()">恰好遏止 (V = -Vs)</button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- 教學內容彈出層 -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
     <div class="modal-content" id="modalContent">
         <span class="close-btn" onclick="document.getElementById('modalOverlay').style.display='none'">&times;</span>
@@ -335,18 +412,23 @@
 </div>
 
 <script>
-    const h_c = 1240; 
+    // --- 物理常數 ---
+    const h_c = 1240; // 普朗克常數 * 光速 (eV·nm)
     
+    // 金屬功函數資料表
     const metals = [
-        { name: "鈉 (Na)", phi: 2.29 }, 
+        { name: "鈉 (Na)", phi: 2.28 }, 
         { name: "銫 (Cs)", phi: 2.14 },
+        { name: "鉀 (K)", phi: 2.30 },
         { name: "鈣 (Ca)", phi: 2.87 },
-        { name: "鋅 (Zn)", phi: 4.08 },
-        { name: "銅 (Cu)", phi: 4.50 },
-        { name: "鉑 (Pt)", phi: 5.65 }
+        { name: "鋅 (Zn)", phi: 4.31 },
+        { name: "銅 (Cu)", phi: 4.70 },
+        { name: "鉑 (Pt)", phi: 6.35 }
     ];
 
+    // 系統狀態物件
     const state = {
+        currentView: 'sim', // 'sim', 'iv', 'millikan'
         wavelength: 600, 
         intensity: 0,
         voltage: 0,
@@ -357,14 +439,20 @@
         currentBuffer: [], 
         displayCurrent: 0,
         lastUpdateTime: 0,
-        showPhotons: false // 預設：關閉 (連續光模式)
+        showPhotons: false
     };
 
     let electrons = [];
     let photons = []; 
+    let animationId;
+    let mathJaxPromise = Promise.resolve(); // 建立 Promise 佇列防止模態框的 MathJax 衝突
+    let chartInstance = null; // Chart.js 實體
+
+    // Canvas 設置
     const canvas = document.getElementById('simCanvas');
     const ctx = canvas.getContext('2d');
     
+    // UI 綁定
     const ui = {
         wl: document.getElementById('wavelengthSlider'),
         int: document.getElementById('intensitySlider'),
@@ -383,8 +471,9 @@
         zoomSlider: document.getElementById('zoomSlider'),
         zoomVal: document.getElementById('zoomVal'),
         photonCheck: document.getElementById('photonModeCheck'),
-        modeDesc: document.getElementById('modeDesc'),
-        canvasArea: document.querySelector('.canvas-area')
+        hud: document.getElementById('hudEquation'),
+        wlMarker: document.getElementById('wlMarker'),
+        graphContainer: document.getElementById('graphContainer')
     };
 
     function init() {
@@ -392,10 +481,14 @@
         ui.wl.value = 600; 
         ui.metal.value = 0;
         
+        // 預設收起學習引導面板
+        ui.sidebar.classList.add('collapsed');
+        ui.expandBtn.style.display = 'block';
+        
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
         updatePhysics();
-        requestAnimationFrame(animate);
+        animationId = requestAnimationFrame(animate);
     }
 
     function populateMetals() {
@@ -403,11 +496,183 @@
         metals.forEach((m, index) => {
             let opt = document.createElement('option');
             opt.value = index;
-            opt.text = `${m.name} [ Φ=${m.phi}eV ]`;
+            opt.text = `${m.name} [ Φ = ${m.phi.toFixed(2)} eV ]`;
             ui.metal.appendChild(opt);
         });
     }
 
+    // --- 視圖切換與圖表邏輯 (新增) ---
+    window.switchView = function(viewMode) {
+        state.currentView = viewMode;
+        
+        // 更新標籤樣式
+        const tabs = document.querySelectorAll('.view-tab');
+        tabs[0].classList.toggle('active', viewMode === 'sim');
+        tabs[1].classList.toggle('active', viewMode === 'iv');
+        tabs[2].classList.toggle('active', viewMode === 'millikan');
+        
+        // 顯示隱藏元素
+        canvas.style.display = (viewMode === 'sim') ? 'block' : 'none';
+        document.getElementById('zoomToolbar').style.display = (viewMode === 'sim') ? 'flex' : 'none';
+        ui.hud.style.display = (viewMode === 'sim') ? 'block' : 'none';
+        ui.graphContainer.style.display = (viewMode === 'sim') ? 'none' : 'block';
+        
+        if (viewMode !== 'sim') {
+            if (!chartInstance) initChart();
+            updateChartData();
+        }
+    };
+
+    function initChart() {
+        const graphCtx = document.getElementById('graphCanvas').getContext('2d');
+        Chart.defaults.color = '#cbd5e1'; // 配合深色背景的文字顏色
+        chartInstance = new Chart(graphCtx, {
+            type: 'line',
+            data: { datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 }, // 禁用動畫，實現即時跟隨滑桿
+                scales: {
+                    x: { 
+                        type: 'linear', 
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        title: { display: true, color: 'white', font: {size: 14} }
+                    },
+                    y: { 
+                        type: 'linear', 
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        title: { display: true, color: 'white', font: {size: 14} }
+                    }
+                },
+                plugins: { 
+                    legend: { position: 'top', labels: { color: 'white' } },
+                    tooltip: { enabled: false } // 即時互動時不顯示懸浮框更直覺
+                }
+            }
+        });
+    }
+
+    function updateChartData() {
+        if (!chartInstance) return;
+
+        if (state.currentView === 'iv') {
+            // -- 模式 1: I-V 曲線圖 --
+            let dataLine = [];
+            let vs = state.kmax; 
+            let isat = state.intensity;
+            
+            // 繪製理論曲線 (-8V ~ 8V)
+            for (let v = -8; v <= 8; v += 0.1) {
+                let i = 0;
+                if (isat > 0 && v > -vs) {
+                    // 近似光電流成長曲線 (真實情況取決於電極幾何形狀，此處用指數逼近飽和)
+                    i = isat * (1 - Math.exp(-(v + vs) * 1.5));
+                }
+                dataLine.push({x: v, y: i});
+            }
+            
+            // 計算當前狀態點的電流
+            let curI = 0;
+            if (isat > 0 && state.voltage > -vs) {
+                curI = isat * (1 - Math.exp(-(state.voltage + vs) * 1.5));
+            }
+
+            chartInstance.options.scales.x.title.text = '外加電壓 V (V)';
+            chartInstance.options.scales.x.min = -8;
+            chartInstance.options.scales.x.max = 8;
+            chartInstance.options.scales.y.title.text = '光電流 I (相對單位)';
+            chartInstance.options.scales.y.min = -5;
+            chartInstance.options.scales.y.max = 110;
+
+            chartInstance.data = {
+                datasets: [
+                    {
+                        label: 'I-V 理論曲線',
+                        data: dataLine,
+                        borderColor: '#3b82f6',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        tension: 0.1
+                    },
+                    {
+                        label: '當前實驗狀態點',
+                        data: [{x: state.voltage, y: curI}],
+                        backgroundColor: '#ef4444',
+                        borderColor: '#ef4444',
+                        pointRadius: 8,
+                        type: 'scatter'
+                    }
+                ]
+            };
+
+        } else if (state.currentView === 'millikan') {
+            // -- 模式 2: 密立坎實驗 (Kmax vs 頻率 f) --
+            let datasets = [];
+            
+            // 繪製所有金屬的參考線
+            metals.forEach((m, idx) => {
+                let isSelected = (idx === state.metalIndex);
+                let lineData = [];
+                // f 是以 10^14 Hz 為單位的頻率
+                for (let f = 0; f <= 15; f += 1) { 
+                    // 根據 Kmax = hf - Phi
+                    // 普朗克常數 h 約為 4.135667 * 10^-15 eV*s
+                    // 帶入 f (x 10^14) => 斜率約為 0.4136
+                    let k = 0.4135667 * f - m.phi;
+                    lineData.push({x: f, y: k});
+                }
+                datasets.push({
+                    label: isSelected ? `${m.name} (選中)` : m.name,
+                    data: lineData,
+                    borderColor: isSelected ? '#10b981' : 'rgba(255,255,255,0.2)',
+                    borderWidth: isSelected ? 3 : 1,
+                    borderDash: isSelected ? [] : [5, 5],
+                    pointRadius: 0,
+                    tension: 0
+                });
+            });
+
+            // 計算目前入射光的頻率 (c = 3x10^8 m/s, f = c/λ)
+            let currentF = 3000 / state.wavelength; // 將 1/nm 轉換為 10^14 Hz
+            // 在圖表上真實表現物理意義，即使 Kmax < 0 也能在直線上標出
+            let currentK = (3000 / state.wavelength) * 0.4135667 - metals[state.metalIndex].phi;
+            
+            datasets.push({
+                label: '目前入射光狀態',
+                data: [{x: currentF, y: currentK}],
+                backgroundColor: '#ef4444',
+                borderColor: '#ef4444',
+                pointRadius: 8,
+                type: 'scatter'
+            });
+
+            chartInstance.options.scales.x.title.text = '入射光頻率 f (10¹⁴ Hz)';
+            chartInstance.options.scales.x.min = 0;
+            chartInstance.options.scales.x.max = 12;
+            chartInstance.options.scales.y.title.text = '最大動能 K_max (eV) [即為遏止電壓 Vs]';
+            chartInstance.options.scales.y.min = -4;
+            chartInstance.options.scales.y.max = 6;
+
+            chartInstance.data = { datasets: datasets };
+        }
+        
+        chartInstance.update();
+    }
+
+    // --- 新增按鈕邏輯 ---
+    window.setVoltage = function(v) {
+        ui.volt.value = v * 10;
+        updatePhysics();
+    };
+
+    window.setToStoppingVoltage = function() {
+        let vs = state.kmax; 
+        ui.volt.value = Math.round(-vs * 10);
+        updatePhysics();
+    };
+
+    // --- 原 UI 控制邏輯 ---
     window.resetElectrons = function() {
         electrons = [];
         photons = [];
@@ -418,15 +683,7 @@
 
     window.togglePhotonMode = function() {
         state.showPhotons = ui.photonCheck.checked;
-        resetElectrons(); // 切換模式時清空畫面
-        
-        if(state.showPhotons) {
-            ui.modeDesc.textContent = "光子模式：顯示光的波長與粒子性。";
-            ui.canvasArea.style.background = "linear-gradient(135deg, #1e1e2e, #2a2a40)"; // 深色背景
-        } else {
-            ui.modeDesc.textContent = "預設：連續光束 (巨觀)。勾選可觀察單顆光子 (微觀)。";
-            ui.canvasArea.style.background = "linear-gradient(135deg, #f5f7fa, #c3cfe2)"; // 亮色背景
-        }
+        resetElectrons(); 
     }
 
     window.updateZoom = function() {
@@ -440,9 +697,9 @@
         else if (type === 'intensity') el = ui.int;
         else if (type === 'voltage') el = ui.volt;
         
-        let val = parseInt(el.value);
-        let min = parseInt(el.min);
-        let max = parseInt(el.max);
+        let val = parseFloat(el.value);
+        let min = parseFloat(el.min);
+        let max = parseFloat(el.max);
         
         val += delta;
         if (val < min) val = min;
@@ -454,85 +711,120 @@
 
     window.toggleSidebarDesktop = function() {
         ui.sidebar.classList.toggle('collapsed');
-        // 切換按鈕顯示
         ui.expandBtn.style.display = ui.sidebar.classList.contains('collapsed') ? 'block' : 'none';
-        
-        // 重要：等待 CSS 動畫 (0.3s) 完成後，重新計算 Canvas 大小
-        setTimeout(() => {
-            resizeCanvas();
-        }, 300);
+        setTimeout(resizeCanvas, 300); // 等待動畫完成
     };
 
     window.toggleMobileSidebar = function() {
-        if (ui.sidebar.classList.contains('active')) {
-            ui.sidebar.classList.remove('active');
-        } else {
-            ui.sidebar.classList.add('active');
-            ui.sidebar.classList.remove('collapsed'); 
-        }
+        ui.sidebar.classList.toggle('active');
+        ui.sidebar.classList.remove('collapsed'); 
     };
 
+    // --- 核心物理更新 ---
     window.updatePhysics = function() {
         state.metalIndex = parseInt(ui.metal.value);
         state.wavelength = parseInt(ui.wl.value);
         state.intensity = parseInt(ui.int.value);
-        state.voltage = parseInt(ui.volt.value) / 100;
+        state.voltage = parseFloat(ui.volt.value) / 10; // 滑桿 -80~80 代表 -8.0V ~ +8.0V
 
         const phi = metals[state.metalIndex].phi;
         state.photonEnergy = h_c / state.wavelength;
         const kmax = state.photonEnergy - phi;
         state.kmax = (kmax > 0) ? kmax : 0;
 
+        // UI 數值更新
         ui.nmDisp.textContent = state.wavelength + " nm";
         ui.intDisp.textContent = state.intensity + "%";
-        ui.voltDisp.textContent = (state.voltage >= 0 ? "+" : "") + state.voltage.toFixed(2) + " V";
-        ui.voltDisp.style.color = state.voltage < 0 ? "#c0392b" : "#2c3e50";
+        
+        let vStr = state.voltage.toFixed(2) + " V";
+        ui.voltDisp.textContent = (state.voltage > 0 ? "+" : "") + vStr;
+        ui.voltDisp.style.color = state.voltage < 0 ? "#ef4444" : (state.voltage > 0 ? "#10b981" : "var(--accent-blue)");
 
         ui.energyDisp.textContent = state.photonEnergy.toFixed(2) + " eV";
         ui.kmaxDisp.textContent = state.kmax.toFixed(2) + " eV";
-        
-        let stoppingV = (state.kmax > 0) ? state.kmax : 0;
-        ui.stopDisp.textContent = "-" + stoppingV.toFixed(2) + " V";
+        ui.stopDisp.textContent = "-" + state.kmax.toFixed(2) + " V";
 
+        // 光譜指示器更新
+        let wlPercent = ((state.wavelength - 100) / (850 - 100)) * 100;
+        ui.wlMarker.style.left = `calc(${wlPercent}% - 2px)`;
+
+        // 光源標籤更新
         let nm = state.wavelength;
-        let typeText = "";
-        let typeColor = "#555";
-        
-        if (nm < 380) { typeText = "紫外線 (UV)"; typeColor = "#888"; }
-        else if (nm > 750) { typeText = "紅外線 (IR)"; typeColor = "#888"; }
-        else { typeText = "可見光 (Visible)"; typeColor = "#2980b9"; }
+        let typeText, typeColor, typeBg;
+        if (nm < 380) { typeText = "紫外線 (UV)"; typeColor = "#fff"; typeBg = "#475569"; }
+        else if (nm > 750) { typeText = "紅外線 (IR)"; typeColor = "#fff"; typeBg = "#475569"; }
+        else { typeText = "可見光 (Visible)"; typeColor = "#fff"; typeBg = "#3b82f6"; }
         
         ui.typeDisp.textContent = typeText;
         ui.typeDisp.style.color = typeColor;
+        ui.typeDisp.style.background = typeBg;
+
+        // 刷新 HUD
+        updateHUD();
+        // 如果目前不在動畫實驗模式，需刷新圖表數據
+        if (state.currentView !== 'sim') {
+            updateChartData();
+        }
+    }
+
+    function updateHUD() {
+        const phi = metals[state.metalIndex].phi.toFixed(2);
+        const e = state.photonEnergy.toFixed(2);
+        const k = state.kmax.toFixed(2);
+        
+        let htmlStr;
+        if (state.photonEnergy >= metals[state.metalIndex].phi) {
+            htmlStr = `<span style="color:#60a5fa; font-weight:bold; letter-spacing:1px;">${e} eV (光子)</span> = <span style="color:#fb923c; font-weight:bold; letter-spacing:1px;">${phi} eV (功函數)</span> + <span style="color:#4ade80; font-weight:bold; letter-spacing:1px;">${k} eV (K<sub>max</sub>)</span>`;
+        } else {
+            htmlStr = `<span style="color:#f87171; font-weight:bold; letter-spacing:1px;">${e} eV (光子)</span> < <span style="color:#fb923c; font-weight:bold; letter-spacing:1px;">${phi} eV (功函數)</span> <span style="margin-left:15px; color:#94a3b8; font-weight:bold;">&#10142; 無法產生光電效應</span>`;
+        }
+        
+        ui.hud.innerHTML = htmlStr;
+    }
+
+    // --- 畫布彩現與動畫 ---
+    function resizeCanvas() {
+        const c = document.getElementById('canvasContainer');
+        canvas.width = c.clientWidth;
+        canvas.height = c.clientHeight;
     }
 
     function animate(timestamp) {
+        // 如果切換到圖表模式，暫停繪製物理畫布以節省資源
+        if (state.currentView !== 'sim') {
+            animationId = requestAnimationFrame(animate);
+            return;
+        }
+
         const w = canvas.width;
         const h = canvas.height;
         ctx.clearRect(0, 0, w, h);
         
-        // 自動適應縮放：讓模擬器充滿當前的 Canvas 大小
-        const baseScale = Math.min(w / 800, h / 500) * 0.95;
+        const baseScale = Math.min(w / 900, h / 600) * 0.95;
         const scale = baseScale * state.zoom;
         const cx = w / 2;
         const cy = h / 2;
 
+        ctx.globalCompositeOperation = 'source-over';
+        drawGrid(w, h, scale);
+
         if (state.showPhotons) {
-            // 光子模式：畫燈具 -> 生成光子 -> 畫光子
             drawLampOnly(cx, cy, scale);
-            if (state.intensity > 0) spawnPhotons(cx, cy, scale);
+            if (state.intensity > 0) spawnPhotons();
             updateAndDrawPhotons(cx, cy, scale);
         } else {
-            // 連續模式：畫光束
             drawLightBeam(cx, cy, scale);
             drawLampOnly(cx, cy, scale);
             
-            // 連續模式下的電子生成 (隨機)
             if (state.intensity > 0 && state.kmax > 0) {
-                if (Math.random() * 100 < state.intensity * 0.4) {
-                     let startX = cx - 165 * scale;
-                     let startY = cy + (Math.random() * 100 - 50) * scale;
-                     spawnElectronAt(startX, startY, scale, true); 
+                let spawnRate = (state.intensity / 100) * 1.5; 
+                while(spawnRate > 0) {
+                    if (Math.random() < spawnRate) {
+                        let startX = -180; 
+                        let startY = (Math.random() * 120 - 60);
+                        spawnElectronAt(startX, startY); 
+                    }
+                    spawnRate -= 1.0;
                 }
             }
         }
@@ -541,188 +833,35 @@
         updateElectrons(cx, cy, scale);
         drawMeters(cx, cy, scale);
         
-        if (!state.currentBuffer) state.currentBuffer = [];
-        if (timestamp - state.lastUpdateTime > 200) {
+        if (timestamp - state.lastUpdateTime > 100) {
             if (state.currentBuffer.length > 0) {
                 let sum = state.currentBuffer.reduce((a,b)=>a+b, 0);
                 state.displayCurrent = sum / state.currentBuffer.length;
             } else {
                 state.displayCurrent = 0;
             }
-            ui.currDisp.textContent = state.displayCurrent.toFixed(2);
+            ui.currDisp.textContent = state.displayCurrent.toFixed(3) + " pA";
             state.lastUpdateTime = timestamp;
         }
 
-        requestAnimationFrame(animate);
+        animationId = requestAnimationFrame(animate);
     }
 
-    // --- 連續光模式繪圖 (光束不衰減) ---
-    function drawLightBeam(cx, cy, scale) {
-        if (state.intensity <= 0) return;
-        
-        const lampX = cx + 220 * scale;
-        const lampY = cy - 180 * scale;
-        const targetX = cx - 170 * scale;
-        const targetY = cy;
-
-        let beamColor = getLightColor(state.wavelength);
-        
-        ctx.save();
-        ctx.beginPath(); ctx.moveTo(lampX, lampY);
-        ctx.lineTo(targetX, targetY - 55 * scale); 
-        ctx.lineTo(targetX, targetY + 55 * scale); 
-        ctx.closePath();
-        
-        const grad = ctx.createLinearGradient(lampX, lampY, targetX, targetY);
-        grad.addColorStop(0, beamColor.replace("0.8)", "0.6)"));
-        grad.addColorStop(1, beamColor.replace("0.8)", "0.6)")); 
-        ctx.fillStyle = grad;
-        ctx.globalAlpha = 0.2 + (state.intensity / 150);
-        ctx.fill();
-        
-        if (state.wavelength < 380 || state.wavelength > 750) {
-            ctx.fillStyle = "#888"; ctx.font = "bold 14px Arial"; ctx.globalAlpha = 1.0;
-            let label = state.wavelength < 380 ? "UV" : "IR";
-            ctx.fillText(label, cx - 50*scale, cy - 80*scale);
-        }
-        ctx.restore();
-    }
-
-    function drawLampOnly(cx, cy, scale) {
-        const lampX = cx + 220 * scale;
-        const lampY = cy - 180 * scale;
-        const targetX = cx - 170 * scale;
-        const targetY = cy;
-
-        ctx.save(); ctx.translate(lampX, lampY);
-        ctx.rotate(Math.atan2(targetY-lampY, targetX-lampX));
-        ctx.fillStyle = "#333";
-        ctx.beginPath(); ctx.moveTo(0, -15*scale); ctx.lineTo(30*scale, -25*scale); ctx.lineTo(30*scale, 25*scale); ctx.lineTo(0, 15*scale); ctx.fill();
-        
-        if(state.intensity > 0) {
-            let beamColor = getLightColor(state.wavelength);
-            ctx.fillStyle = beamColor.replace(",0.8)", ",1)");
-            ctx.fillRect(0, -12*scale, 4*scale, 24*scale);
-        }
-        ctx.restore();
-    }
-
-    // --- 光子與波包邏輯 ---
-    function spawnPhotons(cx, cy, scale) {
-        if (Math.random() * 150 > state.intensity) return;
-
-        const lampX = cx + 220 * scale;
-        const lampY = cy - 180 * scale;
-        const targetX = cx - 170 * scale;
-        const targetY = cy; 
-
-        const destY = targetY + (Math.random() * 100 - 50) * scale;
-        const destX = targetX;
-        const angle = Math.atan2(destY - lampY, destX - lampX);
-        const speed = 2.5 * scale; 
-
-        photons.push({
-            x: lampX,
-            y: lampY,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            wl: state.wavelength,
-            active: true
-        });
-    }
-
-    function updateAndDrawPhotons(cx, cy, scale) {
-        const pLimit = cx - 165 * scale; 
-
-        for(let i=0; i<photons.length; i++) {
-            let p = photons[i];
-            if(!p.active) continue;
-
-            p.x += p.vx;
-            p.y += p.vy;
-
-            drawWavePacket(ctx, p.x, p.y, p.wl, scale);
-
-            if (p.x <= pLimit) {
-                p.active = false;
-                if (state.kmax > 0) {
-                    spawnElectronAt(p.x, p.y, scale, true);
-                }
-            }
-        }
-        photons = photons.filter(p => p.active);
-    }
-
-    function drawWavePacket(ctx, x, y, nm, scale) {
-        const color = getLightColor(nm);
-        ctx.strokeStyle = color.replace("0.8)", "1)");
-        ctx.lineWidth = 3; 
+    function drawGrid(w, h, scale) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.lineWidth = 1;
+        const gridSize = 40 * scale;
         ctx.beginPath();
-        
-        const period = (nm / 40) * scale; 
-        const length = 20 * scale; 
-        
-        for(let i = 0; i <= length; i+=2) {
-            let dx = i - length/2;
-            let dy = Math.sin(dx / period * Math.PI * 2) * (5 * scale);
-            let envelope = Math.cos((dx / length) * Math.PI);
-            if (i===0) ctx.moveTo(x + dx, y + dy * envelope);
-            else ctx.lineTo(x + dx, y + dy * envelope);
-        }
+        for (let x = w/2; x < w; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+        for (let x = w/2; x > 0; x -= gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+        for (let y = h/2; y < h; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+        for (let y = h/2; y > 0; y -= gridSize) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
         ctx.stroke();
     }
 
-    // --- 電子邏輯 ---
-    function spawnElectronAt(x, y, scale, force) {
-        let ke = Math.random() * state.kmax;
-        if (ke < 0.05) ke = 0.05; 
-
-        let vBase = Math.sqrt(ke) * 2.5; 
-        
-        electrons.push({ 
-            x: x + 2, 
-            y: y, 
-            vx: vBase * scale, 
-            vy: 0, 
-            active: true 
-        });
-    }
-
-    function drawDevice(cx, cy, scale) {
-        ctx.save(); ctx.translate(cx, cy); ctx.scale(scale, scale);
-        ctx.strokeStyle = "#7f8c8d"; ctx.lineWidth = 4; ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.beginPath(); ctx.roundRect(-200, -80, 400, 160, 40); ctx.fill(); ctx.stroke();
-        
-        ctx.fillStyle = "#555"; ctx.fillRect(-170, -60, 10, 120);
-        ctx.fillStyle = "#555"; ctx.fillRect(160, -60, 10, 120);
-        
-        ctx.strokeStyle = "#d35400"; ctx.lineWidth = 5;
-        const bottomY = 160;
-        ctx.beginPath();
-        ctx.moveTo(-165, 0); ctx.lineTo(-220, 0); ctx.lineTo(-220, bottomY);
-        ctx.moveTo(165, 0); ctx.lineTo(220, 0); ctx.lineTo(220, bottomY);
-        ctx.moveTo(-220, bottomY); ctx.lineTo(220, bottomY);
-        ctx.stroke();
-        drawBattery(0, bottomY, state.voltage);
-        ctx.restore();
-    }
-
-    function drawBattery(x, y, vol) {
-        ctx.clearRect(x-40, y-20, 80, 40);
-        ctx.beginPath(); ctx.lineWidth = 4; ctx.strokeStyle = "#333";
-        let isFwd = vol >= 0;
-        if(isFwd) {
-            ctx.moveTo(-10, y-10); ctx.lineTo(-10, y+10); ctx.lineWidth=6; ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(10, y-20); ctx.lineTo(10, y+20); ctx.lineWidth=2; ctx.stroke();
-        } else {
-            ctx.moveTo(-10, y-20); ctx.lineTo(-10, y+20); ctx.lineWidth=2; ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(10, y-10); ctx.lineTo(10, y+10); ctx.lineWidth=6; ctx.stroke();
-        }
-    }
-
-    function getLightColor(nm) {
-        if (nm < 380) return "rgba(200, 200, 200, 0.8)";
-        if (nm > 750) return "rgba(180, 180, 180, 0.8)";
+    function getLightColor(nm, alpha=1) {
+        if (nm < 380) return `rgba(180, 180, 255, ${alpha * 0.5})`; 
+        if (nm > 750) return `rgba(255, 150, 150, ${alpha * 0.4})`; 
         let r=0, g=0, b=0;
         if (nm < 440) { r=-(nm-440)/(440-380); g=0; b=1; }
         else if (nm < 490) { r=0; g=(nm-440)/(490-440); b=1; }
@@ -730,56 +869,288 @@
         else if (nm < 580) { r=(nm-510)/(580-510); g=1; b=0; }
         else if (nm < 645) { r=1; g=-(nm-645)/(645-580); b=0; }
         else { r=1; g=0; b=0; }
-        return `rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},0.8)`;
+        return `rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},${alpha})`;
     }
 
-    function drawMeters(cx, cy, scale) {
-        const mx = cx + 220 * scale;
-        const my = cy + 100 * scale;
-        ctx.save(); ctx.translate(mx, my); ctx.scale(scale, scale);
-        ctx.fillStyle = "#fff"; ctx.strokeStyle = "#333"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(0, 0, 28, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "black"; ctx.font = "bold 14px Arial"; 
-        ctx.textAlign = "center"; ctx.textBaseline="middle"; ctx.fillText("A", 0, -10);
-
-        let angle = (state.displayCurrent / 60) * (Math.PI / 1.5);
-        if(angle > Math.PI/1.5) angle = Math.PI/1.5;
-        if(angle < 0) angle = 0;
+    function drawLightBeam(cx, cy, scale) {
+        if (state.intensity <= 0) return;
         
-        ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-22 * Math.cos(angle), -22 * Math.sin(angle)); ctx.stroke();
+        const lampX = cx + 220 * scale;
+        const lampY = cy - 200 * scale;
+        const targetX = cx - 180 * scale; 
+        const targetY = cy;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.beginPath(); 
+        ctx.moveTo(lampX, lampY);
+        ctx.lineTo(targetX, targetY - 70 * scale); 
+        ctx.lineTo(targetX, targetY + 70 * scale); 
+        ctx.closePath();
+        
+        const grad = ctx.createLinearGradient(lampX, lampY, targetX, targetY);
+        grad.addColorStop(0, getLightColor(state.wavelength, 0.6 * (state.intensity/100)));
+        grad.addColorStop(1, getLightColor(state.wavelength, 0.1 * (state.intensity/100))); 
+        ctx.fillStyle = grad;
+        ctx.fill();
         ctx.restore();
+    }
+
+    function drawLampOnly(cx, cy, scale) {
+        const lampX = cx + 220 * scale;
+        const lampY = cy - 200 * scale;
+        const targetX = cx - 180 * scale;
+        const targetY = cy;
+
+        ctx.save(); 
+        ctx.translate(lampX, lampY);
+        ctx.rotate(Math.atan2(targetY-lampY, targetX-lampX));
+        
+        ctx.fillStyle = "#334155";
+        ctx.beginPath(); 
+        ctx.moveTo(0, -18*scale); 
+        ctx.lineTo(40*scale, -30*scale); 
+        ctx.lineTo(40*scale, 30*scale); 
+        ctx.lineTo(0, 18*scale); 
+        ctx.fill();
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 2*scale;
+        ctx.stroke();
+        
+        if(state.intensity > 0) {
+            ctx.fillStyle = getLightColor(state.wavelength, 0.9);
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = getLightColor(state.wavelength, 1);
+            ctx.fillRect(-2*scale, -15*scale, 6*scale, 30*scale);
+        }
+        ctx.restore();
+    }
+
+    function spawnPhotons() {
+        if (Math.random() * 100 > state.intensity * 0.8) return;
+
+        const lampX = 220;
+        const lampY = -200;
+        const targetX = -180;
+        const destY = (Math.random() * 120 - 60);
+        const angle = Math.atan2(destY - lampY, targetX - lampX);
+        const speed = 4.0;
+
+        photons.push({
+            x: lampX, y: lampY,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            wl: state.wavelength, active: true
+        });
+    }
+
+    function updateAndDrawPhotons(cx, cy, scale) {
+        const pLimit = -180; 
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        
+        for(let i=0; i<photons.length; i++) {
+            let p = photons[i];
+            if(!p.active) continue;
+
+            p.x += p.vx;
+            p.y += p.vy;
+
+            drawWavePacket(ctx, cx + p.x * scale, cy + p.y * scale, p.wl, scale);
+
+            if (p.x <= pLimit + 5) {
+                p.active = false;
+                if (state.kmax > 0 && Math.random() > 0.3) {
+                    spawnElectronAt(pLimit + 2, p.y);
+                }
+            }
+        }
+        ctx.restore();
+        photons = photons.filter(p => p.active);
+    }
+
+    function drawWavePacket(ctx, x, y, nm, scale) {
+        const color = getLightColor(nm, 1);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5 * scale; 
+        ctx.beginPath();
+        
+        const period = (nm / 30) * scale; 
+        const length = 24 * scale; 
+        
+        for(let i = 0; i <= length; i+=2) {
+            let dx = i - length/2;
+            let dy = Math.sin(dx / period * Math.PI * 2) * (6 * scale);
+            let envelope = Math.cos((dx / length) * Math.PI); 
+            if (i===0) ctx.moveTo(x + dx, y + dy * envelope);
+            else ctx.lineTo(x + dx, y + dy * envelope);
+        }
+        ctx.stroke();
+    }
+
+    function spawnElectronAt(x, y) {
+        let ke = Math.random() * state.kmax;
+        if (ke < 0.02 && state.kmax > 0) ke = 0.02 + Math.random()*0.05; 
+        let vBase = Math.sqrt(ke) * 2.8; 
+        
+        electrons.push({ 
+            x: x, y: y,
+            vx: vBase, 
+            vy: 0, 
+            active: true 
+        });
     }
 
     function updateElectrons(cx, cy, scale) {
         let arrivedCount = 0;
-        let pLimit = cx - 170 * scale; 
-        let cLimit = cx + 160 * scale;
-        ctx.fillStyle = "#3498db"; 
+        let cathodeX = -180; 
+        let anodeX = 180;
+        let accel = (state.voltage * 0.025); 
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
         
         for(let i=0; i<electrons.length; i++) {
             let e = electrons[i];
             if(!e.active) continue;
-            let acc = (state.voltage * 0.2) * scale; 
-            e.vx += acc; 
+            
+            e.vx += accel; 
             e.x += e.vx;
+            e.y += e.vy;
             
-            ctx.beginPath(); ctx.arc(e.x, e.y, 4*scale, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); 
+            ctx.arc(cx + e.x * scale, cy + e.y * scale, 3.5 * scale, 0, Math.PI*2); 
+            ctx.fillStyle = "#60a5fa";
+            ctx.fill();
             
-            if(e.x >= cLimit) { if(e.vx > 0) { arrivedCount++; e.active = false; } }
-            if(e.vx < 0 && e.x <= pLimit) e.active = false;
-            if(e.x > cx + 400*scale || e.x < cx - 400*scale) e.active = false;
+            if(e.x >= anodeX - 5) { 
+                if(e.vx > 0) { arrivedCount++; e.active = false; } 
+            }
+            if(e.vx < 0 && e.x <= cathodeX + 2) {
+                e.active = false;
+            }
+            if(e.y > 150 || e.y < -150) e.active = false;
         }
+        ctx.restore();
+        
         electrons = electrons.filter(e => e.active);
-        let instantVal = arrivedCount * 10;
+        let instantVal = arrivedCount * 15; 
         state.currentBuffer.push(instantVal);
-        if(state.currentBuffer.length > 120) state.currentBuffer.shift();
+        if(state.currentBuffer.length > 30) state.currentBuffer.shift(); 
     }
 
-    function resizeCanvas() {
-        const c = document.getElementById('canvasContainer');
-        canvas.width = c.clientWidth;
-        canvas.height = c.clientHeight;
+    function drawDevice(cx, cy, scale) {
+        ctx.save(); 
+        ctx.translate(cx, cy); 
+        
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.5)"; 
+        ctx.lineWidth = 3 * scale; 
+        ctx.fillStyle = "rgba(15, 23, 42, 0.4)";
+        
+        ctx.beginPath(); 
+        ctx.roundRect(-220*scale, -100*scale, 440*scale, 200*scale, 50*scale); 
+        ctx.fill(); 
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.roundRect(-210*scale, -90*scale, 420*scale, 80*scale, 40*scale);
+        const glassGrad = ctx.createLinearGradient(0, -90*scale, 0, -10*scale);
+        glassGrad.addColorStop(0, "rgba(255,255,255,0.08)");
+        glassGrad.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = glassGrad;
+        ctx.fill();
+        
+        ctx.fillStyle = "#cbd5e1"; 
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#94a3b8";
+        ctx.fillRect(-190*scale, -70*scale, 10*scale, 140*scale);
+        
+        ctx.fillStyle = "#facc15"; 
+        ctx.shadowColor = "#ca8a04";
+        ctx.fillRect(180*scale, -70*scale, 10*scale, 140*scale);
+        ctx.shadowBlur = 0; 
+        
+        ctx.strokeStyle = "#64748b"; 
+        ctx.lineWidth = 4 * scale;
+        const bottomY = 180 * scale;
+        ctx.beginPath();
+        ctx.moveTo(-185*scale, 70*scale); ctx.lineTo(-185*scale, bottomY); ctx.lineTo(-50*scale, bottomY);
+        ctx.moveTo(185*scale, 70*scale); ctx.lineTo(185*scale, bottomY); ctx.lineTo(50*scale, bottomY);
+        ctx.stroke();
+
+        drawBattery(0, bottomY, state.voltage, scale);
+        ctx.restore();
+    }
+
+    function drawBattery(x, y, vol, scale) {
+        ctx.clearRect(x-50*scale, y-30*scale, 100*scale, 60*scale); 
+        ctx.beginPath(); 
+        ctx.strokeStyle = "#94a3b8";
+        
+        let isFwd = vol >= 0;
+        if(isFwd) {
+            ctx.moveTo(-15*scale, y-15*scale); ctx.lineTo(-15*scale, y+15*scale); ctx.lineWidth=6*scale; ctx.stroke(); 
+            ctx.beginPath(); ctx.moveTo(15*scale, y-25*scale); ctx.lineTo(15*scale, y+25*scale); ctx.lineWidth=2*scale; ctx.stroke(); 
+        } else {
+            ctx.moveTo(-15*scale, y-25*scale); ctx.lineTo(-15*scale, y+25*scale); ctx.lineWidth=2*scale; ctx.stroke(); 
+            ctx.beginPath(); ctx.moveTo(15*scale, y-15*scale); ctx.lineTo(15*scale, y+15*scale); ctx.lineWidth=6*scale; ctx.stroke(); 
+        }
+
+        ctx.beginPath(); ctx.lineWidth = 4 * scale;
+        ctx.moveTo(-50*scale, y); ctx.lineTo(-18*scale, y);
+        ctx.moveTo(18*scale, y); ctx.lineTo(50*scale, y);
+        ctx.stroke();
+    }
+
+    function drawMeters(cx, cy, scale) {
+        const mx = cx + 220 * scale;
+        const my = cy + 120 * scale;
+        ctx.save(); 
+        ctx.translate(mx, my); 
+        
+        ctx.beginPath(); 
+        ctx.arc(0, 0, 35*scale, 0, Math.PI*2); 
+        ctx.fillStyle = "#1e293b"; 
+        ctx.fill(); 
+        ctx.lineWidth = 3*scale;
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.stroke();
+        
+        ctx.beginPath(); 
+        ctx.arc(0, 0, 30*scale, 0, Math.PI*2); 
+        ctx.fillStyle = "#f8fafc"; 
+        ctx.fill();
+        
+        ctx.strokeStyle = "#94a3b8";
+        for(let i=0; i<=5; i++) {
+            let a = Math.PI - (i/5)*Math.PI;
+            ctx.beginPath();
+            ctx.moveTo(22*scale*Math.cos(a), -22*scale*Math.sin(a));
+            ctx.lineTo(28*scale*Math.cos(a), -28*scale*Math.sin(a));
+            ctx.lineWidth = i%5===0 ? 2*scale : 1*scale;
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = "#334155"; 
+        ctx.font = `bold ${12*scale}px Arial`; 
+        ctx.textAlign = "center"; ctx.textBaseline="middle"; 
+        ctx.fillText("μA", 0, 10*scale);
+
+        let normalizedI = state.displayCurrent / 100;
+        if(normalizedI > 1) normalizedI = 1;
+        let angle = Math.PI - (normalizedI * Math.PI * 0.8); 
+        
+        ctx.strokeStyle = "#ef4444"; 
+        ctx.lineWidth = 2.5 * scale;
+        ctx.lineCap = "round";
+        ctx.beginPath(); 
+        ctx.moveTo(0, 5*scale); 
+        ctx.lineTo(25*scale * Math.cos(angle), -25*scale * Math.sin(angle)); 
+        ctx.stroke();
+        
+        ctx.beginPath(); ctx.arc(0, 5*scale, 4*scale, 0, Math.PI*2);
+        ctx.fillStyle = "#334155"; ctx.fill();
+
+        ctx.restore();
     }
 
     window.showHelp = function(topic) {
@@ -789,96 +1160,108 @@
         
         if (topic === 'trap') {
             content = `
-                <h3>實驗起手式：為什麼沒電流？</h3>
-                <div style="text-align:center; margin-bottom:15px;">
-                    <span style="font-size:1.1rem; font-weight:bold; color:#d35400;">原因：光子能量不足</span>
+                <h3 style="color:var(--accent-dark); border-bottom:2px solid var(--accent-blue); padding-bottom:10px;">實驗起手式：為什麼沒電流？</h3>
+                <div style="text-align:center; margin:20px 0;">
+                    <span style="font-size:1.2rem; font-weight:bold; color:#ea580c;">主要原因：單一光子能量不足</span>
                 </div>
-                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                <div style="background:#f1f5f9; padding:20px; border-radius:10px; text-align:center; font-size:1.5rem; color:#1e293b; font-family:serif;">
                     \\( hf < \\Phi \\)
                 </div>
-                <div style="margin-top:15px;">
-                    <p><strong>說明：</strong></p>
-                    <ul style="line-height:1.6;">
-                        <li><strong>\\( \\Phi \\) (功函數)</strong>：金屬 (如鈉 2.29 eV) 要求的最低門票。</li>
-                        <li><strong>\\( hf \\) (光子能量)</strong>：入射光 (如紅光) 攜帶的能量。</li>
-                        <li><strong>結果</strong>：能量不夠，強度 (數量) 再強也沒用。</li>
+                <div style="margin-top:20px; color:var(--text-main); line-height:1.7;">
+                    <p><strong>物理意義：</strong></p>
+                    <ul>
+                        <li><strong>\\( \\Phi \\) (功函數)</strong>：金屬束縛電子的最小能量。就像是電子逃離金屬表面的「門票」。</li>
+                        <li><strong>\\( hf \\) (光子能量)</strong>：一顆光子所攜帶的能量。</li>
+                        <li><strong>古典物理的失敗</strong>：古典波動理論認為，只要光照射時間夠久或強度夠強，能量就會累積。但實驗證明，若單顆光子能量不夠，無論光多強都無法擊出電子！</li>
                     </ul>
-                    <p style="color:#2980b9; font-weight:bold; margin-top:10px;">➔ 試著把波長調短 (藍移)！</p>
+                    <div style="background:#eff6ff; border-left:4px solid #3b82f6; padding:12px; border-radius:4px; margin-top:15px; font-weight:bold;">
+                        💡 解決方案：試著將波長調短（往藍光或紫外線方向移動），提高光子能量！
+                    </div>
                 </div>
             `;
         } else if (topic === 'cond') {
             content = `
-                <h3>產生光電效應的條件</h3>
-                <div style="text-align:center; margin-bottom:15px;">
-                    <span style="font-size:1.1rem; font-weight:bold; color:#2e7d32;">入射光頻率 必須大於 底限頻率</span>
+                <h3 style="color:var(--accent-dark); border-bottom:2px solid var(--accent-blue); padding-bottom:10px;">產生光電效應的條件</h3>
+                <div style="text-align:center; margin:20px 0;">
+                    <span style="font-size:1.2rem; font-weight:bold; color:#166534;">核心條件：入射光頻率必須大於「底限頻率」</span>
                 </div>
-                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
-                    \\( f > f_0 \\)  或  \\( hf > \\Phi \\)
+                <div style="background:#f1f5f9; padding:20px; border-radius:10px; text-align:center; font-size:1.5rem; color:#1e293b;">
+                    \\( f > f_0 \\quad \\text{或} \\quad hf > \\Phi \\)
                 </div>
-                <div style="margin-top:15px;">
+                <div style="margin-top:20px; color:var(--text-main); line-height:1.7;">
                     <p><strong>符號說明：</strong></p>
-                    <ul style="line-height:1.6;">
-                        <li><strong>\\( f \\)</strong>：入射光的頻率 (決定顏色)。</li>
-                        <li><strong>\\( \\Phi \\)</strong>：金屬的功函數 (束縛能)。</li>
+                    <ul>
+                        <li><strong>\\( f \\)</strong>：入射光的頻率 (頻率越高，波長越短)。</li>
+                        <li><strong>\\( f_0 \\)</strong>：底限頻率 (Threshold Frequency)，由金屬材質決定，\\( f_0 = \\Phi / h \\)。</li>
                     </ul>
+                    <p>只要滿足這個條件，電子吸收光子後會<strong>「瞬間」</strong>逸出，不需要時間累積。</p>
                 </div>
             `;
         } else if (topic === 'energy') {
             content = `
-                <h3>光的能量 vs 強度</h3>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; text-align:center; margin-top:10px;">
-                    <div style="background:#e3f2fd; padding:10px; border-radius:6px;">
-                        <strong style="color:#1565c0; display:block; margin-bottom:5px;">能量 (Energy)</strong>
-                        <div style="font-size:0.9rem;">取決於 <strong>頻率</strong></div>
-                        <div style="font-size:0.8rem; color:#666;">(顏色決定單顆夠不夠力)</div>
+                <h3 style="color:var(--accent-dark); border-bottom:2px solid var(--accent-blue); padding-bottom:10px;">光的「能量」 vs 「強度」</h3>
+                <p style="color:var(--text-main); margin-bottom:20px;">這是光電效應中最常混淆的觀念。愛因斯坦提出光具有粒子性（光子）：</p>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; text-align:center;">
+                    <div style="background:#eff6ff; padding:20px; border-radius:10px; border:1px solid #bfdbfe;">
+                        <strong style="color:#1d4ed8; font-size:1.1rem; display:block; margin-bottom:10px;">能量 (Energy, \\(E=hf\\))</strong>
+                        <div style="font-size:0.95rem; line-height:1.6;">取決於 <strong>頻率 (波長/顏色)</strong></div>
+                        <div style="font-size:0.85rem; color:var(--text-light); margin-top:8px;">決定「一顆光子夠不夠力」把電子撞出來。也決定了逸出電子的最大動能。</div>
                     </div>
-                    <div style="background:#fff3e0; padding:10px; border-radius:6px;">
-                        <strong style="color:#ef6c00; display:block; margin-bottom:5px;">強度 (Intensity)</strong>
-                        <div style="font-size:0.9rem;">取決於 <strong>光子數</strong></div>
-                        <div style="font-size:0.8rem; color:#666;">(亮度決定電流大小)</div>
+                    <div style="background:#fff7ed; padding:20px; border-radius:10px; border:1px solid #fed7aa;">
+                        <strong style="color:#c2410c; font-size:1.1rem; display:block; margin-bottom:10px;">強度 (Intensity)</strong>
+                        <div style="font-size:0.95rem; line-height:1.6;">取決於 <strong>光子數量</strong></div>
+                        <div style="font-size:0.85rem; color:var(--text-light); margin-top:8px;">當能量足夠時，強度決定了「每秒有幾顆光子撞擊」，進而決定了光電流的大小。</div>
                     </div>
                 </div>
             `;
         } else if (topic === 'speed') {
             content = `
-                <h3>為什麼電子速度不同？</h3>
-                <div style="text-align:center; margin-bottom:15px;">
-                    <span style="font-size:1rem; font-weight:bold; color:#555;">公式算出的是「最大」動能</span>
+                <h3 style="color:var(--accent-dark); border-bottom:2px solid #ef4444; padding-bottom:10px;">進階：為什麼電子速度不同？</h3>
+                <div style="text-align:center; margin:20px 0;">
+                    <span style="font-size:1.1rem; font-weight:bold; color:var(--text-main);">公式算出的是「最大」動能，而非所有電子動能</span>
                 </div>
-                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                <div style="background:#f1f5f9; padding:20px; border-radius:10px; text-align:center; font-size:1.5rem;">
                     \\( K_{max} \\)
                 </div>
-                <div style="margin-top:15px;">
-                    <p><strong>實際上：</strong></p>
-                    <ul style="line-height:1.6;">
-                        <li><strong>表面電子</strong>：直接飛出，擁有最大動能。</li>
-                        <li><strong>深層電子</strong>：逃脫時會碰撞耗損能量，所以速度較慢。</li>
+                <div style="margin-top:20px; color:var(--text-main); line-height:1.7;">
+                    <p>在我們的模擬器中，您會觀察到逸出電子的速度快慢不一。這是因為：</p>
+                    <ul>
+                        <li><strong>表面電子</strong>：位於金屬最外層，只需克服功函數 \\( \\Phi \\) 即可逃脫，因此擁有最大動能 \\( K_{max} \\)。</li>
+                        <li><strong>深層電子</strong>：位於金屬內部，除了克服功函數，在向外逃脫的過程中還會與其他原子發生碰撞而耗損能量，因此飛出表面時的速度會小於 \\( K_{max} \\)。</li>
                     </ul>
                 </div>
             `;
         } else if (topic === 'equation') {
             content = `
-                <h3>愛因斯坦光電方程式</h3>
-                <div style="text-align:center; margin-bottom:15px;">
-                    <span style="font-size:1.1rem; font-weight:bold; color:#d35400;">光子能量 = 功函數 + 電子最大動能</span>
-                </div>
-                <div style="background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; font-size:1.4rem;">
+                <h3 style="color:var(--accent-dark); border-bottom:2px solid var(--accent-blue); padding-bottom:10px;">愛因斯坦光電方程式</h3>
+                <div style="background:#1e293b; padding:25px; border-radius:10px; text-align:center; font-size:1.6rem; color:white; margin:20px 0; box-shadow:0 4px 6px rgba(0,0,0,0.2);">
                     \\( hf = \\Phi + K_{max} \\)
                 </div>
-                <div style="margin-top:15px;">
-                    <p><strong>符號說明：</strong></p>
-                    <ul style="line-height:1.6;">
-                        <li><strong>\\( hf \\)</strong>：光子能量 (來自入射光)</li>
-                        <li><strong>\\( \\Phi \\)</strong>：功函數 (金屬的門票)</li>
-                        <li><strong>\\( K_{max} \\)</strong>：電子最大動能 (逃出來的速度)</li>
+                <div style="margin-top:20px; color:var(--text-main); line-height:1.7;">
+                    <p>這本質上是一個<strong>能量守恆定律</strong>：</p>
+                    <ul style="list-style-type:none; padding-left:0;">
+                        <li style="margin-bottom:10px;"><span style="display:inline-block; width:80px; font-weight:bold; color:#3b82f6;">\\( hf \\)</span> ➔ <strong>入射光子能量</strong> (總預算)</li>
+                        <li style="margin-bottom:10px;"><span style="display:inline-block; width:80px; font-weight:bold; color:#f59e0b;">\\( \\Phi \\)</span> ➔ <strong>功函數</strong> (必須支付的門票費用)</li>
+                        <li style="margin-bottom:10px;"><span style="display:inline-block; width:80px; font-weight:bold; color:#10b981;">\\( K_{max} \\)</span> ➔ <strong>最大動能</strong> (扣掉門票後剩下的找零)</li>
                     </ul>
+                    <p style="margin-top:15px;">利用這個方程式，我們只要測量出能讓光電流剛好歸零的反向電壓（遏止電壓 \\( V_s \\)，此時 \\( K_{max} = eV_s \\)），就能計算出普朗克常數 \\( h \\)！</p>
                 </div>
             `;
         }
         
         body.innerHTML = content;
         overlay.style.display = 'flex';
-        if(window.MathJax) MathJax.typesetPromise();
+        setTimeout(() => {
+            if(window.MathJax) {
+                mathJaxPromise = mathJaxPromise.then(() => {
+                    MathJax.typesetClear([body]);
+                    return MathJax.typesetPromise([body]);
+                }).catch(err => {
+                    console.log(err);
+                    mathJaxPromise = Promise.resolve();
+                });
+            }
+        }, 50);
     }
     
     function closeModal(e) {
