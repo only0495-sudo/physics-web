@@ -399,20 +399,32 @@
             return { r: clamp(red), g: clamp(green), b: clamp(blue) };
         }
 
+        // 模擬肉眼可見度 (Draper point 德雷珀點約 798K)
+        function getVisibilityFactor(temp) {
+            // 低於 700K 視為全黑不可見，700K~1500K 逐漸亮起至 100%
+            return Math.min(1, Math.max(0, (temp - 700) / 800));
+        }
+
         // 更新右上角圓球顏色與發光效果
         function updateColorIndicator() {
             const rgb = kelvinToRGB(state.temperature);
+            const visibility = getVisibilityFactor(state.temperature);
             const circle = document.getElementById('color-circle');
             
-            circle.style.backgroundColor = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            // 套用肉眼可見度：溫度過低時 rgb 值會乘上 0 變成黑色
+            const r = Math.round(rgb.r * visibility);
+            const g = Math.round(rgb.g * visibility);
+            const b = Math.round(rgb.b * visibility);
+
+            circle.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
             
-            // 溫度越高，發光範圍與亮度越強
+            // 溫度越高，發光範圍與亮度越強 (如果 visibility 為 0，則無發光)
             let intensity = state.temperature / 10000;
-            let alpha = Math.min(1.0, 0.4 + intensity);
-            let glowSize = 20 + Math.min(60, intensity * 50);
+            let alpha = Math.min(1.0, 0.4 + intensity) * visibility;
+            let glowSize = (20 + Math.min(60, intensity * 50)) * visibility;
             
             // 加入內陰影創造立體感，外陰影創造發光感
-            circle.style.boxShadow = `0 0 ${glowSize}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha}), inset -10px -10px 20px rgba(0,0,0,0.3)`;
+            circle.style.boxShadow = `0 0 ${glowSize}px rgba(${r}, ${g}, ${b}, ${alpha}), inset -10px -10px 20px rgba(0,0,0,0.3)`;
         }
 
         // 普朗克定律函數
@@ -512,7 +524,11 @@
 
             // 3. 普朗克發光曲線
             const rgb = kelvinToRGB(state.temperature);
-            const curveColorStr = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            const visibility = getVisibilityFactor(state.temperature);
+            
+            // 為了讓低溫不可見光的曲線在圖表上依然可辨識，我們給予最低 30% 的亮度 (暗紅色象徵紅外線熱輻射)
+            const curveIntensity = Math.max(0.3, visibility);
+            const curveColorStr = `rgb(${Math.round(rgb.r * curveIntensity)}, ${Math.round(rgb.g * curveIntensity)}, ${Math.round(rgb.b * curveIntensity)})`;
             
             ctx.beginPath();
             let first = true; 
@@ -531,7 +547,7 @@
             // 發光曲線樣式
             ctx.strokeStyle = curveColorStr; 
             ctx.lineWidth = 4;
-            ctx.shadowBlur = 15; 
+            ctx.shadowBlur = 15 * curveIntensity; // 曲線發光強度也受可見度影響
             ctx.shadowColor = curveColorStr; 
             ctx.stroke(); 
             ctx.shadowBlur = 0; // 關閉陰影避免影響下方漸層
@@ -542,8 +558,12 @@
                 ctx.lineTo(pathPoints[0].x, padding.top + plotH); 
                 ctx.closePath();
                 const fillGrad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
-                fillGrad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`); 
-                fillGrad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.0)`);
+                // 漸層透明度也受整體亮度影響
+                const r = Math.round(rgb.r * curveIntensity);
+                const g = Math.round(rgb.g * curveIntensity);
+                const b = Math.round(rgb.b * curveIntensity);
+                fillGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.6 * curveIntensity})`); 
+                fillGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
                 ctx.fillStyle = fillGrad; 
                 ctx.fill();
             }
