@@ -2,639 +2,591 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>黑體輻射模擬器 (修正版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>黑體輻射光譜模擬器 (圖表專注版)</title>
+
     <style>
         :root {
-            --primary: #2c3e50;
-            --accent: #d35400;
-            --bg: #fdfdfd;
-            --panel-bg: #f4f6f7;
-            --border: #dcdcdc;
-            --guide-bg: #e8f6f3;
-            --guide-border: #16a085;
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(20, 25, 35, 0.9);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #334155;
+            --card-bg: rgba(30, 41, 59, 0.7);
         }
 
         body {
-            font-family: "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg);
-            color: #333;
             margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        h1 { margin-bottom: 5px; color: var(--primary); }
-        .subtitle { color: #7f8c8d; margin-bottom: 20px; font-size: 0.9em; }
-
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab-btn {
-            padding: 12px 25px;
-            border: 1px solid var(--border);
-            background: white;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 5px;
-            color: #7f8c8d;
-            transition: 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .tab-btn.active {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: #fff8f0;
-            border-bottom: 3px solid var(--accent);
-        }
-
-        .main-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            justify-content: center;
-            max-width: 1200px;
-            width: 100%;
-            background: var(--panel-bg);
-            padding: 30px;
-            border-radius: 15px;
-            border: 1px solid var(--border);
-        }
-
-        .view-section { display: none; width: 100%; display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } 
-        .view-section.hidden { display: none !important; }
-
-        .canvas-box {
-            position: relative;
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        canvas { cursor: crosshair; }
-
-        /* 顏色預覽視窗 */
-        .color-overlay {
+        /* 頂部標題與摺疊資訊面板 */
+        .top-left-panel {
             position: absolute;
-            top: 25px;
-            right: 25px;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #ddd;
-            padding: 12px;
-            border-radius: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            z-index: 10;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            width: 340px;
             pointer-events: none;
-            min-width: 110px;
-        }
-        #section-cavity .color-overlay {
-            top: 20px; left: 20px; right: auto;
         }
 
-        .color-swatch {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background-color: black;
-            border: 3px solid #f0f0f0;
-            margin-bottom: 8px;
-            transition: background-color 0.2s, box-shadow 0.2s;
-        }
-        .color-label {
-            font-size: 0.75em; color: #555; font-weight: bold; text-align: center; line-height: 1.3;
+        h1 {
+            margin: 0;
+            font-size: 26px;
+            color: #ffffff;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+            letter-spacing: 1px;
         }
 
-        .controls {
-            flex: 1;
-            min-width: 340px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
+        p.subtitle {
+            margin: 5px 0 15px 0;
+            font-size: 14px;
+            color: var(--text-muted);
         }
 
-        .control-card {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
+        /* 摺疊教學區塊 */
+        .info-toggle-btn {
+            background: var(--panel-bg);
             border: 1px solid var(--border);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-        }
-        .control-card h3 { 
-            margin-top: 0; margin-bottom: 12px; font-size: 1.1em; color: var(--primary); 
-            border-bottom: 2px solid #eee; padding-bottom: 5px;
-        }
-
-        /* 學習引導區塊樣式 - 全寬版 */
-        .guide-box {
-            width: 100%; /* 佔滿整行 */
-            background-color: var(--guide-bg);
-            border-left: 6px solid var(--guide-border);
-            padding: 20px;
+            color: var(--text-main);
+            padding: 10px 15px;
             border-radius: 8px;
-            margin-top: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .guide-title {
-            color: #16a085;
+            cursor: pointer;
+            font-size: 14px;
             font-weight: bold;
-            font-size: 1.2em;
-            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-        .guide-content li {
-            margin-bottom: 10px;
-            font-size: 1em;
-            color: #2c3e50;
-            line-height: 1.6;
-        }
-
-        button.action-btn {
-            background: var(--primary); color: white; border: none; padding: 12px;
-            border-radius: 6px; font-size: 15px; cursor: pointer; width: 100%; font-weight: bold;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
             transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        button.action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .info-toggle-btn:hover { border-color: var(--accent); }
         
-        .preset-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;
+        #info-content {
+            margin-top: 10px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+            transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+            overflow: hidden;
+            max-height: 500px;
+            opacity: 1;
         }
-        .preset-btn {
-            background: #f1f2f6; border: 1px solid #ced6e0; padding: 10px;
-            border-radius: 5px; cursor: pointer; font-size: 0.9em; color: #2f3542;
-            transition: 0.2s; text-align: left;
+        #info-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            border: none;
         }
-        .preset-btn:hover { background: #dfe4ea; border-color: #a4b0be; }
-        .preset-btn strong { display: block; font-size: 1.1em; }
-        
-        .slider-group { margin-bottom: 15px; }
-        .slider-label { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9em; margin-bottom: 6px; color: #555; }
-        input[type=range] { width: 100%; cursor: pointer; accent-color: var(--accent); }
 
-        .info-text { font-size: 0.95em; line-height: 1.5; color: #444; margin: 0; }
-        .legend { display: flex; gap: 15px; font-size: 0.85em; margin-top: 10px; color: #666; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        #info-content p { margin: 0 0 10px 0; font-size: 13px; line-height: 1.6; }
+        .formula { background: #000; padding: 8px; border-radius: 4px; font-family: monospace; color: #4ade80; text-align: center; }
+
+        /* 主要大圖表區域 (佔據左側全部空間) */
+        #graph-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 360px; /* 留出右側面板空間 */
+            bottom: 0;
+            background: radial-gradient(circle at center, #111827 0%, #0b0f19 100%);
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #spectrumCanvas { 
+            flex: 1; 
+            width: 100%; 
+            height: 100%; 
+            display: block; 
+        }
+
+        /* 右上方溫度顏色指示圓球 */
+        .color-indicator-wrapper {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .color-circle {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            background-color: #fff;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.8), inset -10px -10px 20px rgba(0,0,0,0.3);
+            transition: background-color 0.1s, box-shadow 0.1s;
+        }
+
+        .color-label {
+            margin-top: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #fff;
+            font-weight: bold;
+            letter-spacing: 1px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* 右側大型操作面板 */
+        #right-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 360px;
+            height: 100vh;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border);
+            z-index: 30;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.5);
+        }
+
+        .control-card {
+            background: var(--card-bg);
+            padding: 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .control-card h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #fff;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        /* 滑桿樣式 */
+        .slider-group { margin-bottom: 15px; }
+        .slider-group:last-child { margin-bottom: 0; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; color: var(--text-muted); }
+        .slider-val { font-family: monospace; color: var(--accent); font-weight: bold; font-size: 14px; }
+        
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--accent);
+            height: 6px;
+            background: #000;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            border: 2px solid var(--accent);
+        }
+
+        /* 按鈕網格與樣式 */
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .btn:hover { background: rgba(255,255,255,0.1); border-color: var(--text-muted); }
+        .btn strong { display: block; font-size: 15px; color: #fff; margin-bottom: 2px; }
+
+        /* 全螢幕按鈕 */
+        #fullscreen-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 380px;
+            width: 44px; height: 44px;
+            background: var(--panel-bg); border: 1px solid var(--border);
+            border-radius: 8px; color: white; font-size: 22px;
+            cursor: pointer; z-index: 30;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px); transition: 0.2s;
+        }
+        #fullscreen-btn:hover { background: var(--accent); transform: scale(1.05); }
+
+        /* RWD 響應式佈局 */
+        @media (max-width: 1024px) {
+            #graph-container { right: 0; bottom: 350px; height: calc(100vh - 350px); }
+            #right-panel { top: auto; bottom: 0; width: 100%; height: 350px; border-left: none; border-top: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; }
+            .control-card { flex: 1; min-width: 250px; }
+            #fullscreen-btn { right: 20px; top: 20px; bottom: auto; }
+            .color-indicator-wrapper { top: 20px; right: 20px; }
+            .color-circle { width: 60px; height: 60px; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>黑體輻射</h1>
-    <div class="subtitle">從空腔幾何到恆星光譜：探索黑體的物理本質</div>
+    <!-- 左半部：主圖表區域 -->
+    <div id="graph-container">
+        <!-- 溫度顏色指示器 -->
+        <div class="color-indicator-wrapper">
+            <div id="color-circle" class="color-circle"></div>
+            <div class="color-label">觀測顏色</div>
+        </div>
 
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('cavity')">1. 什麼是黑體？</button>
-        <button class="tab-btn" onclick="switchTab('graph')">2. 輻射光譜 (溫度曲線)</button>
+        <!-- Canvas 繪圖區 -->
+        <canvas id="spectrumCanvas"></canvas>
     </div>
 
-    <div class="main-container">
+    <!-- 左上：標題與知識圖層 -->
+    <div class="top-left-panel">
+        <h1>黑體輻射光譜</h1>
+        <p class="subtitle">Black Body Radiation Spectrum</p>
         
-        <div id="section-cavity" class="view-section">
-            <div class="canvas-box">
-                <div class="color-overlay">
-                    <div id="cavityObserverColor" class="color-swatch"></div>
-                    <div class="color-label">觀察者從針孔<br>看到的顏色</div>
-                </div>
+        <button class="info-toggle-btn" onclick="toggleInfo()">
+            <span id="info-icon">📖</span> 物理概念說明 (點擊展開)
+        </button>
+        
+        <div id="info-content" class="collapsed">
+            <p><strong>1. 溫度與顏色：</strong>右上方圓球代表該溫度下黑體輻射出的綜合「宏觀顏色」。溫度越高，顏色會從暗紅逐漸轉為橘黃、白，最終偏藍。</p>
+            <p><strong>2. 連續光譜：</strong>主畫面圖表展示了輻射強度與波長的連續關係。注意每一種波長的光都存在，只是強度佔比不同。</p>
+            <p><strong>3. 維恩位移定律：</strong>隨著溫度升高，曲線下面積 (總能量) 急劇變大，且波峰 (最高點) 會向短波長 (藍光) 移動。</p>
+            <div class="formula">B(λ,T) = (2hc²/λ⁵) / (e^(hc/λkT) - 1)</div>
+        </div>
+    </div>
 
-                <canvas id="cavityCanvas" width="400" height="400"></canvas>
-                <div class="legend">
-                    <div><span class="dot" style="background:#ffd700"></span>入射光 (被吸收)</div>
-                </div>
+    <!-- 全螢幕按鈕 -->
+    <button id="fullscreen-btn" onclick="toggleFullScreen()" title="全螢幕切換">⛶</button>
+
+    <!-- 右側：大型操作面板 -->
+    <div id="right-panel">
+        
+        <div class="control-card" style="border-left: 4px solid var(--accent);">
+            <h3>🌡️ 溫度參數設定 <span class="slider-val" id="val-temp">5500 K</span></h3>
+            <div class="slider-group">
+                <input type="range" id="slider-temp" min="100" max="15000" step="50" value="5500">
             </div>
-
-            <div class="controls">
-                <div class="control-card">
-                    <h3>什麼是黑體？</h3>
-                    <p class="info-text">
-                        黑體是一個理想化的物理模型，可用「開有<strong>極小針孔</strong>的空腔」來模擬。<br>
-                        <strong>定義：</strong>任何射入小孔的光都會在內部多次反射並被吸收，所以在低溫射內部是黑的；但空腔會因自身溫度而從針孔向外輻射出特定顏色的光，稱為黑體輻射。黑體輻射僅因黑體溫度改變。
-                    </p>
-                </div>
-
-                <div class="control-card" style="border-left: 4px solid #ffd700;">
-                    <h3>1. 吸收特性 (入射光)</h3>
-                    <p class="info-text" style="margin-bottom:10px;">點擊按鈕，觀察光線如何精準射入針孔並被困住。</p>
-                    <button class="action-btn" style="background:#f39c12; color: #000;" onclick="shootRay()">⚡ 發射入射光束</button>
-                </div>
-
-                <div class="control-card" style="border-left: 4px solid var(--accent);">
-                    <h3>2. 輻射特性 (觀察顏色)</h3>
-                    <p class="info-text">調整溫度，觀察左上角視窗中，從針孔看進去時會呈現什麼顏色。</p>
-                    <div class="slider-group" style="margin-top:10px; background:#f9f9f9; padding:10px; border-radius:5px;">
-                        <div class="slider-label">
-                            <span>空腔溫度</span>
-                            <span id="cavityTempDisplay">5500 K</span>
-                        </div>
-                        <input type="range" id="cavityTempSlider" min="1000" max="12000" step="100" value="5500">
-                    </div>
-                </div>
+            <div class="preset-grid" style="margin-top: 15px;">
+                <button class="btn" onclick="setPreset(310, 30000, 10)"><strong>人體</strong> 310 K</button>
+                <button class="btn" onclick="setPreset(3000, 5000, 100)"><strong>燈泡</strong> 3000 K</button>
+                <button class="btn" onclick="setPreset(5500, 3000, 100)"><strong>太陽</strong> 5500 K</button>
+                <button class="btn" onclick="setPreset(12000, 1500, 100)"><strong>高溫星</strong> 12000 K</button>
             </div>
         </div>
 
-        <div id="section-graph" class="view-section hidden">
-            <div class="canvas-box">
-                <div class="color-overlay">
-                    <div id="observerColor" class="color-swatch"></div>
-                    <div class="color-label">觀測到的顏色<br>(光譜總和)</div>
-                </div>
-                <canvas id="graphCanvas" width="600" height="450"></canvas>
+        <div class="control-card" style="border-left: 4px solid #10b981;">
+            <h3>📊 圖表顯示設定</h3>
+            <div class="slider-group">
+                <div class="slider-label"><span>X軸 波長範圍</span> <span class="slider-val" id="val-x">3000 nm</span></div>
+                <input type="range" id="slider-x" min="1000" max="30000" step="500" value="3000">
             </div>
-            
-            <div class="controls">
-                <div class="control-card">
-                    <h3>快速選擇：常見輻射源</h3>
-                    <div class="preset-grid">
-                        <button class="preset-btn" onclick="applyPreset('human')"><strong>人體</strong> 310 K</button>
-                        <button class="preset-btn" onclick="applyPreset('bulb')"><strong>燈泡</strong> 3000 K</button>
-                        <button class="preset-btn" onclick="applyPreset('sun')"><strong>太陽</strong> 5500 K</button>
-                        <button class="preset-btn" onclick="applyPreset('star')"><strong>參宿七</strong> 12000 K</button>
-                    </div>
-                </div>
-
-                <div class="control-card">
-                    <h3>參數微調</h3>
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span style="color:var(--accent)">溫度 (Temperature)</span>
-                            <span id="graphTempDisplay" style="font-family:monospace; font-size:1.2em;">5500 K</span>
-                        </div>
-                        <input type="range" id="graphTempSlider" min="100" max="15000" step="50" value="5500">
-                    </div>
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>Y 軸：強度縮放 (Y Zoom)</span>
-                        </div>
-                        <input type="range" id="scaleYSlider" min="1" max="200" value="100">
-                    </div>
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>X 軸：波長範圍 (X Range)</span>
-                            <span id="xScaleVal">3000 nm</span>
-                        </div>
-                        <input type="range" id="scaleXSlider" min="500" max="30000" step="500" value="3000">
-                    </div>
-                </div>
-            </div>
-
-            <div class="guide-box">
-                <div class="guide-title">💡 觀念引導</div>
-                <ul class="guide-content" style="margin:0; padding-left:20px;">
-                    <li><strong>連續光譜：</strong>請注意曲線是連續的。這代表在該溫度下，<strong>每一種波長的光</strong>都有被輻射出來，只是強弱不同。</li>
-                    <li><strong>波峰意義：</strong>曲線的最高點 ($\lambda_{max}$) 代表該溫度下<strong>成分最多、能量最強</strong>的光波長，這決定了我們肉眼看到的主要顏色（參見圖表右上角的顏色預覽）。</li>
-                    <li><strong>溫度效應：</strong>當溫度升高時，波峰會向左（短波長/藍光方向）移動（維恩位移定律），且總輻射能量（曲線下面積）會急劇增加。</li>
-                </ul>
+            <div class="slider-group">
+                <div class="slider-label"><span>Y軸 強度縮放</span> <span class="slider-val" id="val-y">100%</span></div>
+                <input type="range" id="slider-y" min="10" max="300" step="10" value="100">
             </div>
         </div>
 
     </div>
 
     <script>
-        // === GLOBAL STATE & INIT ===
-        let currentTab = 'cavity'; 
-        let currentTemp = 5500;   
-        let currentYMaxLimit = 1.0; 
+        // ==========================================
+        // UI 互動與狀態邏輯
+        // ==========================================
+        let isInfoOpen = false;
+        function toggleInfo() {
+            isInfoOpen = !isInfoOpen;
+            const content = document.getElementById('info-content');
+            const icon = document.getElementById('info-icon');
+            if (isInfoOpen) {
+                content.classList.remove('collapsed');
+                icon.innerText = '📖';
+            } else {
+                content.classList.add('collapsed');
+                icon.innerText = '📕';
+            }
+        }
 
-        window.onload = function() {
-            switchTab('cavity'); 
-            updateTemp(5500, false); 
-            setYScaleToFit(5500);
-            animateCavity(); 
-        };
+        const state = { temperature: 5500, xMax: 3000, yZoom: 100 };
+        
+        // 綁定滑桿事件
+        document.getElementById('slider-temp').addEventListener('input', (e) => {
+            state.temperature = parseInt(e.target.value);
+            document.getElementById('val-temp').innerText = state.temperature + " K";
+            updateVisuals();
+        });
+        document.getElementById('slider-x').addEventListener('input', (e) => {
+            state.xMax = parseInt(e.target.value);
+            document.getElementById('val-x').innerText = state.xMax + " nm";
+            drawGraph();
+        });
+        document.getElementById('slider-y').addEventListener('input', (e) => {
+            state.yZoom = parseInt(e.target.value);
+            document.getElementById('val-y').innerText = state.yZoom + " %";
+            drawGraph();
+        });
 
-        function switchTab(tabName) {
-            currentTab = tabName;
-            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        function setPreset(t, x, yz) {
+            state.temperature = t; state.xMax = x; state.yZoom = yz;
             
-            document.getElementById(`section-${tabName}`).classList.remove('hidden');
-            const btns = document.querySelectorAll('.tab-btn');
-            if(tabName === 'cavity') btns[0].classList.add('active');
-            else btns[1].classList.add('active');
+            document.getElementById('slider-temp').value = t;
+            document.getElementById('val-temp').innerText = t + " K";
+            document.getElementById('slider-x').value = x;
+            document.getElementById('val-x').innerText = x + " nm";
+            document.getElementById('slider-y').value = yz;
+            document.getElementById('val-y').innerText = yz + " %";
 
-            if(tabName === 'graph') updateGraph(); 
+            updateVisuals();
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else if (document.exitFullscreen) document.exitFullscreen();
         }
 
         // ==========================================
-        // PART 1: CAVITY GEOMETRY
+        // 物理計算與色彩轉換
         // ==========================================
-        const cCanvas = document.getElementById('cavityCanvas');
-        const cCtx = cCanvas.getContext('2d');
-        const cCenterX = cCanvas.width / 2;
-        const cCenterY = cCanvas.height / 2;
-        const cRadius = 150; 
-        const wallThickness = 20;
-        const holeGapHalfAngle = 0.035; 
-        let rays = [];
 
-        class Ray {
-            constructor() {
-                this.x = cCenterX + cRadius + 40; 
-                const randomOffsetY = (Math.random() - 0.5) * 4; 
-                this.y = cCenterY + randomOffsetY;
-                const angle = Math.PI; 
-                const spread = (Math.random() - 0.5) * 0.02; 
-                const speed = 25; 
-                this.vx = Math.cos(angle + spread) * speed;
-                this.vy = Math.sin(angle + spread) * speed;
-                this.life = 1.0; 
-                this.history = [];
-                this.hasEntered = false; 
-            }
-            update() {
-                const steps = 10; 
-                for(let i=0; i<steps; i++) {
-                    if(this.life < 0.01) break;
-                    this.x += this.vx / steps;
-                    this.y += this.vy / steps;
-                    if(i===0) {
-                        this.history.push({x: this.x, y: this.y});
-                        if(this.history.length > 50) this.history.shift(); 
-                    }
-                    const dx = this.x - cCenterX;
-                    const dy = this.y - cCenterY;
-                    const distSq = dx*dx + dy*dy;
-                    const dist = Math.sqrt(distSq);
+        // 色溫轉換演算法 (Kelvin 轉 RGB)
+        function kelvinToRGB(kelvin) {
+            let temp = kelvin / 100;
+            let red, green, blue;
 
-                    if (!this.hasEntered) {
-                        if (dist < cRadius - 5) this.hasEntered = true;
-                    } else {
-                        if (dist >= cRadius - 1) {
-                            const angleToCenter = Math.atan2(dy, dx);
-                            if (Math.abs(angleToCenter) < holeGapHalfAngle * 1.5) { 
-                                this.life = 0;
-                            } else {
-                                const nx = dx / dist;
-                                const ny = dy / dist;
-                                const dot = this.vx * nx + this.vy * ny;
-                                this.vx = this.vx - 2 * dot * nx;
-                                this.vy = this.vy - 2 * dot * ny;
-                                const scatter = (Math.random() - 0.5) * 0.5; 
-                                const v = Math.sqrt(this.vx**2 + this.vy**2);
-                                const ang = Math.atan2(this.vy, this.vx) + scatter;
-                                this.vx = Math.cos(ang) * v;
-                                this.vy = Math.sin(ang) * v;
-                                this.x = cCenterX + nx * (cRadius - 2);
-                                this.y = cCenterY + ny * (cRadius - 2);
-                                this.life *= 0.8; 
-                            }
-                        }
-                    }
+            if (temp <= 66) {
+                red = 255;
+                green = temp;
+                green = 99.4708025861 * Math.log(green) - 161.1195681661;
+                if (temp <= 19) blue = 0;
+                else {
+                    blue = temp - 10;
+                    blue = 138.5177312231 * Math.log(blue) - 305.0447927307;
                 }
-                return this.life >= 0.01;
+            } else {
+                red = temp - 60;
+                red = 329.698727446 * Math.pow(red, -0.1332047592);
+                green = temp - 60;
+                green = 288.1221695283 * Math.pow(green, -0.0755148492);
+                blue = 255;
             }
-            draw() {
-                cCtx.beginPath();
-                cCtx.strokeStyle = `rgba(255, 215, 0, ${this.life})`; 
-                cCtx.lineWidth = 3; 
-                if(this.history.length>0) {
-                    cCtx.moveTo(this.history[0].x, this.history[0].y);
-                    for(let p of this.history) cCtx.lineTo(p.x, p.y);
-                    cCtx.lineTo(this.x, this.y);
-                }
-                cCtx.stroke();
-                cCtx.beginPath();
-                cCtx.fillStyle = `rgba(255, 255, 255, ${this.life})`;
-                cCtx.arc(this.x, this.y, 3, 0, Math.PI*2);
-                cCtx.fill();
-            }
+
+            const clamp = (x) => Math.floor(Math.min(255, Math.max(0, x)));
+            return { r: clamp(red), g: clamp(green), b: clamp(blue) };
         }
 
-        function shootRay() {
-            rays.push(new Ray());
-            setTimeout(() => rays.push(new Ray()), 60);
+        // 更新右上角圓球顏色與發光效果
+        function updateColorIndicator() {
+            const rgb = kelvinToRGB(state.temperature);
+            const circle = document.getElementById('color-circle');
+            
+            circle.style.backgroundColor = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            
+            // 溫度越高，發光範圍與亮度越強
+            let intensity = state.temperature / 10000;
+            let alpha = Math.min(1.0, 0.4 + intensity);
+            let glowSize = 20 + Math.min(60, intensity * 50);
+            
+            // 加入內陰影創造立體感，外陰影創造發光感
+            circle.style.boxShadow = `0 0 ${glowSize}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha}), inset -10px -10px 20px rgba(0,0,0,0.3)`;
         }
 
-        function drawCavity() {
-            cCtx.fillStyle = '#fff';
-            cCtx.fillRect(0, 0, cCanvas.width, cCanvas.height);
-            cCtx.beginPath();
-            const wallCenterRadius = cRadius + wallThickness / 2; 
-            cCtx.arc(cCenterX, cCenterY, wallCenterRadius, holeGapHalfAngle, 2 * Math.PI - holeGapHalfAngle);
-            cCtx.strokeStyle = '#555';
-            cCtx.lineWidth = wallThickness;
-            cCtx.stroke();
-            cCtx.beginPath();
-            cCtx.arc(cCenterX, cCenterY, cRadius, 0, 2*Math.PI);
-            cCtx.fillStyle = '#000'; 
-            cCtx.fill();
-            cCtx.fillStyle = "#666";
-            cCtx.font = "14px Arial";
-            cCtx.fillText("針孔 (Pinhole)", cCenterX + cRadius + 25, cCenterY + 5);
-        }
-
-        function animateCavity() {
-            if(currentTab === 'cavity') {
-                drawCavity();
-                for (let i = rays.length - 1; i >= 0; i--) {
-                    if (!rays[i].update()) rays.splice(i, 1);
-                    else rays[i].draw();
-                }
-            }
-            requestAnimationFrame(animateCavity);
-        }
-
-        // ==========================================
-        // PART 2: GRAPH LOGIC
-        // ==========================================
-        const gCanvas = document.getElementById('graphCanvas');
-        const gCtx = gCanvas.getContext('2d');
-        const scaleYSlider = document.getElementById('scaleYSlider');
-        const scaleXSlider = document.getElementById('scaleXSlider');
-        const graphTempSlider = document.getElementById('graphTempSlider');
-        const observerColorSwatch = document.getElementById('observerColor');
-        const cavityObserverColorSwatch = document.getElementById('cavityObserverColor');
-
-        function planckLaw(wavelengthNm, temperatureK) {
-            const lam = wavelengthNm * 1e-9;
+        // 普朗克定律函數
+        function planckLaw(lambdaNm, T) {
+            const lambda = lambdaNm * 1e-9;
             const c1 = 3.7418e-16;
             const c2 = 1.4388e-2;
-            if(lam <= 0 || temperatureK <= 0) return 0;
-            const expVal = c2 / (lam * temperatureK);
+            const expVal = c2 / (lambda * T);
             if(expVal > 100) return 0; 
-            return (c1 / Math.pow(lam, 5)) * (1 / (Math.exp(expVal) - 1));
+            return (c1 / Math.pow(lambda, 5)) * (1 / (Math.exp(expVal) - 1));
         }
 
-        function calculatePeakIntensity(temp) {
-            const peakLambda = 2.898e6 / temp;
-            return planckLaw(peakLambda, temp);
-        }
-
-        function setYScaleToFit(temp) {
-            const peak = calculatePeakIntensity(temp);
-            currentYMaxLimit = peak * 1.3; 
-            scaleYSlider.value = 100; 
-        }
-
-        function applyPreset(type) {
-            let t = 5500;
-            let xMax = 3000;
-            if (type === 'human') { t = 310; xMax = 25000; } 
-            else if (type === 'bulb') { t = 3000; xMax = 6000; } 
-            else if (type === 'sun') { t = 5500; xMax = 2500; } 
-            else if (type === 'star') { t = 12000; xMax = 1500; }
-            updateTemp(t, false); 
-            setYScaleToFit(t);
-            scaleXSlider.value = xMax;
-            updateGraph();
-        }
+        // ==========================================
+        // 2D 光譜圖表繪製
+        // ==========================================
+        const graphCanvas = document.getElementById('spectrumCanvas');
+        const ctx = graphCanvas.getContext('2d');
+        let peakAt5500 = 0;
 
         function drawGraph() {
-            const width = gCanvas.width;
-            const height = gCanvas.height;
-            const padding = { top: 30, right: 30, bottom: 50, left: 70 };
-            gCtx.clearRect(0, 0, width, height);
+            const container = document.getElementById('graph-container');
+            const w = graphCanvas.width = container.clientWidth;
+            const h = graphCanvas.height = container.clientHeight;
+            
+            // 讓圖表周圍有足夠留白，特別是右上角要避開顏色圓球
+            const padding = { top: 60, right: 160, bottom: 60, left: 80 };
+            const plotW = w - padding.left - padding.right;
+            const plotH = h - padding.top - padding.bottom;
 
-            const xMax = parseInt(scaleXSlider.value);
-            document.getElementById('xScaleVal').innerText = xMax + " nm";
+            ctx.clearRect(0, 0, w, h);
+
             const xMin = 100;
-            const sliderVal = parseInt(scaleYSlider.value);
-            let zoomFactor = 1;
-            if (sliderVal >= 100) zoomFactor = 1 / (1 + (sliderVal - 100) / 25); 
-            else zoomFactor = 1 + (100 - sliderVal) / 20; 
-
-            const effectiveYMax = currentYMaxLimit * zoomFactor;
-            const scaleX = (val) => padding.left + ((val - xMin) / (xMax - xMin)) * (width - padding.left - padding.right);
-            const scaleY = (val) => (height - padding.bottom) - (val / effectiveYMax) * (height - padding.top - padding.bottom);
-
-            // ============================================
-            // 修正 1：調整圖層順序，先畫網格線 (最底層)
-            // ============================================
-            gCtx.beginPath(); gCtx.strokeStyle="#e0e0e0"; gCtx.lineWidth=1;
-            const stepX = Math.round(xMax/5/500)*500 || 500;
-            for(let x=0; x<=xMax; x+=stepX) {
-                if(x<xMin) continue;
-                let px = scaleX(x);
-                // 只畫線，文字標籤留到最後畫，以免被光譜蓋住
-                gCtx.moveTo(px, padding.top); gCtx.lineTo(px, height-padding.bottom);
-            }
-            gCtx.stroke();
-
-            // ============================================
-            // 修正 2：接著畫光譜 (中間層)
-            // ============================================
-            const vS = scaleX(380);
-            const vE = scaleX(750);
-            gCtx.save();
-            gCtx.beginPath();
-            gCtx.rect(padding.left, padding.top, width-padding.left-padding.right, height-padding.bottom-padding.top);
-            gCtx.clip();
+            const xMax = state.xMax;
             
-            // 背景底色
-            gCtx.fillStyle = "#fffcfc"; gCtx.fillRect(vE, padding.top, width, height); // 紅外線區
-            gCtx.fillStyle = "#fcfcff"; gCtx.fillRect(0, padding.top, vS, height);    // 紫外線區
+            if(!peakAt5500) peakAt5500 = planckLaw(2.898e6 / 5500, 5500);
             
-            // 繪製彩虹 (可見光區)
-            if(vE > padding.left && vS < width) {
-                const grad = gCtx.createLinearGradient(Math.max(vS,0), 0, Math.min(vE,width), 0);
-                
-                // 調整：不透明度提升至 0.75，顏色更鮮豔且能稍微蓋過底下的網格線
-                grad.addColorStop(0.0, "rgba(100, 0, 200, 0.75)");   // 紫 (Violet)
-                grad.addColorStop(0.25, "rgba(0, 0, 255, 0.75)");    // 藍 (Blue)
-                grad.addColorStop(0.4, "rgba(0, 255, 255, 0.75)");   // 青 (Cyan)
-                grad.addColorStop(0.5, "rgba(0, 255, 0, 0.75)");     // 綠 (Green)
-                grad.addColorStop(0.7, "rgba(255, 255, 0, 0.75)");   // 黃 (Yellow)
-                grad.addColorStop(0.85, "rgba(255, 127, 0, 0.75)");  // 橙 (Orange)
-                grad.addColorStop(1.0, "rgba(255, 0, 0, 0.75)");     // 紅 (Red)
+            const zoomFactor = state.yZoom / 100;
+            let currentPeak = planckLaw(2.898e6 / state.temperature, state.temperature);
+            const yMax = Math.max(currentPeak * 1.2, peakAt5500 * 0.1) / zoomFactor; 
 
-                gCtx.fillStyle = grad;
-                gCtx.fillRect(Math.max(vS, padding.left), padding.top, Math.min(vE, width)-Math.max(vS, padding.left), height);
-            }
-            gCtx.restore();
+            const getX = (nm) => padding.left + ((nm - xMin) / (xMax - xMin)) * plotW;
+            const getY = (val) => padding.top + plotH - (val / yMax) * plotH;
 
-            // ============================================
-            // 修正 3：補上文字標籤與外框 (最上層)
-            // ============================================
-            
-            // 畫 X 軸文字 (因為剛才只畫了網格線)
-            gCtx.fillStyle = "#888"; gCtx.font="10px Arial"; gCtx.textAlign="center";
-            for(let x=0; x<=xMax; x+=stepX) {
-                if(x<xMin) continue;
-                let px = scaleX(x);
-                gCtx.fillText(x, px, height-padding.bottom+15);
+            // 1. 可見光譜背景帶 (380nm - 750nm)
+            const visStart = Math.max(padding.left, getX(380));
+            const visEnd = Math.min(w - padding.right, getX(750));
+            if (visStart < visEnd) {
+                const grad = ctx.createLinearGradient(visStart, 0, visEnd, 0);
+                grad.addColorStop(0, "rgba(138, 43, 226, 0.15)"); 
+                grad.addColorStop(0.2, "rgba(0, 0, 255, 0.15)");
+                grad.addColorStop(0.5, "rgba(0, 255, 0, 0.15)"); 
+                grad.addColorStop(0.8, "rgba(255, 255, 0, 0.15)");
+                grad.addColorStop(1, "rgba(255, 0, 0, 0.15)");
+                ctx.fillStyle = grad; 
+                ctx.fillRect(visStart, padding.top, visEnd - visStart, plotH);
             }
 
-            // 畫外框
-            gCtx.beginPath(); gCtx.strokeStyle="#333"; gCtx.lineWidth=2;
-            gCtx.moveTo(padding.left, padding.top); gCtx.lineTo(padding.left, height-padding.bottom);
-            gCtx.lineTo(width-padding.right, height-padding.bottom);
-            gCtx.stroke();
+            // 2. 繪製網格與軸線
+            ctx.strokeStyle = "#334155"; 
+            ctx.lineWidth = 1; 
+            ctx.beginPath();
             
-            // 畫軸標題
-            gCtx.fillStyle = "#333"; gCtx.font="12px Arial"; gCtx.textAlign = "center";
-            gCtx.fillText("波長 (nm)", width/2, height-10);
-            gCtx.save(); gCtx.rotate(-Math.PI/2);
-            gCtx.fillText("輻射強度 (Intensity)", -height/2, 20); gCtx.restore();
-
-            // 繪製黑體輻射曲線 (最顯眼)
-            gCtx.beginPath(); gCtx.lineWidth = 3;
-            if(currentTemp < 1000) gCtx.strokeStyle = "#888";
-            else if(currentTemp < 3500) gCtx.strokeStyle = "#e74c3c";
-            else if(currentTemp < 6000) gCtx.strokeStyle = "#f39c12";
-            else gCtx.strokeStyle = "#3498db";
-
-            const stepDraw = xMax / 400; let first = true;
-            for(let lam=xMin; lam<=xMax; lam+=stepDraw) {
-                let val = planckLaw(lam, currentTemp);
-                let px = scaleX(lam);
-                let py = scaleY(val);
-                if(py < padding.top) py = padding.top - 5; 
-                if(first) { gCtx.moveTo(px, py); first=false; } else gCtx.lineTo(px, py);
+            // 決定適當的 X 軸刻度間距
+            const xStep = Math.round((xMax - xMin) / 8 / 500) * 500 || 500;
+            for(let i = xMin; i <= xMax; i += xStep) {
+                let x = getX(i); 
+                ctx.moveTo(x, padding.top); 
+                ctx.lineTo(x, padding.top + plotH);
             }
-            gCtx.stroke();
+            ctx.stroke();
 
-            // 繪製峰值點
-            const peakNm = 2.898e6 / currentTemp;
+            // 繪製 X 軸與 Y 軸主線
+            ctx.strokeStyle = "#94a3b8"; 
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, padding.top); 
+            ctx.lineTo(padding.left, padding.top + plotH);
+            ctx.lineTo(w - padding.right, padding.top + plotH); 
+            ctx.stroke();
+
+            // 軸線文字標籤
+            ctx.fillStyle = "#94a3b8"; 
+            ctx.font = "12px sans-serif"; 
+            ctx.textAlign = "center";
+            for(let i = xMin; i <= xMax; i += xStep) {
+                if(i === xMin) continue; 
+                ctx.fillText(i, getX(i), padding.top + plotH + 20);
+            }
+            ctx.font = "bold 14px sans-serif";
+            ctx.fillText("波長 Wavelength (nm)", padding.left + plotW / 2, padding.top + plotH + 45);
+            
+            ctx.save(); 
+            ctx.translate(padding.left - 20, padding.top + plotH / 2);
+            ctx.rotate(-Math.PI/2); 
+            ctx.fillText("輻射強度 Intensity", 0, -20); 
+            ctx.restore();
+
+            // 3. 普朗克發光曲線
+            const rgb = kelvinToRGB(state.temperature);
+            const curveColorStr = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            
+            ctx.beginPath();
+            let first = true; 
+            const pathPoints = []; 
+            
+            // 提高採樣率讓曲線平滑
+            for(let nm = xMin; nm <= xMax; nm += (xMax-xMin)/300) {
+                let val = planckLaw(nm, state.temperature);
+                let x = getX(nm); 
+                let y = getY(val);
+                y = Math.max(padding.top, Math.min(y, padding.top + plotH));
+                pathPoints.push({x, y});
+                if(first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+            }
+
+            // 發光曲線樣式
+            ctx.strokeStyle = curveColorStr; 
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15; 
+            ctx.shadowColor = curveColorStr; 
+            ctx.stroke(); 
+            ctx.shadowBlur = 0; // 關閉陰影避免影響下方漸層
+
+            // 曲線下方漸層填色
+            if (pathPoints.length > 0) {
+                ctx.lineTo(pathPoints[pathPoints.length-1].x, padding.top + plotH);
+                ctx.lineTo(pathPoints[0].x, padding.top + plotH); 
+                ctx.closePath();
+                const fillGrad = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotH);
+                fillGrad.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`); 
+                fillGrad.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.0)`);
+                ctx.fillStyle = fillGrad; 
+                ctx.fill();
+            }
+
+            // 4. 標示波峰 (Peak Wavelength)
+            const peakNm = 2.898e6 / state.temperature;
             if(peakNm > xMin && peakNm < xMax) {
-                let px = scaleX(peakNm);
-                let val = planckLaw(peakNm, currentTemp);
-                let py = scaleY(val);
-                if(py >= padding.top && py <= height-padding.bottom) {
-                    gCtx.fillStyle = "#333";
-                    gCtx.beginPath(); gCtx.arc(px, py, 4, 0, Math.PI*2); gCtx.fill();
-                    gCtx.fillText(`${Math.round(peakNm)}nm`, px, py-10);
+                let px = getX(peakNm); 
+                let py = getY(planckLaw(peakNm, state.temperature));
+                if(py >= padding.top && py <= padding.top + plotH) {
+                    ctx.beginPath(); 
+                    ctx.arc(px, py, 5, 0, Math.PI*2);
+                    ctx.fillStyle = "#fff"; 
+                    ctx.fill(); 
+                    ctx.strokeStyle = curveColorStr; 
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "bold 14px sans-serif"; 
+                    ctx.textAlign = "center";
+                    ctx.fillText(`λmax: ${Math.round(peakNm)}nm`, px, py - 15);
                 }
             }
         }
 
-        function updateGraph() {
-            if(currentTab === 'graph') requestAnimationFrame(drawGraph);
+        // 同步更新圖表與顏色圓球
+        function updateVisuals() {
+            updateColorIndicator();
+            drawGraph();
         }
 
-        function updateTemp(val, autoFit = true) {
-            currentTemp = parseInt(val);
-            document.getElementById('cavityTempDisplay').innerText = currentTemp + " K";
-            document.getElementById('graphTempDisplay').innerText = currentTemp + " K";
-            document.getElementById('cavityTempSlider').value = currentTemp;
-            graphTempSlider.value = currentTemp;
+        // ==========================================
+        // 系統初始化與事件監聽
+        // ==========================================
+        window.addEventListener('resize', () => {
+            // 視窗縮放時自動重繪 Canvas 以適應新大小
+            drawGraph();
+        });
 
-            let color = ""; let shadow = "";
-            if (currentTemp < 800) { color = "#110000"; shadow = "none"; } 
-            else if (currentTemp < 2000) { color = "rgb(180, 20, 0)"; shadow = "0 0 15px rgba(180, 20, 0, 0.6)"; } 
-            else if (currentTemp < 3500) { color = "rgb(255, 100, 0)"; shadow = "0 0 25px rgba(255, 100, 0, 0.8)"; } 
-            else if (currentTemp < 5500) { color = "rgb(255, 220, 150)"; shadow = "0 0 35px rgba(255, 220, 150, 0.9)"; } 
-            else { color = "rgb(200, 230, 255)"; shadow = "0 0 40px rgba(150, 200, 255, 1.0)"; }
-            
-            observerColorSwatch.style.backgroundColor = color;
-            observerColorSwatch.style.boxShadow = shadow;
-            cavityObserverColorSwatch.style.backgroundColor = color;
-            cavityObserverColorSwatch.style.boxShadow = shadow;
+        // 初始化執行
+        updateVisuals();
 
-            if(autoFit) { /* setYScaleToFit(currentTemp); */ }
-            updateGraph();
-        }
-
-        document.getElementById('cavityTempSlider').addEventListener('input', (e) => updateTemp(e.target.value));
-        graphTempSlider.addEventListener('input', (e) => updateTemp(e.target.value));
-        scaleYSlider.addEventListener('input', updateGraph);
-        scaleXSlider.addEventListener('input', updateGraph);
-        
     </script>
 </body>
 </html>
