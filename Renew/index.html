@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-classroom-home="true">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#163e9f">
+  <meta name="description" content="為高中物理課堂設計的互動探究實驗室，支援手機、平板與電腦。">
+  <title>瑋澤老師的物理探究實驗室</title>
+  <link rel="stylesheet" href="classroom-home.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-home.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#activity-grid">跳到實驗清單</a>
+  <header class="site-header">
+    <nav class="topbar" aria-label="網站導覽">
+      <a class="brand" href="index.html" aria-label="物理探究實驗室首頁">
+        <span class="brand-mark" aria-hidden="true">φ</span>
+        <span><strong>PHYSICS LAB</strong><small>瑋澤老師的互動教室</small></span>
+      </a>
+      <div class="topbar-tools">
+        <a href="notebook.html"><span aria-hidden="true">✎</span> 學習紀錄</a>
+        <a href="compare.html"><span aria-hidden="true">⇄</span> 雙模擬比較</a>
+        <a href="lesson.html" id="studio-link"><span aria-hidden="true">◫</span> 課堂展示台 <b id="studio-plan-count">0</b></a>
+      </div>
+      <div class="device-status" aria-live="polite">
+        <span class="device-symbol" aria-hidden="true">▰</span>
+        <span><strong id="device-label">正在辨識裝置</strong><small id="device-hint">準備最合適的操作介面</small></span>
+      </div>
+    </nav>
+
+    <div class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">預測 · 操作 · 解釋</p>
+        <h1>把物理現象<br><span>變成可以親手驗證的問題。</span></h1>
+        <p class="hero-lead">32 個互動模擬，不只展示動畫。每一頁都有探究任務、關鍵提問與老師展示節奏，讓學生從觀察走到解釋。</p>
+        <div class="role-picker" aria-label="選擇使用模式">
+          <span class="role-label">我要用：</span>
+          <button class="role-button active" type="button" data-role="student" aria-pressed="true"><span aria-hidden="true">◎</span> 學生探索</button>
+          <button class="role-button" type="button" data-role="teacher" aria-pressed="false"><span aria-hidden="true">◫</span> 老師展示</button>
+        </div>
+        <a class="hero-action" href="#explore">選一個問題開始探究 <span aria-hidden="true">↓</span></a>
+      </div>
+
+      <div class="hero-orbit" aria-hidden="true">
+        <div class="orbit orbit-one"><span></span></div>
+        <div class="orbit orbit-two"><span></span></div>
+        <div class="orbit-core">F</div>
+        <div class="formula formula-one">E = hf</div>
+        <div class="formula formula-two">ΣF = ma</div>
+        <div class="formula formula-three">v = fλ</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="inquiry-band" aria-labelledby="inquiry-title">
+      <div class="section-kicker"><span>01</span><p>一堂課的共同語言</p></div>
+      <div class="inquiry-intro">
+        <h2 id="inquiry-title">每個模擬，都從一個好問題開始。</h2>
+        <p>同一套三步驟可以用於個人探索、小組討論，也適合投影到全班共同推理。</p>
+      </div>
+      <ol class="inquiry-flow">
+        <li><span class="flow-number">1</span><div><strong>先預測</strong><p>操作前先說出方向、大小或圖形趨勢。</p></div></li>
+        <li><span class="flow-number">2</span><div><strong>找證據</strong><p>一次只改一個變因，停下來讀圖與數值。</p></div></li>
+        <li><span class="flow-number">3</span><div><strong>能解釋</strong><p>用物理定律把預測和觀察連起來。</p></div></li>
+      </ol>
+    </section>
+
+    <section class="pathways" aria-labelledby="pathways-title">
+      <div class="section-kicker"><span>02</span><p>概念串連課程</p></div>
+      <div class="pathways-heading"><div><h2 id="pathways-title">不要只看一個動畫，沿著問題走完整條概念路徑。</h2><p>每條路徑把 4–6 個模擬排成一堂課；學生依序探索，老師則可一鍵載入展示台。</p></div><span class="path-role-hint" id="path-role-hint">學生模式：從第一站開始</span></div>
+      <div class="pathway-grid" id="pathway-grid"></div>
+    </section>
+
+    <section class="catalog" id="explore" aria-labelledby="catalog-title">
+      <div class="section-kicker"><span>03</span><p>選擇探究主題</p></div>
+      <div class="catalog-heading">
+        <div>
+          <h2 id="catalog-title">今天想弄懂哪個現象？</h2>
+          <p id="result-summary">載入互動實驗中…</p>
+        </div>
+        <label class="search-box">
+          <span aria-hidden="true">⌕</span>
+          <span class="sr-only">搜尋物理實驗</span>
+          <input id="activity-search" type="search" placeholder="搜尋：摩擦、波動、光電效應…" autocomplete="off">
+          <kbd>/</kbd>
+        </label>
+      </div>
+
+      <div class="filter-row" id="category-filters" role="toolbar" aria-label="依領域篩選"></div>
+      <div class="activity-grid" id="activity-grid" aria-live="polite"></div>
+      <div class="empty-state" id="empty-state" hidden>
+        <span aria-hidden="true">?</span>
+        <h3>找不到符合的實驗</h3>
+        <p>換一個關鍵字，或改選其他物理領域。</p>
+        <button type="button" id="clear-search">清除搜尋</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div><strong>瑋澤老師的物理探究實驗室</strong><p>為課堂展示、分組探究與自主學習重新整理。</p></div>
+    <a href="https://forms.gle/BY8D79neJCmNMdeh9" target="_blank" rel="noopener noreferrer">回報問題或提出新實驗建議 ↗</a>
+  </footer>
+
+  <noscript>請開啟 JavaScript 以瀏覽與篩選互動實驗。</noscript>
+</body>
+</html>

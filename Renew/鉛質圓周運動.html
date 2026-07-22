@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>鉛直圓周運動 - 跨裝置物理教學版</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #e2e8f0;
+            --bg-glass: rgba(255, 255, 255, 0.95);
+            --border-glass: rgba(0, 0, 0, 0.1);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --color-half: #f59e0b;
+            --color-top: #e11d48; 
+            --color-speed: #10b981; 
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-main);
+        }
+        
+        #webgl-canvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
+
+        /* --- 左上角：物理原理解析 --- */
+        #info-panel {
+            position: absolute; top: 15px; left: 15px; width: clamp(280px, 90vw, 360px);
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: 12px; backdrop-filter: blur(10px);
+            overflow: hidden; transition: max-height 0.4s ease;
+            max-height: 52px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); z-index: 20;
+        }
+        #info-panel.expanded { max-height: 50vh; overflow-y: auto; }
+        .info-header {
+            padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between;
+            font-weight: bold; color: var(--primary); font-size: clamp(1rem, 4vw, 1.1rem); user-select: none;
+        }
+        .info-header:hover { background: rgba(0,0,0,0.03); }
+        .info-content {
+            padding: 0 15px 15px 15px; font-size: clamp(0.85rem, 3.5vw, 0.95rem); line-height: 1.6; color: #475569;
+        }
+
+        /* --- 左下角：全螢幕按鈕 --- */
+        #fullscreen-btn {
+            position: absolute; bottom: 20px; left: 20px; width: 44px; height: 44px;
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: 50%; color: var(--text-main); font-size: 1.2rem;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.08); backdrop-filter: blur(10px);
+            transition: 0.2s;
+        }
+        #fullscreen-btn:hover { background: #e2e8f0; }
+
+        /* --- 左下角：即時數據 HUD --- */
+        #hud-panel {
+            position: absolute; bottom: 80px; left: 20px; width: clamp(180px, 45vw, 220px);
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: 12px; padding: 12px 15px; backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); pointer-events: none; z-index: 10;
+            transition: all 0.4s ease;
+        }
+        .hud-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: clamp(0.8rem, 3.5vw, 0.95rem); }
+        .hud-value { font-family: monospace; color: var(--primary); font-weight: bold; font-size: clamp(0.95rem, 4vw, 1.1rem); }
+        .bar-container { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; margin-top: 5px; display: flex; overflow: hidden; }
+        .bar-k { background: #10b981; height: 100%; transition: width 0.05s; }
+        .bar-u { background: #3b82f6; height: 100%; transition: width 0.05s; }
+
+        /* --- 右側：操作面板 (RWD) --- */
+        #control-panel {
+            position: absolute; right: 20px; top: 20px;
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: 16px; backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; flex-direction: column;
+            z-index: 30; width: 340px; overflow: hidden;
+            max-height: 60px; transition: max-height 0.4s ease, bottom 0.4s, top 0.4s;
+        }
+        #control-panel.expanded { max-height: 85vh; overflow-y: auto; }
+        .control-header {
+            padding: 16px 20px; cursor: pointer; display: flex; justify-content: space-between;
+            font-weight: bold; color: var(--text-main); font-size: clamp(1rem, 4vw, 1.15rem); user-select: none;
+            background: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(0,0,0,0.05);
+            position: sticky; top: 0; z-index: 10;
+        }
+        .control-body { padding: 15px 20px; display: flex; flex-direction: column; gap: 12px; }
+        
+        .mode-selector { display: flex; gap: 5px; background: #f1f5f9; padding: 5px; border-radius: 10px; border: 1px solid #cbd5e1; }
+        .mode-btn {
+            flex: 1; padding: 8px 0; border: none; border-radius: 6px; background: transparent;
+            font-weight: bold; font-size: clamp(0.75rem, 3.5vw, 0.9rem); color: #64748b; cursor: pointer; transition: 0.2s;
+        }
+        .mode-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
+
+        /* 動態公式 */
+        .formula-box {
+            background: #eff6ff; border-left: 4px solid var(--primary);
+            padding: 12px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-family: 'Times New Roman', Times, serif; font-size: clamp(1.3rem, 5vw, 1.6rem);
+            color: #1e3a8a; min-height: 45px;
+        }
+        
+        /* 模式三專屬選單 */
+        #mode3-options {
+            display: none; flex-direction: column; gap: 8px; margin-top: 5px; padding: 12px;
+            background: rgba(0,0,0,0.03); border-radius: 8px; border: 1px solid rgba(0,0,0,0.05);
+        }
+        .mode3-label {
+            display: flex; align-items: center; gap: 8px; cursor: pointer;
+            font-size: clamp(0.85rem, 3.5vw, 0.95rem); font-weight: bold;
+        }
+
+        /* 拉桿系統 */
+        .slider-group { display: flex; flex-direction: column; gap: 6px; transition: opacity 0.3s; }
+        .slider-header { display: flex; justify-content: space-between; font-weight: bold; font-size: clamp(0.9rem, 3.5vw, 1rem); }
+        .slider-value { color: var(--primary); font-family: monospace; font-size: clamp(1rem, 4vw, 1.2rem); }
+        .slider-wrapper { position: relative; padding: 12px 0; margin: 2px 0; }
+        .custom-track {
+            position: absolute; top: 50%; left: 0; right: 0;
+            height: 8px; background: #cbd5e1; border-radius: 4px;
+            transform: translateY(-50%); z-index: 1; pointer-events: none;
+        }
+        input[type=range] { 
+            -webkit-appearance: none; width: 100%; background: transparent; 
+            margin: 0; position: relative; z-index: 3; cursor: pointer;
+        }
+        #x-slider::-webkit-slider-runnable-track { width: 100%; height: 8px; background: transparent; }
+        #zoom-slider::-webkit-slider-runnable-track { width: 100%; height: 8px; background: #cbd5e1; border-radius: 4px; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 26px; width: 26px; border-radius: 50%;
+            background: var(--primary); margin-top: -9px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: 0.1s; position: relative; z-index: 4;
+        }
+        input[type=range]:disabled::-webkit-slider-thumb { background: #94a3b8; cursor: not-allowed; }
+        #zoom-slider::-webkit-slider-thumb { height: 20px; width: 20px; margin-top: -6px; }
+        input[type=range]:not(:disabled)::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        
+        .slider-marker {
+            position: absolute; top: 50%; transform: translate(-50%, -50%);
+            width: 5px; height: 20px; border-radius: 2px; z-index: 2; pointer-events: none; display: none;
+        }
+        .marker-half { background-color: var(--color-half); }
+        .marker-top { background-color: var(--color-top); }
+
+        .quick-btn-group { display: flex; flex-direction: column; gap: 6px; }
+        .quick-btn {
+            background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px;
+            font-size: clamp(0.85rem, 3.5vw, 0.95rem); color: #334155; cursor: pointer; transition: 0.2s; font-weight: bold;
+        }
+        .quick-btn:active { background: #e2e8f0; }
+
+        .action-btn-group { display: flex; gap: 8px; margin-top: 5px; }
+        button.action {
+            flex: 1; padding: 12px; border: none; border-radius: 8px;
+            background: #e2e8f0; color: #475569; font-weight: bold; font-size: clamp(0.95rem, 4vw, 1.1rem);
+            cursor: pointer; transition: 0.2s;
+        }
+        button.action.primary { background: var(--primary); color: white; }
+        button.action:active { transform: translateY(2px); }
+
+        /* 3D 空間動態 HTML 標籤 */
+        .floating-label {
+            position: absolute; font-weight: 900; font-family: 'Segoe UI', sans-serif;
+            pointer-events: none; display: none; transform: translate(-50%, -50%);
+            text-shadow: 2px 2px 0 #fff, -2px 2px 0 #fff, 2px -2px 0 #fff, -2px -2px 0 #fff; z-index: 10;
+        }
+        #height-label { color: var(--color-top); font-size: clamp(1.1rem, 4vw, 1.3rem); }
+        #diameter-label { color: #f97316; font-size: clamp(1rem, 3.5vw, 1.2rem); transform: translate(-100%, -50%); }
+        #release-height-label { color: #f97316; font-size: clamp(1.1rem, 4vw, 1.3rem); transform: translate(-100%, -50%); }
+
+        /* 模式三專屬：公式速度標籤 */
+        .speed-label {
+            color: var(--color-speed); font-size: clamp(1.05rem, 3.5vw, 1.25rem);
+            font-family: 'Times New Roman', Times, serif; font-weight: normal;
+            background: rgba(255, 255, 255, 0.9); padding: 6px 12px;
+            border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.4);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-shadow: none; backdrop-filter: blur(4px);
+            display: flex; align-items: center;
+        }
+
+        /* 模式三專屬：力向量標籤 (無背景、純文字配白邊、字體加大) */
+        .force-label {
+            font-family: 'Times New Roman', Times, serif; font-size: clamp(1.3rem, 4vw, 1.6rem);
+            font-style: italic; font-weight: bold; background: transparent;
+            padding: 0; border: none; box-shadow: none; backdrop-filter: none;
+            /* 加上強烈的白色邊緣，確保在任何背景下都能清晰閱讀 */
+            text-shadow: 
+                -2px -2px 0 rgba(255,255,255,0.9),  
+                 2px -2px 0 rgba(255,255,255,0.9),
+                -2px  2px 0 rgba(255,255,255,0.9),
+                 2px  2px 0 rgba(255,255,255,0.9),
+                 0px  0px 8px rgba(255,255,255,1);
+        }
+
+        /* 視角縮放拉桿 (正下方) */
+        #zoom-panel {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: 20px; padding: 12px 30px; backdrop-filter: blur(10px);
+            display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); z-index: 20;
+            width: 300px;
+        }
+        #zoom-panel span { font-weight: bold; font-size: 1.1rem; color: var(--text-main); white-space: nowrap; }
+
+        @media (max-width: 768px) {
+            #control-panel {
+                top: 15px; right: 15px; bottom: auto; left: auto;
+                transform-origin: top right; transform: scale(0.75); 
+            }
+            #control-panel.expanded { max-height: 85vh; }
+            #hud-panel {
+                top: 15px; left: 15px; bottom: auto;
+                transform-origin: top left; transform: scale(0.85); 
+            }
+            #fullscreen-btn { bottom: 20px; left: 15px; }
+            #info-panel { display: none; } 
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+            }
+        }
+    </script>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+    <div id="info-panel" class="">
+        <div class="info-header" id="info-toggle">
+            <span>📖 物理原理解析</span><span id="toggle-icon">▼</span>
+        </div>
+        <div class="info-content">
+            <b>力學能守恆</b><br>
+            在無摩擦力的理想軌道上，物體的動能與重力位能總和保持不變。<br><br>
+            <b>臨界向心力條件</b><br>
+            欲使物體恰能通過圓周最高點，此時軌道正向力必須為零，僅由重力提供向心力（ mg = m&middot;v&sup2;/R ），此時臨界速度為 &radic;(gR)。<br><br>
+            根據力學能守恆，若由平地發射，初速至少需達 &radic;(5gR)；若由斜坡靜止釋放，起始高度至少需達 2.5R。
+        </div>
+    </div>
+
+    <div id="hud-panel">
+        <div class="hud-row"><span>速度 (v):</span> <span class="hud-value" id="hud-v">0.00</span></div>
+        <div class="hud-row"><span>高度 (h):</span> <span class="hud-value" id="hud-h">0.00</span></div>
+        <div style="font-size: 0.75rem; margin-top: 5px; color: var(--text-muted);">動能(綠) / 位能(藍)</div>
+        <div class="bar-container">
+            <div class="bar-k" id="bar-k" style="width: 100%;"></div>
+            <div class="bar-u" id="bar-u" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <button id="fullscreen-btn" title="切換全螢幕">⛶</button>
+
+    <div id="control-panel" class="expanded">
+        <div class="control-header" id="control-toggle">
+            <span>⚙️ 實驗參數調整</span><span id="control-toggle-icon">▲</span>
+        </div>
+        <div class="control-body">
+            <div class="mode-selector">
+                <button class="mode-btn active" id="mode1-btn">斜坡滑落</button>
+                <button class="mode-btn" id="mode2-btn">平地發射</button>
+                <button class="mode-btn" id="mode3-btn">連續繞圓</button>
+            </div>
+            
+            <div class="formula-box" id="ui-formula"></div>
+            
+            <div class="slider-group" id="slider-group-container">
+                <div class="slider-header">
+                    <span id="ui-slider-label">放置高度倍數 (x)</span>
+                    <span class="slider-value" id="x-display">2.0</span>
+                </div>
+                <div class="slider-wrapper">
+                    <div class="custom-track"></div>
+                    <div id="marker-half" class="slider-marker marker-half" title="一半高度"></div>
+                    <div id="marker-top" class="slider-marker marker-top" title="最高點"></div>
+                    <input type="range" id="x-slider" min="0" max="4" step="0.1" value="2.0">
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); text-align: right; font-weight: bold;" id="v-display"></div>
+            </div>
+
+            <!-- 模式三專屬附加選項 -->
+            <div id="mode3-options">
+                <label class="mode3-label" style="color: var(--primary);">
+                    <input type="checkbox" id="cb-string-mode"> 繩子模型 (隱藏軌道)
+                </label>
+                <label class="mode3-label" style="color: #ca8a04;">
+                    <input type="checkbox" id="cb-show-force"> 顯示向心力 (Fc)
+                </label>
+                <label id="label-decompose" class="mode3-label" style="display: none; padding-left: 24px; color: #0891b2;">
+                    <input type="checkbox" id="cb-decompose-force"> <span id="decompose-text">分解為正向力 (N) 與重力 (mg)</span>
+                </label>
+            </div>
+
+            <div class="slider-group" style="margin-top:5px;">
+                <div class="slider-header"><span style="color:#64748b; font-size:0.9rem;">🔍 視角縮放</span></div>
+                <input type="range" id="zoom-slider" min="0.3" max="1.5" step="0.01" value="0.75">
+            </div>
+
+            <div class="quick-btn-group" id="answer-container">
+                <button class="quick-btn" id="btn-show-answer" style="background:var(--primary); color:white; border:none;">【 顯示答案 】</button>
+                <div id="answer-buttons" style="display: none; flex-direction: column; gap: 8px;">
+                    <button class="quick-btn" id="btn-quick-top"><span style="color:var(--color-top); font-size:1.4em; vertical-align:middle; line-height:0;">&bull;</span> 恰好繞到最高點</button>
+                    <button class="quick-btn" id="btn-quick-half"><span style="color:var(--color-half); font-size:1.4em; vertical-align:middle; line-height:0;">&bull;</span> 剛好到一半高度</button>
+                </div>
+            </div>
+
+            <div class="action-btn-group">
+                <button class="action" id="btn-reset">↺ 歸位</button>
+                <button class="action primary" id="btn-launch">▶ 啟動模擬</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 空間浮動標籤 -->
+    <div id="height-label" class="floating-label">0.00 R</div>
+    <div id="diameter-label" class="floating-label">2 R</div>
+    <div id="release-height-label" class="floating-label">H = 2.0 R</div>
+    
+    <!-- 模式三專屬速度標籤 -->
+    <div id="sl-top" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">1gR</div>
+        </div>
+    </div>
+    <div id="sl-mid-r" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">3gR</div>
+        </div>
+    </div>
+    <div id="sl-mid-l" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">3gR</div>
+        </div>
+    </div>
+    <div id="sl-bot" class="floating-label speed-label">
+        <span style="font-style:italic; font-weight:bold; margin-right:4px;">v</span> =
+        <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+            <svg width="15" height="26" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-1.5px;">
+                <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="var(--color-speed)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div style="border-top: 2.5px solid var(--color-speed); margin-top: 2.5px; padding: 1px 5px 0 2px; line-height:1.2; font-weight:bold;">5gR</div>
+        </div>
+    </div>
+
+    <!-- 模式三專屬：力學向量標籤 -->
+    <div id="fc-label" class="floating-label force-label" style="color: #eab308;">Fc</div>
+    <div id="t-label" class="floating-label force-label" style="color: #06b6d4;">N</div>
+    <div id="mg-label" class="floating-label force-label" style="color: #10b981;">mg</div>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import * as CANNON from 'cannon-es';
+
+        // --- 自訂立體粗箭頭類別 (突破 WebGL 線寬 1px 限制) ---
+        class ThickArrow extends THREE.Group {
+            constructor(dir, origin, length, color, headLength = 0.8, headWidth = 0.6) {
+                super();
+                this.color = color;
+                // 使用 Basic 材質保持與原本相同的亮度與純色感
+                const mat = new THREE.MeshBasicMaterial({ color: color });
+                
+                // 箭身 (圓柱體)，將原點移至底部
+                const shaftGeom = new THREE.CylinderGeometry(1, 1, 1, 12);
+                shaftGeom.translate(0, 0.5, 0);
+                
+                // 箭頭 (圓錐體)，將原點移至底部
+                const headGeom = new THREE.ConeGeometry(1, 1, 12);
+                headGeom.translate(0, 0.5, 0);
+                
+                this.shaft = new THREE.Mesh(shaftGeom, mat);
+                this.head = new THREE.Mesh(headGeom, mat);
+                
+                this.add(this.shaft);
+                this.add(this.head);
+                
+                this.position.copy(origin);
+                this.setDirection(dir);
+                this.setLength(length, headLength, headWidth);
+            }
+            
+            setDirection(dir) {
+                if (dir.lengthSq() > 0.0001) {
+                    this.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+                }
+            }
+            
+            setLength(length, headLength = 0.8, headWidth = 0.6) {
+                // 這裡控制箭身的粗細 (原本 1px 的線，現在設定為實體半徑 0.12)
+                const shaftRadius = 0.12; 
+                
+                // 動態保護，避免向量太短時產生破圖矩陣
+                const actualHeadLength = Math.max(0.0001, Math.min(length, headLength));
+                const shaftLength = Math.max(0.0001, length - actualHeadLength);
+                
+                this.shaft.scale.set(shaftRadius, shaftLength, shaftRadius);
+                this.head.scale.set(headWidth / 2, actualHeadLength, headWidth / 2);
+                this.head.position.y = shaftLength;
+            }
+        }
+
+        document.getElementById('fullscreen-btn').addEventListener('click', function() {
+            if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); this.innerText = '✕'; } 
+            else { if (document.exitFullscreen) { document.exitFullscreen(); this.innerText = '⛶'; } }
+        });
+
+        const togglePanel = (btnId, panelId, iconId) => {
+            document.getElementById(btnId).addEventListener('click', () => {
+                const panel = document.getElementById(panelId);
+                panel.classList.toggle('expanded');
+                document.getElementById(iconId).innerText = panel.classList.contains('expanded') ? '▲' : '▼';
+            });
+        };
+        togglePanel('info-toggle', 'info-panel', 'toggle-icon');
+        togglePanel('control-toggle', 'control-panel', 'control-toggle-icon');
+
+        function collapseAllPanels() {
+            document.getElementById('info-panel').classList.remove('expanded');
+            document.getElementById('toggle-icon').innerText = '▼';
+            document.getElementById('control-panel').classList.remove('expanded');
+            document.getElementById('control-toggle-icon').innerText = '▼';
+        }
+        function expandAllPanels() {
+            document.getElementById('control-panel').classList.add('expanded');
+            document.getElementById('control-toggle-icon').innerText = '▲';
+        }
+
+        let scene, camera, renderer, controls, world;
+        let sphereMesh, sphereBody;
+        let straightTrackMesh, rampTrackMesh, torusRightMesh, torusFullMesh, stringLine;
+        let trailGeometry, trailLine;
+        const trailPositions = [];
+        
+        let heightArrow, diameterLine, releaseHeightArrow, velocityArrow;
+        let fcArrow, tArrow, mgArrow;
+        
+        const heightLabel = document.getElementById('height-label');
+        const diameterLabel = document.getElementById('diameter-label');
+        const releaseHeightLabel = document.getElementById('release-height-label');
+        const fcLabel = document.getElementById('fc-label');
+        const tLabel = document.getElementById('t-label');
+        const mgLabel = document.getElementById('mg-label');
+
+        let isSimulating = false;
+        let currentMode = 1; 
+        let ballState = 'ready'; 
+        let trappedInLoop = false; 
+        let bounceCount = 0;     
+        let initialMaxEnergy = 0;
+        let maxReachedH = 0;
+        let lastTime;
+
+        const config = { gravity: 9.8, mass: 1, ballRadius: 0.5 };
+        const R = 5.0;      
+        const tubeR = 0.15; 
+        const CY = 5.5;     
+
+        const xSlider = document.getElementById('x-slider');
+        const uiFormula = document.getElementById('ui-formula');
+        const vDisplay = document.getElementById('v-display');
+        
+        const cbStringMode = document.getElementById('cb-string-mode');
+        const cbShowForce = document.getElementById('cb-show-force');
+        const cbDecomposeForce = document.getElementById('cb-decompose-force');
+        const labelDecompose = document.getElementById('label-decompose');
+
+        function getCenterPathY(x, mode) {
+            if (mode === 2 || mode === 3) return 0.5; 
+            if (x >= 0) return 0.5;
+            if (x >= -3) return 0.25 * x * x + 0.5; 
+            return -1.5 * x - 1.75; 
+        }
+        function getCenterPathYPrime(x, mode) {
+            if (mode === 2 || mode === 3) return 0;
+            if (x >= 0) return 0;
+            if (x >= -3) return 0.5 * x;
+            return -1.5;
+        }
+        function findXForHeight(targetY, mode) {
+            if (mode === 2 || mode === 3) return -12;
+            if (targetY <= 0.5) return 0;
+            if (targetY <= 2.75) return -Math.sqrt((targetY - 0.5) / 0.25);
+            return -(targetY + 1.75) / 1.5;
+        }
+
+        function updateUI() {
+            const xStr = parseFloat(xSlider.value).toFixed(1);
+            document.getElementById('x-display').innerText = xStr;
+            
+            if (currentMode === 2 || currentMode === 3) {
+                uiFormula.innerHTML = `
+                    <span style="font-style:italic; font-weight:bold; margin-right:6px;">v</span> =
+                    <div style="display:inline-flex; align-items:stretch; margin-left:4px;">
+                        <svg width="20" height="34" viewBox="0 0 20 40" preserveAspectRatio="none" style="flex-shrink:0; margin-right:-2px;">
+                            <path d="M2,24 L6,24 L9,36 L18,4 L20,4" fill="none" stroke="#1e3a8a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        <div style="border-top: 2.5px solid #1e3a8a; margin-top: 3px; padding: 2px 6px 0 2px; line-height:1.2; font-weight:bold;">
+                            ${xStr} &middot; gR
+                        </div>
+                    </div>
+                `;
+                const v = Math.sqrt(parseFloat(xStr) * config.gravity * R);
+                vDisplay.innerText = `計算初速: ${v.toFixed(2)} m/s`;
+            } else {
+                uiFormula.innerHTML = `<span style="font-style:italic; font-weight:bold;">H</span>&nbsp;=&nbsp;${xStr}&nbsp;&middot;&nbsp;R`;
+                const h = parseFloat(xStr) * R;
+                vDisplay.innerText = `釋放高度: ${h.toFixed(2)} m`;
+            }
+
+            if (!isSimulating && ballState === 'ready') {
+                const targetY = (currentMode === 2 || currentMode === 3) ? 0.5 : parseFloat(xStr) * R + 0.5;
+                const targetX = findXForHeight(targetY, currentMode);
+                sphereBody.position.set(targetX, targetY, 0);
+                sphereBody.velocity.set(0,0,0);
+                sphereMesh.position.copy(sphereBody.position);
+
+                if (currentMode === 1 && releaseHeightArrow) {
+                    const arrowX = targetX - 1.2;
+                    releaseHeightArrow.position.set(arrowX, 0.5, 0);
+                    releaseHeightArrow.setLength(Math.max(0.1, targetY - 0.5), 0.6, 0.4);
+                    releaseHeightLabel.innerText = `H = ${xStr} R`;
+                    window.releaseLabelPos = new THREE.Vector3(arrowX - 0.5, (targetY + 0.5) / 2, 0);
+                }
+
+                if ((currentMode === 2 || currentMode === 3) && velocityArrow) {
+                    const v = Math.sqrt(parseFloat(xStr) * config.gravity * R);
+                    velocityArrow.position.set(targetX + config.ballRadius + 0.1, targetY, 0);
+                    velocityArrow.setLength(Math.max(0.1, v * 0.3), 0.6, 0.4);
+                }
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            let valHalf = 2.0, valTop = 5.0, maxVal = 8;
+            
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`mode${mode}-btn`).classList.add('active');
+
+            if (mode === 3) {
+                document.getElementById('ui-slider-label').innerText = '臨界初速 (x)';
+                xSlider.max = 8; xSlider.value = 5.0; 
+                xSlider.disabled = true;
+                document.getElementById('slider-group-container').style.opacity = '0.5';
+                document.getElementById('answer-container').style.display = 'none';
+                document.getElementById('mode3-options').style.display = 'flex';
+                
+                if(torusRightMesh) torusRightMesh.visible = false;
+                if(torusFullMesh) torusFullMesh.visible = !cbStringMode.checked;
+                if(straightTrackMesh) straightTrackMesh.visible = true;
+                if(rampTrackMesh) rampTrackMesh.visible = false;
+            } else if (mode === 2) {
+                document.getElementById('ui-slider-label').innerText = '初速倍數 (x)';
+                maxVal = 8; valHalf = 2.0; valTop = 5.0;
+                xSlider.max = maxVal; xSlider.value = 3.0; 
+                xSlider.disabled = false;
+                document.getElementById('slider-group-container').style.opacity = '1';
+                document.getElementById('answer-container').style.display = 'flex';
+                document.getElementById('mode3-options').style.display = 'none';
+                
+                if(torusRightMesh) torusRightMesh.visible = true;
+                if(torusFullMesh) torusFullMesh.visible = false;
+                if(straightTrackMesh) straightTrackMesh.visible = true;
+                if(rampTrackMesh) rampTrackMesh.visible = false;
+            } else {
+                document.getElementById('ui-slider-label').innerText = '放置高度倍數 (x)';
+                maxVal = 4; valHalf = 1.0; valTop = 2.5;
+                xSlider.max = maxVal; xSlider.value = 2.0; 
+                xSlider.disabled = false;
+                document.getElementById('slider-group-container').style.opacity = '1';
+                document.getElementById('answer-container').style.display = 'flex';
+                document.getElementById('mode3-options').style.display = 'none';
+                
+                if(torusRightMesh) torusRightMesh.visible = true;
+                if(torusFullMesh) torusFullMesh.visible = false;
+                if(straightTrackMesh) straightTrackMesh.visible = false;
+                if(rampTrackMesh) rampTrackMesh.visible = true;
+            }
+            
+            // 拉桿標記線定位 (扣除 thumb 誤差)
+            document.getElementById('marker-half').style.left = `calc(13px + (100% - 26px) * ${valHalf / maxVal})`;
+            document.getElementById('marker-top').style.left = `calc(13px + (100% - 26px) * ${valTop / maxVal})`;
+
+            if (diameterLine && releaseHeightArrow && velocityArrow) {
+                if (currentMode === 1) { 
+                    diameterLine.visible = true; diameterLabel.style.display = 'block';
+                    releaseHeightArrow.visible = true; releaseHeightLabel.style.display = 'block';
+                    velocityArrow.visible = false;
+                } else if (currentMode === 2) { 
+                    diameterLine.visible = true; diameterLabel.style.display = 'block';
+                    releaseHeightArrow.visible = false; releaseHeightLabel.style.display = 'none';
+                    velocityArrow.visible = true;
+                } else {
+                    // 模式三：隱藏 2R 虛線與標籤
+                    diameterLine.visible = false; diameterLabel.style.display = 'none';
+                    releaseHeightArrow.visible = false; releaseHeightLabel.style.display = 'none';
+                    velocityArrow.visible = true;
+                }
+            }
+
+            const slIds = ['sl-top', 'sl-mid-r', 'sl-mid-l', 'sl-bot'];
+            slIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = (mode === 3) ? 'flex' : 'none';
+            });
+
+            updateUI();
+            resetSimulation();
+        }
+
+        document.getElementById('mode1-btn').addEventListener('click', () => setMode(1));
+        document.getElementById('mode2-btn').addEventListener('click', () => setMode(2));
+        document.getElementById('mode3-btn').addEventListener('click', () => setMode(3));
+        
+        let showAnswers = false;
+        document.getElementById('btn-show-answer').addEventListener('click', () => {
+            showAnswers = !showAnswers;
+            document.getElementById('answer-buttons').style.display = showAnswers ? 'flex' : 'none';
+            document.getElementById('marker-half').style.display = showAnswers ? 'block' : 'none';
+            document.getElementById('marker-top').style.display = showAnswers ? 'block' : 'none';
+            const btn = document.getElementById('btn-show-answer');
+            btn.innerText = showAnswers ? '【 隱藏答案 】' : '【 顯示答案 】';
+            btn.style.background = showAnswers ? '#64748b' : 'var(--primary)';
+        });
+
+        document.getElementById('btn-quick-top').addEventListener('click', () => { 
+            xSlider.value = currentMode === 2 ? 5.0 : 2.5; 
+            if(ballState !== 'ready') resetSimulation(); else updateUI();
+        });
+        document.getElementById('btn-quick-half').addEventListener('click', () => { 
+            xSlider.value = currentMode === 2 ? 2.0 : 1.0; 
+            if(ballState !== 'ready') resetSimulation(); else updateUI();
+        });
+        
+        xSlider.addEventListener('input', () => {
+            if (ballState !== 'ready') resetSimulation(); else updateUI();
+        });
+
+        // 模式三控制選單
+        cbStringMode.addEventListener('change', (e) => {
+            if (currentMode === 3) {
+                torusFullMesh.visible = !e.target.checked;
+                
+                // 動態切換選單文字與 3D 向量標籤文字
+                const decomposeText = document.getElementById('decompose-text');
+                if (decomposeText) {
+                    decomposeText.innerText = e.target.checked ? '分解為張力 (T) 與重力 (mg)' : '分解為正向力 (N) 與重力 (mg)';
+                }
+                if (tLabel) {
+                    tLabel.innerText = e.target.checked ? 'T' : 'N';
+                }
+            }
+        });
+        cbShowForce.addEventListener('change', (e) => {
+            labelDecompose.style.display = e.target.checked ? 'flex' : 'none';
+        });
+
+        document.getElementById('btn-launch').addEventListener('click', () => {
+            resetSimulation();
+            collapseAllPanels(); 
+            
+            if (velocityArrow) velocityArrow.visible = false; 
+
+            const x = parseFloat(xSlider.value);
+            if (currentMode === 2 || currentMode === 3) { 
+                const v0 = Math.sqrt(x * config.gravity * R);
+                sphereBody.velocity.set(v0, 0, 0);
+                initialMaxEnergy = 0.5 * config.mass * v0 * v0 + config.mass * config.gravity * 0.5; 
+            } else { 
+                const targetY = x * R + 0.5;
+                initialMaxEnergy = config.mass * config.gravity * targetY;
+            }
+            
+            sphereBody.wakeUp(); 
+            ballState = 'moving';
+            isSimulating = true;
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            resetSimulation();
+            expandAllPanels();
+        });
+
+        init();
+        animate();
+
+        function init() {
+            const canvas = document.getElementById('webgl-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.setClearColor(0xf8fafc);
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 150);
+            camera.position.set(-2, 7, 30);
+            
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.target.set(-2, 5, 0);
+            controls.enableRotate = false; controls.enablePan = false; controls.enableZoom = false; 
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(10, 25, 15); dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const grid = new THREE.GridHelper(80, 80, 0x94a3b8, 0xe2e8f0);
+            grid.position.y = -0.3; 
+            scene.add(grid);
+
+            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -config.gravity, 0) });
+            world.addEventListener('postStep', applyAnalyticalConstraint); 
+            
+            buildVisualTrack();
+
+            sphereMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(config.ballRadius, 32, 32),
+                new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.1, roughness: 0.2 })
+            );
+            sphereMesh.castShadow = true; scene.add(sphereMesh);
+
+            sphereBody = new CANNON.Body({ mass: config.mass, shape: new CANNON.Sphere(config.ballRadius) });
+            sphereBody.fixedRotation = true; 
+            world.addBody(sphereBody);
+
+            trailGeometry = new THREE.BufferGeometry();
+            trailLine = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({ color: 0x2563eb, linewidth: 2.5 }));
+            scene.add(trailLine);
+
+            heightArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0,0,0), 0.1, 0xe11d48, 0.8, 0.5);
+            heightArrow.visible = false; scene.add(heightArrow);
+
+            const dashMat = new THREE.LineDashedMaterial({ color: 0xf97316, dashSize: 0.4, gapSize: 0.2, linewidth: 2 });
+            const dashGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0.5, 0), new THREE.Vector3(0, 10.5, 0)
+            ]);
+            diameterLine = new THREE.Line(dashGeo, dashMat);
+            diameterLine.computeLineDistances(); scene.add(diameterLine);
+
+            releaseHeightArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1, 0xf97316, 0.6, 0.4);
+            scene.add(releaseHeightArrow);
+
+            velocityArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xe11d48, 0.6, 0.4);
+            velocityArrow.visible = false; scene.add(velocityArrow);
+
+            // 模式三專屬：繩子與力向量
+            const stringMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, linewidth: 2 });
+            const stringGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, CY, 0), new THREE.Vector3(0, 0.5, 0)]);
+            stringLine = new THREE.Line(stringGeo, stringMat);
+            stringLine.visible = false; scene.add(stringLine);
+
+            // 將原本細線的 ArrowHelper 替換成剛剛自訂的立體 ThickArrow
+            fcArrow = new ThickArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0xeab308, 0.4, 0.3);
+            tArrow = new ThickArrow(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0x06b6d4, 0.4, 0.3);
+            mgArrow = new ThickArrow(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 1, 0x10b981, 0.4, 0.3);
+            scene.add(fcArrow); scene.add(tArrow); scene.add(mgArrow);
+
+            document.getElementById('zoom-slider').addEventListener('input', (e) => {
+                camera.zoom = parseFloat(e.target.value);
+                camera.updateProjectionMatrix();
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight; 
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            setMode(1); 
+        }
+
+        function buildVisualTrack() {
+            const mat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.5 });
+            
+            torusRightMesh = new THREE.Mesh(new THREE.TorusGeometry(5.65, tubeR, 32, 64, Math.PI), mat);
+            torusRightMesh.position.set(0, CY, 0); torusRightMesh.rotation.z = -Math.PI / 2; torusRightMesh.receiveShadow = true;
+            scene.add(torusRightMesh);
+
+            torusFullMesh = new THREE.Mesh(new THREE.TorusGeometry(5.65, tubeR, 32, 128, Math.PI * 2), mat);
+            torusFullMesh.position.set(0, CY, 0); torusFullMesh.receiveShadow = true;
+            scene.add(torusFullMesh);
+
+            straightTrackMesh = new THREE.Mesh(new THREE.BoxGeometry(30, tubeR*2, tubeR*2), mat);
+            straightTrackMesh.position.set(-15, -0.15, 0); straightTrackMesh.receiveShadow = true;
+            scene.add(straightTrackMesh);
+
+            const points = [];
+            const offset = config.ballRadius + tubeR; 
+            for (let i = 0; i <= 200; i++) {
+                const x = -30 + (30 / 200) * i;
+                const y_c = getCenterPathY(x, 1); 
+                const slope = getCenterPathYPrime(x, 1);
+                const angle = Math.atan(slope);
+                const x_tube = x + Math.sin(angle) * offset;
+                const y_tube = y_c - Math.cos(angle) * offset;
+                points.push(new THREE.Vector3(x_tube, y_tube, 0));
+            }
+            const curve = new THREE.CatmullRomCurve3(points);
+            rampTrackMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 200, tubeR, 16, false), mat);
+            rampTrackMesh.receiveShadow = true;
+            scene.add(rampTrackMesh);
+        }
+
+        function applyAnalyticalConstraint() {
+            if (!isSimulating || ballState === 'landed' || ballState === 'ready') return;
+            
+            const pos = sphereBody.position;
+            const vel = sphereBody.velocity;
+            pos.z = 0; vel.z = 0; 
+            
+            if (ballState === 'falling') {
+                let hitWall = false;
+                let nx = 0, ny = 1;
+
+                if (pos.x > 0) {
+                    const dx = pos.x, dy = pos.y - CY;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist >= R) {
+                        hitWall = true;
+                        pos.x = (dx / dist) * R; pos.y = CY + (dy / dist) * R;
+                        nx = -dx / dist; ny = -dy / dist;
+                    }
+                } else {
+                    const targetY = getCenterPathY(pos.x, currentMode);
+                    if (pos.y <= targetY) {
+                        hitWall = true; pos.y = targetY;
+                        const slope = getCenterPathYPrime(pos.x, currentMode);
+                        const normMag = Math.sqrt(1 + slope * slope);
+                        nx = -slope / normMag; ny = 1 / normMag;
+                    }
+                }
+                
+                if (hitWall) {
+                    if (currentMode === 2) {
+                        bounceCount++;
+                        if (bounceCount >= 2) {
+                            vel.set(0,0,0); ballState = 'landed'; isSimulating = false; expandAllPanels(); 
+                        } else {
+                            const vDotN = vel.x * nx + vel.y * ny;
+                            if (vDotN < 0) {
+                                vel.x -= 1.5 * vDotN * nx; vel.y -= 1.5 * vDotN * ny;
+                                vel.x *= 0.8; vel.y *= 0.8;
+                            }
+                        }
+                    } else {
+                        vel.set(0,0,0); ballState = 'landed'; isSimulating = false; expandAllPanels(); 
+                    }
+                }
+                return; 
+            }
+
+            let T = new CANNON.Vec3(1, 0, 0);
+
+            if (currentMode === 3 && pos.x >= 0 && ballState !== 'falling') {
+                trappedInLoop = true;
+            }
+
+            if (!trappedInLoop && pos.x <= 0) {
+                const targetY = getCenterPathY(pos.x, currentMode);
+                if (pos.y <= targetY + 0.1) {
+                    pos.y = targetY; 
+                    const slope = getCenterPathYPrime(pos.x, currentMode);
+                    const normMag = Math.sqrt(1 + slope * slope);
+                    T.set(1 / normMag, slope / normMag, 0); 
+                } else {
+                    ballState = 'falling'; return;
+                }
+            } else {
+                const cy = CY;
+                const dx = pos.x, dy = pos.y - cy;
+                const dist = Math.hypot(dx, dy);
+
+                let currentPE = config.mass * config.gravity * pos.y;
+                let requiredKE = initialMaxEnergy - currentPE;
+                let currentV2 = (requiredKE > 0) ? (2 * requiredKE / config.mass) : 0;
+                
+                if (dy > 0 && currentV2 < config.gravity * dy - 0.01 && currentMode !== 3) {
+                    ballState = 'falling'; 
+                    const requiredV = Math.sqrt(Math.max(0, currentV2));
+                    const tx = -dy / dist; const ty = dx / dist;
+                    vel.set(requiredV * tx, requiredV * ty, 0);
+                    return;
+                }
+
+                pos.x = (dx / dist) * R; pos.y = cy + (dy / dist) * R;
+                T.set(-dy / R, dx / R, 0); 
+            }
+
+            let h = pos.y;
+            if (h < 0.5) h = 0.5;
+            let currentPE = config.mass * config.gravity * h;
+            let requiredKE = initialMaxEnergy - currentPE;
+
+            if (requiredKE > 0) {
+                const requiredV = Math.sqrt(2 * requiredKE / config.mass);
+                let v_t = vel.dot(T);
+                if (Math.abs(v_t) < 0.001) { 
+                    if (pos.x <= 0) v_t = (vel.y < 0 && T.y > 0) ? -1 : 1; 
+                    else v_t = 1; 
+                } 
+                const sign = v_t >= 0 ? 1 : -1;
+                vel.x = sign * requiredV * T.x; vel.y = sign * requiredV * T.y;
+            } else {
+                let v_t = vel.dot(T);
+                vel.x = v_t * T.x; vel.y = v_t * T.y;
+            }
+        }
+
+        function resetSimulation() {
+            isSimulating = false;
+            ballState = 'ready';
+            bounceCount = 0;
+            trappedInLoop = false;
+            updateUI(); 
+            trailPositions.length = 0; 
+            trailGeometry.setFromPoints(trailPositions);
+            
+            maxReachedH = 0;
+            heightArrow.visible = false; heightLabel.style.display = 'none';
+
+            document.getElementById('hud-v').innerText = "0.00";
+            document.getElementById('hud-h').innerText = "0.00";
+            document.getElementById('bar-k').style.width = '100%';
+            document.getElementById('bar-u').style.width = '0%';
+            lastTime = undefined;
+            
+            sphereBody.wakeUp(); 
+            sphereBody.velocity.set(0,0,0);
+
+            if (diameterLine) {
+                if (currentMode === 1) {
+                    diameterLabel.style.display = 'block';
+                    releaseHeightLabel.style.display = 'block';
+                    velocityArrow.visible = false;
+                } else if (currentMode === 2) {
+                    diameterLabel.style.display = 'block';
+                    releaseHeightLabel.style.display = 'none';
+                    velocityArrow.visible = true;
+                } else {
+                    diameterLabel.style.display = 'none';
+                    releaseHeightLabel.style.display = 'none';
+                    velocityArrow.visible = true;
+                }
+            }
+            
+            stringLine.visible = false;
+            fcArrow.visible = false; fcLabel.style.display = 'none';
+            tArrow.visible = false; tLabel.style.display = 'none';
+            mgArrow.visible = false; mgLabel.style.display = 'none';
+        }
+
+        function updateHUD(v, currentH) {
+            document.getElementById('hud-v').innerText = v.toFixed(2);
+            document.getElementById('hud-h').innerText = Math.max(0, currentH).toFixed(2);
+            
+            const displayMaxEnergy = initialMaxEnergy - config.mass * config.gravity * 0.5;
+
+            if (displayMaxEnergy > 0) {
+                const kE = 0.5 * config.mass * v * v;
+                let pE = config.mass * config.gravity * currentH;
+                if (pE < 0) pE = 0;
+                
+                let kPct = (kE / displayMaxEnergy) * 100;
+                let uPct = (pE / displayMaxEnergy) * 100;
+                if (kPct + uPct > 100) { const s = 100/(kPct+uPct); kPct*=s; uPct*=s; }
+                
+                document.getElementById('bar-k').style.width = kPct + '%';
+                document.getElementById('bar-u').style.width = uPct + '%';
+            } else {
+                document.getElementById('bar-k').style.width = '100%';
+                document.getElementById('bar-u').style.width = '0%';
+            }
+        }
+
+        function updateLabelPos(id, vec) {
+            const el = document.getElementById(id);
+            if(el && el.style.display !== 'none') {
+                el.style.left = `${(vec.x * 0.5 + 0.5) * window.innerWidth}px`;
+                el.style.top = `${-(vec.y * 0.5 - 0.5) * window.innerHeight}px`;
+            }
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            if (time !== undefined && lastTime !== undefined && isSimulating) {
+                const dt = Math.min((time - lastTime) / 1000, 0.05); 
+                world.step(1/60, dt, 10);
+                
+                const currentH = sphereBody.position.y - 0.5;
+                const v = sphereBody.velocity.length();
+                updateHUD(v, currentH);
+
+                trailPositions.push(new THREE.Vector3(sphereBody.position.x, sphereBody.position.y, 0));
+                if (trailPositions.length > (currentMode === 3 ? 1200 : 500)) trailPositions.shift();
+                trailGeometry.setFromPoints(trailPositions);
+
+                if (sphereBody.position.x > 0 && currentH > maxReachedH && ballState !== 'falling') {
+                    maxReachedH = currentH;
+                }
+
+                if (maxReachedH > 0.05 && currentMode !== 3) {
+                    heightArrow.visible = true;
+                    heightArrow.position.set(R + 1.2, 0.5, 0);
+                    heightArrow.setLength(maxReachedH, 0.6, 0.4);
+                    
+                    heightLabel.style.display = 'block';
+                    heightLabel.innerText = `${(maxReachedH / R).toFixed(2)} R`;
+                    
+                    const tipPos = new THREE.Vector3(R + 1.2, maxReachedH + 0.5, 0);
+                    tipPos.project(camera);
+                    updateLabelPos('height-label', tipPos);
+                }
+
+                if (currentMode === 3 && trappedInLoop) {
+                    if (cbStringMode.checked) {
+                        const positions = stringLine.geometry.attributes.position.array;
+                        positions[0] = 0; positions[1] = CY; positions[2] = 0;
+                        positions[3] = sphereBody.position.x; 
+                        positions[4] = sphereBody.position.y; 
+                        positions[5] = sphereBody.position.z;
+                        stringLine.geometry.attributes.position.needsUpdate = true;
+                        stringLine.visible = true;
+                    } else {
+                        stringLine.visible = false;
+                    }
+
+                    if (cbShowForce.checked) {
+                        const P = sphereBody.position;
+                        const C = new THREE.Vector3(0, CY, 0);
+                        const r_vec = new THREE.Vector3().subVectors(C, new THREE.Vector3(P.x, P.y, P.z));
+                        const r_hat = r_vec.clone().normalize();
+
+                        const Fc_mag = (config.mass * v * v) / R;
+                        const W_vec = new THREE.Vector3(0, -config.mass * config.gravity, 0);
+                        const Wr_mag = W_vec.dot(r_hat);
+                        let T_mag = Math.max(0, Fc_mag - Wr_mag);
+                        
+                        const fScale = 0.15; 
+                        const headL = 0.8;
+                        const headW = 0.6;
+
+                        const perp_r = new THREE.Vector3(-r_hat.y, r_hat.x, 0);
+
+                        if (cbDecomposeForce.checked) {
+                            fcArrow.visible = false; fcLabel.style.display = 'none';
+
+                            if (T_mag < 0.05) {
+                                tArrow.visible = false;
+                                tLabel.style.display = 'none';
+                            } else {
+                                tArrow.visible = true;
+                                tArrow.position.set(P.x, P.y, P.z);
+                                tArrow.setDirection(r_hat);
+                                tArrow.setLength(T_mag * fScale, headL, headW);
+
+                                tLabel.style.display = 'block';
+                                const midT = T_mag * fScale * 0.5;
+                                const tPos = new THREE.Vector3(
+                                    P.x + r_hat.x * midT + perp_r.x * 1.5, 
+                                    P.y + r_hat.y * midT + perp_r.y * 1.5, 
+                                    0
+                                );
+                                tPos.project(camera); updateLabelPos('t-label', tPos);
+                            }
+                            
+                            mgArrow.visible = true;
+                            mgArrow.position.set(P.x, P.y, P.z);
+                            mgArrow.setDirection(new THREE.Vector3(0, -1, 0));
+                            const mgLen = config.mass * config.gravity * fScale;
+                            mgArrow.setLength(mgLen, headL, headW);
+
+                            mgLabel.style.display = 'block';
+                            const midMg = mgLen * 0.5;
+                            const mgPos = new THREE.Vector3(P.x + 1.2, P.y - midMg, 0);
+                            mgPos.project(camera); updateLabelPos('mg-label', mgPos);
+                        } else {
+                            tArrow.visible = false; tLabel.style.display = 'none';
+                            mgArrow.visible = false; mgLabel.style.display = 'none';
+
+                            if (Fc_mag < 0.05) {
+                                fcArrow.visible = false;
+                                fcLabel.style.display = 'none';
+                            } else {
+                                fcArrow.visible = true;
+                                fcArrow.position.set(P.x, P.y, P.z);
+                                fcArrow.setDirection(r_hat);
+                                fcArrow.setLength(Fc_mag * fScale, headL, headW);
+
+                                fcLabel.style.display = 'block';
+                                const midFc = Fc_mag * fScale * 0.5;
+                                const fcPos = new THREE.Vector3(
+                                    P.x + r_hat.x * midFc + perp_r.x * 1.5, 
+                                    P.y + r_hat.y * midFc + perp_r.y * 1.5, 
+                                    0
+                                );
+                                fcPos.project(camera); updateLabelPos('fc-label', fcPos);
+                            }
+                        }
+                    } else {
+                        fcArrow.visible = false; fcLabel.style.display = 'none';
+                        tArrow.visible = false; tLabel.style.display = 'none';
+                        mgArrow.visible = false; mgLabel.style.display = 'none';
+                    }
+                }
+            }
+            if (time !== undefined) lastTime = time;
+
+            if (diameterLabel && diameterLabel.style.display !== 'none') {
+                const diaPos = new THREE.Vector3(-0.6, CY, 0); diaPos.project(camera);
+                updateLabelPos('diameter-label', diaPos);
+            }
+            if (currentMode === 1 && releaseHeightLabel && releaseHeightLabel.style.display !== 'none' && window.releaseLabelPos) {
+                const relPos = window.releaseLabelPos.clone(); relPos.project(camera);
+                updateLabelPos('release-height-label', relPos);
+            }
+            
+            if (currentMode === 3) {
+                const pTop = new THREE.Vector3(0, CY + R + 1.0, 0); pTop.project(camera);
+                updateLabelPos('sl-top', pTop);
+                
+                const pMidR = new THREE.Vector3(R + 1.5, CY, 0); pMidR.project(camera);
+                updateLabelPos('sl-mid-r', pMidR);
+                
+                const pMidL = new THREE.Vector3(-R - 1.5, CY, 0); pMidL.project(camera);
+                updateLabelPos('sl-mid-l', pMidL);
+                
+                const pBot = new THREE.Vector3(0, CY - R - 0.8, 0); pBot.project(camera);
+                updateLabelPos('sl-bot', pBot);
+            }
+
+            sphereMesh.position.copy(sphereBody.position);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

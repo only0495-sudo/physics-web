@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>3D 冷次定律模擬器 (完整穿透版)</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --surface: rgba(30, 30, 30, 0.85);
+            --text: #f3f4f6;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111111;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text);
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* UI 面板共用設定 */
+        .panel {
+            position: absolute;
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px 10px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .panel-content {
+            padding: 10px 20px 20px 20px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
+            max-height: 600px;
+            opacity: 1;
+        }
+
+        .panel.collapsed .panel-content {
+            max-height: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            opacity: 0;
+        }
+
+        /* 左側控制面板 */
+        #controls-panel { top: 20px; left: 20px; width: 320px; }
+
+        /* 右上角物理原理解釋 */
+        #info-panel { top: 20px; right: 20px; width: 300px; }
+
+        /* 左下角公式疊加層 */
+        #formula-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-family: 'Times New Roman', serif;
+            font-size: 1.2rem;
+            padding: 15px 25px;
+            z-index: 10;
+        }
+
+        h2, h3 { margin: 0; color: var(--primary); }
+        h2 { font-size: 1.3rem; }
+        h3 { font-size: 1.1rem; }
+
+        .collapse-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .collapse-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .control-group { margin-bottom: 15px; }
+
+        label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        input[type="checkbox"], input[type="radio"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+
+        .radio-group {
+            margin-left: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 5px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        #flip-btn:hover { background: rgba(59, 130, 246, 0.4) !important; }
+        #calibrate-btn:hover { background: rgba(59, 130, 246, 0.5) !important; }
+
+        .velocity-btn {
+            flex: 1; 
+            padding: 10px; 
+            background: rgba(239, 68, 68, 0.15); 
+            color: #ef4444; 
+            border: 1px solid rgba(239, 68, 68, 0.5); 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .velocity-btn:hover { background: rgba(239, 68, 68, 0.3); border-color: #ef4444; }
+
+        /* 右下角即時圖表面板 */
+        #chart-panel {
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+        }
+        
+        #chart-panel .panel-content {
+            padding: 0;
+        }
+
+        .chart-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .chart-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #888;
+            padding: 10px 0;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .chart-tab.active {
+            color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .chart-tab:hover:not(.active) {
+            background: rgba(255,255,255,0.05);
+            color: #ddd;
+        }
+
+        #chart-canvas {
+            width: 100%;
+            height: 150px;
+            display: block;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        /* 全螢幕按鈕 */
+        #fullscreen-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 360px; 
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 1.4rem;
+            transition: all 0.2s;
+        }
+        #fullscreen-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.1); }
+
+        .instruction {
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.5;
+            background: rgba(59, 130, 246, 0.15);
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* 手機版響應式 */
+        @media (max-width: 768px) {
+            #controls-panel { width: 85%; max-width: 320px; }
+            #info-panel { display: none; }
+            #formula-panel { bottom: 85px; font-size: 1rem; }
+            #chart-panel { bottom: 85px; right: 20px; left: 20px; width: auto; }
+            #fullscreen-btn { bottom: 20px; right: 20px; }
+        }
+
+        #loader {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #111111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            z-index: 9999;
+            font-size: 1.5rem;
+            transition: opacity 0.5s;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+    <div id="loader">初始化物理引擎與渲染器...</div>
+
+    <div id="canvas-container"></div>
+
+    <!-- 左側控制面板 -->
+    <div class="panel" id="controls-panel">
+        <div class="panel-header">
+            <h2>3D 冷次定律模擬器</h2>
+            <button class="collapse-btn" onclick="togglePanel('controls-panel', this)" title="收起/展開面板">_</button>
+        </div>
+        <div class="panel-content">
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="show-field"> 顯示磁鐵磁力線
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="show-charges"> 顯示導線電荷與感應磁場
+                </label>
+                <div class="radio-group" id="charge-radios">
+                    <label style="color: #0dd4c8; font-weight: bold; text-shadow: 0 0 4px rgba(0,0,0,0.8);">
+                        <input type="radio" name="charge-type" value="electron"> 電子流 (負電荷)
+                    </label>
+                    <label style="color: #c084fc; font-weight: bold; text-shadow: 0 0 4px rgba(0,0,0,0.8);">
+                        <input type="radio" name="charge-type" value="positive" checked> 常規電流 (正電荷)
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group" style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="flip-btn" style="width: 100%; padding: 10px; background: rgba(59, 130, 246, 0.2); color: var(--primary); border: 1px solid var(--primary); border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s;">
+                    🔄 單次翻轉磁鐵 (N/S 互換)
+                </button>
+                
+                <!-- 新增：初速測試按鈕區 -->
+                <div style="display: flex; gap: 8px;">
+                    <button class="velocity-btn" id="btn-approach">🚀 初速靠近<br><span style="font-size:0.75rem">(磁煞車)</span></button>
+                    <button class="velocity-btn" id="btn-leave">🚀 初速遠離<br><span style="font-size:0.75rem">(磁阻拖曳)</span></button>
+                </div>
+
+                <label style="justify-content: center; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px;">
+                    <input type="checkbox" id="auto-rotate"> 旋轉發電機模式 (連續旋轉)
+                </label>
+                <label style="justify-content: center; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <input type="checkbox" id="auto-move"> 自動來回穿梭模式 (平移)
+                </label>
+            </div>
+
+            <div class="instruction">
+                <strong>💡 進階操作提示：</strong><br>
+                1. <b>滑鼠拖曳</b> 或開啟 <b>自動穿梭</b> 穿越線圈。<br>
+                2. 點擊 <b>初速靠近/遠離</b>，觀察磁鐵受到冷次定律的「磁阻尼效應」而自動煞車減速的真實物理過程！<br>
+                3. 注意觀察磁鐵上方的 <b>紅色速度向量箭頭 (v)</b>。
+            </div>
+        </div>
+    </div>
+
+    <!-- 右側原理說明 -->
+    <div class="panel" id="info-panel">
+        <div class="panel-header">
+            <h3>💡 物理現象解析</h3>
+            <button class="collapse-btn" onclick="togglePanel('info-panel', this)" title="收起/展開面板">_</button>
+        </div>
+        <div class="panel-content">
+            <p style="font-size: 0.9rem; line-height: 1.6; color: #ddd; margin-top: 0;">
+                根據<b>法拉第與冷次定律</b>，感應電流產生的磁場，總是<b>反抗</b>原磁通量的變化。<br><br>
+                <b>【磁煞車效應】</b><br>
+                當磁鐵快速靠近或離開線圈時，強大的磁通量變化會引發可觀的感應電流。此感應電流形成的磁場會對磁鐵施加一個「與運動方向相反」的力，迫使磁鐵急遽減速，將動能轉化為電能與熱能。
+            </p>
+        </div>
+    </div>
+
+    <!-- 左下角公式 -->
+    <div id="formula-panel">
+        𝓔 = - N (dΦ<sub>B</sub> / dt)
+    </div>
+
+    <!-- 右下角即時圖表面板 -->
+    <div class="panel" id="chart-panel">
+        <div class="panel-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <h3 style="font-size: 1.05rem; margin: 0;">📈 即時波形</h3>
+                <button id="calibrate-btn" onclick="calibrateYAxis()" title="根據當前波形重新縮放 Y 軸" style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--primary); color: var(--text); border-radius: 4px; font-size: 0.75rem; padding: 2px 6px; cursor: pointer; transition: 0.2s;">Y軸校正</button>
+            </div>
+            <button class="collapse-btn" onclick="togglePanel('chart-panel', this)" title="收起/展開面板">_</button>
+        </div>
+        <div class="panel-content">
+            <div class="chart-tabs">
+                <button class="chart-tab active" id="tab-current" onclick="switchChartMode('current')">電流 (I - t)</button>
+                <button class="chart-tab" id="tab-emf" onclick="switchChartMode('emf')">電動勢 (ε - t)</button>
+            </div>
+            <canvas id="chart-canvas" width="320" height="150"></canvas>
+        </div>
+    </div>
+
+    <!-- 全螢幕按鈕 -->
+    <button id="fullscreen-btn" title="全螢幕切換">⛶</button>
+
+<script>
+/**
+ * UI 收起/展開邏輯
+ */
+function togglePanel(panelId, btn) {
+    const panel = document.getElementById(panelId);
+    panel.classList.toggle('collapsed');
+    if (panel.classList.contains('collapsed')) {
+        btn.innerText = '□';
+    } else {
+        btn.innerText = '_';
+    }
+}
+
+/**
+ * 3D 物理與渲染核心
+ */
+let scene, camera, renderer, orbitControls;
+let magnet, coilGroup, inducedBArrow, magnetHitBox;
+let vArrowHelper, vLabel; // 【新增】速度向量箭頭與標籤
+let fieldLinesGroup = new THREE.Group();
+let charges = [];
+const chargeCount = 100;
+
+// 燈泡材質參考
+let bulbFilamentMat, bulbPointLight, bulbGlassMat;
+
+// 物理狀態
+let magnetState = {
+    x: 15,          
+    isDragging: false,
+    lastX: 15,
+    velocity: 0,        
+    targetRotationY: 0,
+    phase: 0,
+    isSimulatingV: false, // 【新增】判斷是否在初速滑行狀態
+    v: 0                  // 【新增】模擬用的瞬間速度
+};
+
+let simState = {
+    inducedCurrent: 0,   
+    emf: 0,
+    fluxLast: 0          
+};
+
+let uiState = {
+    showField: false,
+    showCharges: false,
+    chargeType: 'positive',
+    autoRotate: false,   
+    autoMove: false,
+    chartMode: 'current'
+};
+
+// 圖表 Y 軸動態範圍狀態
+let chartState = {
+    currentMax: 6,
+    emfMax: 80,
+    minCurrentMax: 2, 
+    minEmfMax: 20
+};
+
+// 圖表資料緩存
+const chartData = {
+    maxLen: 120,
+    history: []
+};
+
+// 幾何常數
+const COIL_RADIUS = 3;
+const COIL_LENGTH = 6;
+const COIL_TURNS = 6;
+
+function init() {
+    const container = document.getElementById('canvas-container');
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color('#111111');
+    scene.fog = new THREE.Fog('#111111', 20, 100);
+
+    // 視角設置
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(18, 12, 22);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
+    orbitControls.maxPolarAngle = Math.PI / 2 + 0.1;
+    orbitControls.minDistance = 10;
+    // 【修改】將最大拉遠距離增加到 250，以便觀看滑行極遠的磁鐵
+    orbitControls.maxDistance = 250;
+    orbitControls.target.set(0, 0, 0); 
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(10, 20, 15);
+    scene.add(dirLight);
+
+    const backLight = new THREE.PointLight(0x4444ff, 0.3);
+    backLight.position.set(-15, 5, -15);
+    scene.add(backLight);
+
+    createFloor();
+    createCoil();
+    createLightBulb();     
+    createMagnet();
+    createInducedBArrow(); 
+    createFieldLines();    
+
+    fieldLinesGroup.visible = uiState.showField;
+
+    setupInteraction();
+    setupUI();
+
+    for(let i=0; i<chartData.maxLen; i++) {
+        chartData.history.push({ current: 0, emf: 0 });
+    }
+
+    document.getElementById('loader').style.opacity = '0';
+    setTimeout(() => document.getElementById('loader').style.display = 'none', 500);
+
+    animate();
+}
+
+function switchChartMode(mode) {
+    uiState.chartMode = mode;
+    document.getElementById('tab-current').classList.toggle('active', mode === 'current');
+    document.getElementById('tab-emf').classList.toggle('active', mode === 'emf');
+}
+
+function calibrateYAxis() {
+    let maxC = chartState.minCurrentMax;
+    let maxE = chartState.minEmfMax;
+    
+    for (let d of chartData.history) {
+        if (Math.abs(d.current) > maxC) maxC = Math.abs(d.current);
+        if (Math.abs(d.emf) > maxE) maxE = Math.abs(d.emf);
+    }
+    
+    chartState.currentMax = maxC * 1.2;
+    chartState.emfMax = maxE * 1.2;
+}
+
+function createFloor() {
+    const geo = new THREE.PlaneGeometry(200, 200);
+    const mat = new THREE.MeshStandardMaterial({ 
+        color: '#1a1a1a', 
+        roughness: 0.9,
+        metalness: 0.1
+    });
+    const floor = new THREE.Mesh(geo, mat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -6;
+    
+    const grid = new THREE.GridHelper(200, 50, 0x444444, 0x222222);
+    grid.position.y = -5.99;
+    
+    scene.add(floor);
+    scene.add(grid);
+}
+
+class HelixCurve extends THREE.Curve {
+    constructor(radius, length, turns) {
+        super();
+        this.radius = radius;
+        this.length = length;
+        this.turns = turns;
+    }
+    getPoint(t, optionalTarget = new THREE.Vector3()) {
+        const x = (t - 0.5) * this.length; 
+        const angle = t * Math.PI * 2 * this.turns;
+        const y = Math.sin(angle) * this.radius;
+        const z = Math.cos(angle) * this.radius;
+        return optionalTarget.set(x, y, z);
+    }
+}
+
+function createCoil() {
+    coilGroup = new THREE.Group();
+    
+    const path = new HelixCurve(COIL_RADIUS, COIL_LENGTH, COIL_TURNS);
+    const tubeGeo = new THREE.TubeGeometry(path, 300, 0.4, 16, false);
+    
+    const tubeMat = new THREE.MeshStandardMaterial({ 
+        color: 0xd97736,
+        metalness: 0.5,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide,
+        depthWrite: false 
+    });
+    
+    const coilMesh = new THREE.Mesh(tubeGeo, tubeMat);
+    coilGroup.add(coilMesh);
+
+    const chargeMat = new THREE.MeshBasicMaterial({ color: 0xc084fc });
+    const chargeGeo = new THREE.SphereGeometry(0.3, 12, 12); 
+    
+    for(let i=0; i<chargeCount; i++) {
+        const charge = new THREE.Mesh(chargeGeo, chargeMat.clone());
+        charge.userData.t = i / chargeCount; 
+        charge.visible = uiState.showCharges;
+        updateChargePosition(charge);
+        coilGroup.add(charge);
+        charges.push(charge);
+    }
+
+    scene.add(coilGroup);
+}
+
+function createLightBulb() {
+    const bulbGroup = new THREE.Group();
+    bulbGroup.position.set(-6, -4.5, 5);
+
+    const glassGeo = new THREE.SphereGeometry(1.2, 32, 32);
+    bulbGlassMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transmission: 0.9,
+        opacity: 1,
+        metalness: 0.1,
+        roughness: 0.05,
+        ior: 1.5,
+        thickness: 0.5,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0
+    });
+    const glass = new THREE.Mesh(glassGeo, bulbGlassMat);
+    glass.castShadow = false;
+    bulbGroup.add(glass);
+
+    const baseGeo = new THREE.CylinderGeometry(0.6, 0.5, 1.2, 16);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = -1.2;
+    bulbGroup.add(base);
+
+    const filamentGeo = new THREE.TorusGeometry(0.3, 0.05, 8, 16);
+    filamentGeo.rotateX(Math.PI / 2);
+    bulbFilamentMat = new THREE.MeshStandardMaterial({
+        color: 0x333333,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0
+    });
+    const filament = new THREE.Mesh(filamentGeo, bulbFilamentMat);
+    bulbGroup.add(filament);
+
+    bulbPointLight = new THREE.PointLight(0xffaa00, 0, 30);
+    bulbPointLight.position.set(0, 0, 0);
+    bulbGroup.add(bulbPointLight);
+
+    scene.add(bulbGroup);
+
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7 });
+    
+    const wirePath1 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-3, 0, 3),           
+        new THREE.Vector3(-3, -2, 3),          
+        new THREE.Vector3(-4, -5.8, 4),        
+        new THREE.Vector3(-5.5, -5.8, 5),      
+        new THREE.Vector3(-5.8, -5.2, 5)       
+    ]);
+    const wireMesh1 = new THREE.Mesh(new THREE.TubeGeometry(wirePath1, 30, 0.15, 8, false), wireMat);
+    scene.add(wireMesh1);
+
+    const wirePath2 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(3, 0, 3),            
+        new THREE.Vector3(3, -2, 3),           
+        new THREE.Vector3(2, -5.8, 4),         
+        new THREE.Vector3(-2, -5.8, 6),        
+        new THREE.Vector3(-6, -5.8, 6),        
+        new THREE.Vector3(-6.2, -5.2, 5)       
+    ]);
+    const wireMesh2 = new THREE.Mesh(new THREE.TubeGeometry(wirePath2, 40, 0.15, 8, false), wireMat);
+    scene.add(wireMesh2);
+}
+
+function createTextTexture(text, bgColor) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 120px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 128);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 15;
+    ctx.strokeRect(0,0,256,256);
+    return new THREE.CanvasTexture(canvas);
+}
+
+function createMagnet() {
+    magnet = new THREE.Group();
+    magnet.position.set(magnetState.x, 0, 0);
+
+    const width = 6;
+    const height = 2.5;
+    const depth = 2.5;
+
+    const geoHalf = new THREE.BoxGeometry(width/2, height, depth);
+    
+    const matN = [
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ map: createTextTexture('N', '#d32f2f'), roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.5 })  
+    ];
+    const meshN = new THREE.Mesh(geoHalf, matN);
+    meshN.position.x = -width/4;
+    
+    const matS = [
+        new THREE.MeshStandardMaterial({ map: createTextTexture('S', '#1976d2'), roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 }), 
+        new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.5 })  
+    ];
+    const meshS = new THREE.Mesh(geoHalf, matS);
+    meshS.position.x = width/4;
+
+    magnet.add(meshN);
+    magnet.add(meshS);
+
+    const hitGeo = new THREE.BoxGeometry(width + 2, height + 2, depth + 2);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    magnetHitBox = new THREE.Mesh(hitGeo, hitMat);
+    magnet.add(magnetHitBox);
+
+    // 【新增】速度向量箭頭 (紅色)
+    vArrowHelper = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0, 3.5, 0), 1, 0xef4444, 0.8, 0.6);
+    vArrowHelper.visible = false;
+    magnet.add(vArrowHelper);
+
+    // 【新增】速度文字標籤
+    vLabel = createTextSprite("v", "rgba(239, 68, 68, 1)", true); // 加入 true 啟用斜體
+    vLabel.scale.set(10, 5, 1); // 放大尺寸，跟磁場 B 完全一樣大
+    vLabel.visible = false;
+    magnet.add(vLabel);
+
+    scene.add(magnet);
+}
+
+function createTextSprite(message, color, isItalic = false) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 512;
+    canvas.height = 256;
+    
+    // 正確的 canvas font 語法，加入斜體支援並換回飽滿的字型
+    const fontStyle = isItalic ? "italic bold 90px " : "bold 90px ";
+    context.font = fontStyle + "'Segoe UI', Arial";
+    
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    
+    // 加粗黑色描邊，讓文字在黑底上有極強的對比度
+    context.lineWidth = 8;
+    context.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    context.strokeText(message, 256, 128);
+    
+    context.fillStyle = color;
+    context.fillText(message, 256, 128);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(10, 5, 1);
+    return sprite;
+}
+
+function createInducedBArrow() {
+    inducedBArrow = new THREE.Group();
+    
+    const cylGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 16);
+    cylGeo.rotateZ(Math.PI / 2); 
+    
+    const coneGeo = new THREE.ConeGeometry(1.2, 2.5, 16);
+    coneGeo.rotateZ(-Math.PI / 2); 
+    coneGeo.translate(5, 0, 0); 
+    
+    const mat = new THREE.MeshStandardMaterial({ 
+        color: 0x10b981, 
+        emissive: 0x10b981, 
+        emissiveIntensity: 0.8,
+        transparent: true,
+        opacity: 0.9
+    });
+    
+    inducedBArrow.add(new THREE.Mesh(cylGeo, mat));
+    inducedBArrow.add(new THREE.Mesh(coneGeo, mat));
+    
+    const label = createTextSprite("感應磁場 B", "rgba(16, 185, 129, 1)");
+    label.position.set(0, 3, 0); 
+    inducedBArrow.add(label);
+    
+    scene.add(inducedBArrow);
+}
+
+function createFieldLines() {
+    const lineMat = new THREE.LineBasicMaterial({ 
+        color: 0xaaaaaa, 
+        transparent: true, 
+        opacity: 0.25 
+    });
+    
+    const coneGeo = new THREE.ConeGeometry(0.3, 1.0, 8);
+    const coneMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.6 });
+
+    const layers = [
+        { num: 8, spread: 5, extend: 8 },      
+        { num: 12, spread: 10, extend: 16 },   
+        { num: 16, spread: 18, extend: 28 },   
+        { num: 16, spread: 35, extend: 45 }    
+    ];
+
+    layers.forEach(layer => {
+        for(let i = 0; i < layer.num; i++) {
+            const angle = (i / layer.num) * Math.PI * 2;
+            
+            const curve = new THREE.CubicBezierCurve3(
+                new THREE.Vector3(-3, 0, 0), 
+                new THREE.Vector3(-layer.extend, Math.cos(angle)*layer.spread, Math.sin(angle)*layer.spread),
+                new THREE.Vector3(layer.extend, Math.cos(angle)*layer.spread, Math.sin(angle)*layer.spread),
+                new THREE.Vector3(3, 0, 0)   
+            );
+
+            const points = curve.getPoints(layer.extend > 20 ? 60 : 40);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            fieldLinesGroup.add(new THREE.Line(geometry, lineMat));
+
+            const arrowPositions = layer.extend > 20 ? [0.25, 0.5, 0.75] : [0.5];
+            arrowPositions.forEach(t => {
+                const cone = new THREE.Mesh(coneGeo, coneMat);
+                const pt = curve.getPoint(t);
+                const tangent = curve.getTangent(t);
+                cone.position.copy(pt);
+                cone.lookAt(pt.clone().add(tangent)); 
+                fieldLinesGroup.add(cone);
+            });
+        }
+    });
+    
+    magnet.add(fieldLinesGroup);
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let dragPlane = new THREE.Plane();
+let dragOffset = new THREE.Vector3();
+
+function setupInteraction() {
+    const container = renderer.domElement;
+
+    container.addEventListener('pointerdown', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        
+        const intersects = raycaster.intersectObject(magnetHitBox, false);
+        if (intersects.length > 0) {
+            magnetState.isDragging = true;
+            magnetState.isSimulatingV = false; // 拖曳時取消自動滑行
+            orbitControls.enabled = false; 
+            container.style.cursor = 'grabbing';
+            dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), magnet.position);
+            raycaster.ray.intersectPlane(dragPlane, dragOffset);
+            dragOffset.sub(magnet.position);
+        }
+    });
+
+    container.addEventListener('pointermove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        if (!magnetState.isDragging) {
+            const intersects = raycaster.intersectObject(magnetHitBox, false);
+            container.style.cursor = intersects.length > 0 ? 'grab' : 'auto';
+            return;
+        }
+
+        const intersectPoint = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+            let newX = intersectPoint.x - dragOffset.x;
+            
+            // 【修改】將磁鐵的可移動邊界巨幅擴展，允許滑行到 200 的遠方
+            const minX = -200; 
+            const maxX = 200;
+            
+            if (newX < minX) newX = minX;
+            if (newX > maxX) newX = maxX;
+            
+            magnet.position.x = newX;
+            magnetState.x = newX;
+        }
+    });
+
+    window.addEventListener('pointerup', () => {
+        magnetState.isDragging = false;
+        orbitControls.enabled = true; 
+        renderer.domElement.style.cursor = 'auto';
+        
+        if (uiState.autoMove) {
+            let clampedX = Math.max(-12.5, Math.min(12.5, magnetState.x));
+            magnetState.phase = Math.asin(clampedX / 12.5);
+            if (magnetState.velocity < 0) {
+                magnetState.phase = Math.PI - magnetState.phase;
+            }
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+function setupUI() {
+    document.getElementById('show-field').addEventListener('change', (e) => {
+        uiState.showField = e.target.checked;
+        fieldLinesGroup.visible = uiState.showField;
+    });
+
+    document.getElementById('flip-btn').addEventListener('click', () => {
+        if (!uiState.autoRotate) {
+            magnetState.targetRotationY += Math.PI; 
+        }
+    });
+
+    // 【新增】初速靠近按鈕事件
+    document.getElementById('btn-approach').addEventListener('click', () => {
+        uiState.autoMove = false;
+        document.getElementById('auto-move').checked = false;
+        
+        // 【修改】適度調整初速與起點，配合新的阻尼參數
+        magnetState.isSimulatingV = true;
+        magnetState.x = 22;
+        magnet.position.x = magnetState.x;
+        magnetState.v = -0.8; 
+        magnetState.lastX = 22; 
+        
+        // 【修復】瞬間移動時重置磁通量紀錄，防止產生非預期的感應電流閃爍
+        simState.fluxLast = calculateFlux(magnetState.x);
+        simState.inducedCurrent = 0;
+        simState.emf = 0;
+    });
+
+    // 【新增】初速遠離按鈕事件
+    document.getElementById('btn-leave').addEventListener('click', () => {
+        uiState.autoMove = false;
+        document.getElementById('auto-move').checked = false;
+        
+        // 【修改】降低初速 (1.2 -> 1.05)，配合阻力微調，讓煞車距離精準縮小為 0.8 倍
+        magnetState.isSimulatingV = true;
+        magnetState.x = 4; // 從 4 開始
+        magnet.position.x = magnetState.x;
+        magnetState.v = 1.05; 
+        magnetState.lastX = 4;
+        
+        // 【修復】瞬間移動時重置磁通量紀錄，防止產生非預期的感應電流閃爍
+        simState.fluxLast = calculateFlux(magnetState.x);
+        simState.inducedCurrent = 0;
+        simState.emf = 0;
+    });
+
+    document.getElementById('auto-rotate').addEventListener('change', (e) => {
+        uiState.autoRotate = e.target.checked;
+        if (!uiState.autoRotate) {
+            const nearestHalfTurn = Math.round(magnet.rotation.y / Math.PI) * Math.PI;
+            magnetState.targetRotationY = nearestHalfTurn;
+        }
+    });
+
+    document.getElementById('auto-move').addEventListener('change', (e) => {
+        uiState.autoMove = e.target.checked;
+        if (uiState.autoMove) {
+            magnetState.isSimulatingV = false; // 關閉初速模式
+            let clampedX = Math.max(-12.5, Math.min(12.5, magnetState.x));
+            magnetState.phase = Math.asin(clampedX / 12.5);
+            if (magnetState.velocity < 0) {
+                magnetState.phase = Math.PI - magnetState.phase;
+            }
+        }
+    });
+
+    const chargeCb = document.getElementById('show-charges');
+    const radioGroup = document.getElementById('charge-radios');
+    
+    chargeCb.addEventListener('change', (e) => {
+        uiState.showCharges = e.target.checked;
+        charges.forEach(c => c.visible = uiState.showCharges);
+        radioGroup.style.opacity = uiState.showCharges ? '1' : '0.5';
+        radioGroup.style.pointerEvents = uiState.showCharges ? 'auto' : 'none';
+    });
+
+    document.querySelectorAll('input[name="charge-type"]').forEach(r => {
+        r.addEventListener('change', (e) => {
+            uiState.chargeType = e.target.value;
+            const color = uiState.chargeType === 'electron' ? 0x0dd4c8 : 0xc084fc;
+            charges.forEach(c => c.material.color.setHex(color));
+        });
+    });
+
+    const fsBtn = document.getElementById('fullscreen-btn');
+    fsBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        fsBtn.innerText = document.fullscreenElement ? '✕' : '⛶';
+    });
+}
+
+function calculateFlux(magnetX) {
+    const rSq = COIL_RADIUS * COIL_RADIUS; 
+    const distSq = magnetX * magnetX;      
+    const currentPolarity = Math.cos(magnet.rotation.y);
+    return (2500 / Math.pow(distSq + rSq, 1.5)) * currentPolarity; 
+}
+
+function updatePhysics() {
+    // 【新增】物理磁阻尼演算法
+    if (magnetState.isSimulatingV) {
+        // 利用磁通量分佈公式來當作磁場強弱的依據
+        let bField = 2500 / Math.pow(magnetState.x * magnetState.x + 9, 1.5);
+        
+        // 【修改】微調基礎空氣阻力 (0.03 -> 0.035)，讓遠離的煞車手感更為紮實
+        let drag = 0.035 + bField * 0.01; 
+        
+        magnetState.v *= (1 - drag);
+        magnetState.x += magnetState.v;
+        magnet.position.x = magnetState.x;
+
+        // 當速度極小，判定為靜止
+        if (Math.abs(magnetState.v) < 0.005) {
+            magnetState.isSimulatingV = false;
+            magnetState.v = 0;
+        }
+        
+        // 更新顯示用速度
+        magnetState.velocity = magnetState.v; 
+    } else {
+        // 一般拖曳或自動穿梭時，記錄實際的位移差當作速度
+        magnetState.velocity = magnetState.x - magnetState.lastX;
+    }
+    
+    magnetState.lastX = magnetState.x;
+    
+    if (uiState.autoMove && !magnetState.isDragging && !magnetState.isSimulatingV) {
+        magnetState.phase += 0.035; 
+        magnetState.x = 12.5 * Math.sin(magnetState.phase);
+        magnet.position.x = magnetState.x;
+    }
+
+    const currentFlux = calculateFlux(magnetState.x);
+    const dFlux = currentFlux - simState.fluxLast;
+    simState.fluxLast = currentFlux;
+
+    simState.emf = -dFlux * 150.0; 
+
+    let targetCurrent = dFlux * 8.0; 
+    targetCurrent = Math.max(Math.min(targetCurrent, 15), -15);
+    
+    simState.inducedCurrent += (targetCurrent - simState.inducedCurrent) * 0.2;
+
+    if (Math.abs(simState.inducedCurrent) < 0.005) {
+        simState.inducedCurrent = 0;
+    }
+
+    if (Math.abs(simState.inducedCurrent) > chartState.currentMax) {
+        chartState.currentMax = Math.abs(simState.inducedCurrent) * 1.2;
+    }
+    if (Math.abs(simState.emf) > chartState.emfMax) {
+        chartState.emfMax = Math.abs(simState.emf) * 1.2;
+    }
+
+    chartData.history.push({
+        current: simState.inducedCurrent,
+        emf: simState.emf
+    });
+    if (chartData.history.length > chartData.maxLen) {
+        chartData.history.shift();
+    }
+}
+
+function updateChargePosition(chargeMesh) {
+    const path = new HelixCurve(COIL_RADIUS, COIL_LENGTH, COIL_TURNS);
+    path.getPoint(chargeMesh.userData.t, chargeMesh.position);
+}
+
+function updateVisuals() {
+    if (uiState.autoRotate) {
+        magnet.rotation.y += 0.08; 
+        magnetState.targetRotationY = magnet.rotation.y; 
+    } else {
+        magnet.rotation.y += (magnetState.targetRotationY - magnet.rotation.y) * 0.15;
+    }
+
+    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0) {
+        let moveDir = -Math.sign(simState.inducedCurrent);
+        if (uiState.chargeType === 'electron') {
+            moveDir *= -1; 
+        }
+
+        const speed = Math.abs(simState.inducedCurrent) * 0.015;
+
+        charges.forEach(c => {
+            c.userData.t += speed * moveDir;
+            if (c.userData.t > 1) c.userData.t -= 1;
+            if (c.userData.t < 0) c.userData.t += 1;
+            updateChargePosition(c);
+        });
+    }
+
+    if (uiState.showCharges && Math.abs(simState.inducedCurrent) > 0.01) {
+        inducedBArrow.visible = true;
+        
+        const sign = Math.sign(simState.inducedCurrent);
+        const targetRotY = sign > 0 ? 0 : Math.PI;
+        
+        inducedBArrow.rotation.y += (targetRotY - inducedBArrow.rotation.y) * 0.2;
+        
+        const intensity = Math.min(Math.sqrt(Math.abs(simState.inducedCurrent)) * 0.6, 1);
+        
+        inducedBArrow.scale.set(0.5 + intensity*0.8, 0.5 + intensity*0.8, 0.5 + intensity*0.8);
+        inducedBArrow.children.forEach(c => c.material.emissiveIntensity = intensity);
+    } else {
+        inducedBArrow.visible = false;
+    }
+
+    if (bulbFilamentMat && bulbPointLight && bulbGlassMat) {
+        const lightIntensity = Math.min(Math.abs(simState.inducedCurrent) * 2.0, 1.0);
+        
+        bulbFilamentMat.emissiveIntensity += (lightIntensity * 8.0 - bulbFilamentMat.emissiveIntensity) * 0.2;
+        bulbPointLight.intensity += (lightIntensity * 3.0 - bulbPointLight.intensity) * 0.2;
+        bulbGlassMat.emissiveIntensity += (lightIntensity * 0.6 - bulbGlassMat.emissiveIntensity) * 0.2;
+    }
+
+    // 【修改】動態更新速度箭頭 (v)
+    let displayV = magnetState.velocity;
+    if (Math.abs(displayV) > 0.01 && magnetState.isSimulatingV) {
+        vArrowHelper.visible = true;
+        vLabel.visible = true;
+        
+        let dir = displayV > 0 ? new THREE.Vector3(1,0,0) : new THREE.Vector3(-1,0,0);
+        vArrowHelper.setDirection(dir);
+        
+        // 【修改】配合極大的初速，將箭頭長度上限提高到 25
+        let arrowLen = Math.abs(displayV) * 12;
+        arrowLen = Math.min(arrowLen, 25); 
+        
+        // 動態等比例縮放箭頭頭部，避免長度極小時 Three.js 發生渲染破圖
+        let headLen = Math.min(1.2, arrowLen * 0.4);
+        let headWid = Math.min(0.8, arrowLen * 0.25);
+        
+        vArrowHelper.setLength(arrowLen, headLen, headWid);
+        vLabel.position.set(0, 3.5 + arrowLen * 0.5, 0); 
+    } else {
+        vArrowHelper.visible = false;
+        vLabel.visible = false;
+    }
+}
+
+/**
+ * 繪製即時圖表 (Canvas) - 支援動態 Y 軸與刻度
+ */
+function renderChart() {
+    const canvas = document.getElementById('chart-canvas');
+    if (!canvas || canvas.offsetParent === null) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const midY = height / 2;
+    const leftMargin = 40; 
+
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftMargin, 0);
+    ctx.lineTo(leftMargin, height);
+    ctx.stroke();
+
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(leftMargin, midY);
+    ctx.lineTo(width, midY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const isCurrent = uiState.chartMode === 'current';
+    const maxVal = isCurrent ? chartState.currentMax : chartState.emfMax;
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    let displayMax = maxVal >= 10 ? Math.round(maxVal) : maxVal.toFixed(1);
+    ctx.fillText("+" + displayMax, leftMargin - 5, 10);
+    ctx.fillText("0", leftMargin - 5, midY);
+    ctx.fillText("-" + displayMax, leftMargin - 5, height - 10);
+
+    ctx.beginPath();
+    ctx.strokeStyle = isCurrent ? '#c084fc' : '#facc15'; 
+    ctx.lineWidth = 2.5;
+
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = ctx.strokeStyle;
+
+    const stepX = (width - leftMargin) / (chartData.maxLen - 1);
+
+    for (let i = 0; i < chartData.history.length; i++) {
+        const data = chartData.history[i];
+        let val = isCurrent ? data.current : data.emf;
+        
+        let normalized = val / maxVal;
+        normalized = Math.max(-0.95, Math.min(0.95, normalized)); 
+        
+        const x = leftMargin + i * stepX;
+        const y = midY - (normalized * midY); 
+
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    }
+
+    ctx.stroke();
+    ctx.shadowBlur = 0; 
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    orbitControls.update();
+    updatePhysics();
+    updateVisuals();
+    renderChart(); 
+    renderer.render(scene, camera);
+}
+
+init();
+
+</script>
+</body>
+</html>

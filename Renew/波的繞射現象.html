@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 確保手機與平板上的縮放被鎖定，並完美貼合螢幕 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>專業物理模擬器 - 波的繞射與惠更斯原理</title>
+    
+    <!-- 引入 MathJax 用於渲染物理公式 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        /* 核心排版與深色主題設定 */
+        :root {
+            --bg-color: #0b1120;
+            --panel-bg: rgba(15, 23, 42, 0.92);
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent: #38bdf8;
+            --wave-color: #10b981;
+            --danger: #f43f5e;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow: hidden; 
+            touch-action: none; /* 防止滑動視角時觸發網頁滾動 */
+        }
+
+        #simCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            /* 【修復關鍵】：強制設定 CSS 尺寸，避免 Retina 螢幕將畫布實體像素撐開 */
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            display: block;
+        }
+
+        /* 響應式浮動控制面板 */
+        .controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: clamp(300px, 90vw, 360px);
+            max-height: calc(100vh - 40px);
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1), opacity 0.4s ease;
+        }
+
+        .controls-panel.collapsed {
+            transform: translateX(120%) scale(0.9);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        .header p {
+            margin: 0;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* 知識與公式面板 */
+        .info-panel {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+            font-size: 0.95rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .val-display {
+            color: var(--wave-color);
+            font-family: monospace;
+            font-size: 1.1rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        /* 現代化滑桿 */
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #334155;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+            margin-top: 5px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--wave-color);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        .btn-row { display: flex; gap: 10px; }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: transparent;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+        button:hover { background: rgba(255,255,255,0.1); }
+        button.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .preset-btn { font-size: 0.85rem; border-color: #10b981; color: #10b981; }
+        .preset-btn:hover { background: rgba(16, 185, 129, 0.2); }
+
+        button.play-btn {
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            font-size: 1.05rem;
+            padding: 12px;
+            margin-top: 5px;
+        }
+        button.play-btn:hover { background: #0ea5e9; transform: translateY(-2px); }
+
+        /* 懸浮按鈕 */
+        .close-btn {
+            position: absolute;
+            top: 15px; right: 15px;
+            background: none; border: none;
+            font-size: 1.2rem; cursor: pointer;
+            color: var(--text-sub); padding: 5px;
+        }
+        .close-btn:hover { color: #fff; }
+
+        .floating-btn {
+            position: absolute;
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--text-main);
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 5;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(5px);
+        }
+        .floating-btn:hover { background: #1e293b; transform: scale(1.05); }
+        .open-panel-btn { top: 20px; right: 20px; display: none; }
+
+        /* 手機端微縮策略 (Fluid Scaling) */
+        @media (max-width: 768px) {
+            .controls-panel {
+                top: auto;
+                bottom: 20px;
+                right: 5vw;
+                width: 90vw;
+                max-height: 55vh;
+                transform-origin: bottom right;
+            }
+            .controls-panel.collapsed {
+                transform: scale(0.75) translate(150%, 50%);
+            }
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+    <canvas id="simCanvas"></canvas>
+
+    <button id="btnOpenPanel" class="floating-btn open-panel-btn">⚙️ 參數設定</button>
+
+    <div class="controls-panel" id="mainPanel">
+        <button id="btnClosePanel" class="close-btn" title="收起面板">✖</button>
+
+        <div class="header">
+            <h1>📐 波動光學與繞射實驗</h1>
+            <p>探索惠更斯原理，觀察波長與狹縫寬度比例如何決定繞射角的幾何分佈。</p>
+        </div>
+        
+        <div class="info-panel" id="formula-container">公式載入中...</div>
+        
+        <div class="control-group">
+            <label>實驗配置</label>
+            <div class="btn-row">
+                <button id="btnSlit" class="active" onclick="setMode('slit')">單狹縫</button>
+                <button id="btnObstacle" onclick="setMode('obstacle')">障礙物</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>
+                波長 (λ)
+                <span class="val-display" id="valWavelength">0.60 m</span>
+            </label>
+            <input type="range" id="sliderWavelength" min="0.1" max="2.0" step="0.01" value="0.60">
+        </div>
+
+        <div class="control-group">
+            <label>
+                狹縫/障礙寬度 (d)
+                <span class="val-display" id="valWidth">1.20 m</span>
+            </label>
+            <input type="range" id="sliderWidth" min="0.1" max="2.0" step="0.01" value="1.20">
+        </div>
+
+        <!-- 教學引導 -->
+        <div class="control-group">
+            <label>推薦觀察 (教學預設)</label>
+            <div class="btn-row">
+                <button class="preset-btn" onclick="applyPreset(0.8, 0.4)">明顯繞射</button>
+                <button class="preset-btn" onclick="applyPreset(0.1, 1.5)">直線傳播</button>
+            </div>
+        </div>
+
+        <div class="control-group" style="flex-direction: row; justify-content: space-between;">
+            <label style="font-weight: normal; font-size: 0.9rem; cursor: pointer;">
+                <input type="checkbox" id="chkShadow" style="vertical-align: middle;"> 幾何陰影區
+            </label>
+            <label style="font-weight: normal; font-size: 0.9rem; cursor: pointer;">
+                <input type="checkbox" id="chkHuygens" style="vertical-align: middle;"> 惠更斯子波
+            </label>
+        </div>
+
+        <div class="btn-row">
+            <button class="play-btn" id="btnPlay" onclick="togglePlay()">⏸ 暫停模擬</button>
+            <button class="play-btn" id="btnFullscreen" style="background: #334155; color: #fff;">⛶ 全螢幕</button>
+        </div>
+    </div>
+
+<script>
+    // --- 系統常數與畫布設定 ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const PIXELS_PER_METER = 150; 
+    
+    // 物理狀態核心
+    let state = {
+        mode: 'slit',
+        wavelength: 0.60,
+        slitWidth: 1.20,
+        speed: 2.0,
+        showShadow: false,
+        showHuygens: false,
+        isPlaying: true
+    };
+
+    let waves = [];
+    let logicalW = 0, logicalH = 0;
+
+    // --- RWD 與 Retina 視網膜高畫質渲染 ---
+    function resizeCanvas() {
+        logicalW = window.innerWidth;
+        logicalH = window.innerHeight;
+        // 取得設備像素比，平板通常為 2 或更高
+        const dpr = window.devicePixelRatio || 1;
+        
+        // 設定 Canvas 實體像素（放大以保持清晰）
+        canvas.width = logicalW * dpr;
+        canvas.height = logicalH * dpr;
+        
+        // 【修復關鍵】：必須強制透過 style 指定 CSS 尺寸為視窗寬高，否則畫布會超出視窗
+        canvas.style.width = logicalW + 'px';
+        canvas.style.height = logicalH + 'px';
+        
+        // 縮放繪圖環境，讓後續的繪圖 API (如 ctx.arc) 參數對應回邏輯像素
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- DOM 綁定 ---
+    const sliderWavelength = document.getElementById('sliderWavelength');
+    const sliderWidth = document.getElementById('sliderWidth');
+    const chkShadow = document.getElementById('chkShadow');
+    const chkHuygens = document.getElementById('chkHuygens');
+    
+    sliderWavelength.addEventListener('input', (e) => {
+        state.wavelength = parseFloat(e.target.value);
+        document.getElementById('valWavelength').innerText = state.wavelength.toFixed(2) + ' m';
+        updateMathJax();
+    });
+
+    sliderWidth.addEventListener('input', (e) => {
+        state.slitWidth = parseFloat(e.target.value);
+        document.getElementById('valWidth').innerText = state.slitWidth.toFixed(2) + ' m';
+        updateMathJax();
+    });
+
+    chkShadow.addEventListener('change', e => state.showShadow = e.target.checked);
+    chkHuygens.addEventListener('change', e => state.showHuygens = e.target.checked);
+
+    function setMode(m) {
+        state.mode = m;
+        document.getElementById('btnSlit').classList.toggle('active', m === 'slit');
+        document.getElementById('btnObstacle').classList.toggle('active', m === 'obstacle');
+        waves = []; // 重置波場
+        updateMathJax();
+    }
+
+    function applyPreset(lambda, width) {
+        sliderWavelength.value = lambda;
+        sliderWidth.value = width;
+        // 觸發事件更新
+        sliderWavelength.dispatchEvent(new Event('input'));
+        sliderWidth.dispatchEvent(new Event('input'));
+    }
+
+    function togglePlay() {
+        state.isPlaying = !state.isPlaying;
+        const btnPlay = document.getElementById('btnPlay');
+        const mainPanel = document.getElementById('mainPanel');
+        const btnOpen = document.getElementById('btnOpenPanel');
+
+        if (state.isPlaying) {
+            btnPlay.innerHTML = '⏸ 暫停模擬';
+            btnPlay.style.background = 'var(--accent)';
+            // 智慧收合：啟動時最大化視覺空間
+            mainPanel.classList.add('collapsed');
+            btnOpen.style.display = 'flex';
+        } else {
+            btnPlay.innerHTML = '▶️ 繼續模擬';
+            btnPlay.style.background = 'var(--danger)';
+            // 暫停時展開面板供使用者微調
+            mainPanel.classList.remove('collapsed');
+            btnOpen.style.display = 'none';
+        }
+    }
+
+    // --- 動態 MathJax 公式運算 ---
+    function updateMathJax() {
+        const ratio = state.wavelength / state.slitWidth;
+        const infoDiv = document.getElementById('formula-container');
+        if (ratio >= 1) {
+            infoDiv.innerHTML = `<div style="color:#fbbf24; font-weight:bold;">發生完全繞射 (趨近點波源)</div>
+                                 <div style="font-size:0.9em; margin-top:5px; color:#94a3b8;">
+                                 條件：\\( \\lambda \\ge d \\)<br>無法形成清晰極小值。</div>`;
+        } else {
+            const angle = Math.asin(ratio) * (180 / Math.PI);
+            infoDiv.innerHTML = `<div style="font-weight:bold; color:#38bdf8;">第一極小值繞射角：\\( \\theta \\approx ${angle.toFixed(1)}^\\circ \\)</div>
+                                 <div style="font-size:0.9em; margin-top:5px; color:#94a3b8;">
+                                 由公式計算：\\( \\sin(\\theta) = \\frac{\\lambda}{d} \\)</div>`;
+        }
+        if(window.MathJax) MathJax.typesetPromise([infoDiv]).catch(e => console.error(e));
+    }
+
+    // --- [修復核心] 漸變繞射弧線演算法 ---
+    // 解決分段接縫重疊導致的「毛毛蟲」現象
+    function drawDiffractingArc(cx, cy, r, angleDir, spreadLimit, boundaryY) {
+        let maxAngle = spreadLimit;
+        
+        let distToBoundary = Math.abs(boundaryY - cy);
+        if (r > distToBoundary && distToBoundary > 0) {
+            let intersectAngle = Math.asin(distToBoundary / r);
+            maxAngle = Math.min(spreadLimit, intersectAngle);
+        }
+
+        if (maxAngle <= 0.01) return;
+
+        let segments = Math.max(1, Math.ceil(maxAngle * (180 / Math.PI) / 2)); 
+        let step = maxAngle / segments;
+
+        ctx.lineWidth = 3;
+        // 改用 butt 避免兩端突出造成的 Alpha 疊加異常
+        ctx.lineCap = 'butt'; 
+
+        for (let i = 0; i < segments; i++) {
+            let theta1 = i * step;
+            let theta2 = (i + 1) * step;
+            
+            // 微幅延長每一段角度，確保與下一段無縫接合，消除黑白間隙
+            if (i < segments - 1) theta2 += 0.05;
+
+            // 能量衰減曲線優化
+            let progress = (theta1 + theta2) / 2 / (Math.PI / 2);
+            let alpha = Math.max(0, 1.0 - Math.pow(progress, 1.6)); 
+
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(16, 185, 129, ${alpha})`; // Tailwind Emerald-500
+            
+            let a1 = theta1 * angleDir;
+            let a2 = theta2 * angleDir;
+            
+            ctx.arc(cx, cy, r, a1, a2, angleDir < 0);
+            ctx.stroke();
+        }
+    }
+
+    // --- 主循環與物理更新 ---
+    function update() {
+        if (!state.isPlaying) return;
+        const lambdaPx = state.wavelength * PIXELS_PER_METER;
+        
+        for (let i = 0; i < waves.length; i++) waves[i] += state.speed;
+        if (waves.length === 0 || waves[waves.length - 1] >= lambdaPx) waves.push(0);
+        if (waves.length > 0 && waves[0] > logicalW * 1.5) waves.shift();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, logicalW, logicalH);
+
+        const widthPx = state.slitWidth * PIXELS_PER_METER;
+        const lambdaPx = state.wavelength * PIXELS_PER_METER;
+        const wallX = Math.min(logicalW * 0.3, 350); 
+        const cy = logicalH / 2;
+        const halfW = widthPx / 2;
+
+        let ratio = lambdaPx / widthPx;
+        let spreadAngle = (ratio >= 0.98) ? Math.PI / 2 : Math.asin(ratio);
+
+        // 1. 繪製幾何陰影區
+        if (state.showShadow) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.6)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
+
+            let safeAngle = Math.min(spreadAngle, Math.PI / 2 - 0.02);
+
+            if (state.mode === 'obstacle') {
+                let L = (spreadAngle >= Math.PI / 2 - 0.05) ? 0 : halfW / Math.tan(safeAngle);
+                ctx.beginPath();
+                ctx.moveTo(wallX, cy - halfW); ctx.lineTo(wallX + L, cy); ctx.lineTo(wallX, cy + halfW);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            } else {
+                let remainingW = logicalW - wallX;
+                let yOff = remainingW * Math.tan(safeAngle);
+
+                ctx.beginPath();
+                ctx.moveTo(wallX, 0); ctx.lineTo(logicalW, 0);
+                ctx.lineTo(logicalW, (cy - halfW) - yOff); ctx.lineTo(wallX, cy - halfW);
+                ctx.fill();
+                ctx.beginPath(); ctx.moveTo(wallX, cy - halfW); ctx.lineTo(logicalW, (cy - halfW) - yOff); ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(wallX, logicalH); ctx.lineTo(logicalW, logicalH);
+                ctx.lineTo(logicalW, (cy + halfW) + yOff); ctx.lineTo(wallX, cy + halfW);
+                ctx.fill();
+                ctx.beginPath(); ctx.moveTo(wallX, cy + halfW); ctx.lineTo(logicalW, (cy + halfW) + yOff); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // 開啟螢光特效 (Glow) 提升科技感
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(16, 185, 129, 0.5)';
+
+        // 2. 繪製主波前
+        waves.forEach(x => {
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 3; 
+
+            if (x <= wallX) {
+                // 平面入射波
+                ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, logicalH); ctx.stroke();
+            } else {
+                let r = x - wallX;
+                if (state.mode === 'slit') {
+                    let topY = cy - halfW;
+                    let bottomY = cy + halfW;
+                    
+                    // 中央平面波段
+                    ctx.lineCap = 'round'; 
+                    ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, bottomY); ctx.stroke();
+                    
+                    // 上下繞射弧段
+                    ctx.shadowBlur = 0; 
+                    drawDiffractingArc(wallX, topY, r, -1, spreadAngle, -9999);
+                    drawDiffractingArc(wallX, bottomY, r, 1, spreadAngle, 9999);
+                    ctx.shadowBlur = 15;
+                } else {
+                    let topY = cy - halfW;
+                    let bottomY = cy + halfW;
+
+                    ctx.lineCap = 'round';
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, topY); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(x, bottomY); ctx.lineTo(x, logicalH); ctx.stroke();
+
+                    ctx.shadowBlur = 0;
+                    drawDiffractingArc(wallX, topY, r, 1, spreadAngle, cy);
+                    drawDiffractingArc(wallX, bottomY, r, -1, spreadAngle, cy);
+                    ctx.shadowBlur = 15;
+                }
+            }
+        });
+        ctx.shadowBlur = 0; // 重置狀態
+
+        // 3. 繪製惠更斯子波
+        if (state.showHuygens) {
+            waves.forEach(x => {
+                if (x > wallX) {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+                    ctx.lineWidth = 1;
+                    let subR = x - wallX;
+
+                    if (state.mode === 'slit') {
+                        let topY = cy - halfW;
+                        const num = Math.max(3, Math.floor(widthPx / 15));
+                        const stp = widthPx / (num - 1);
+                        for (let i = 0; i < num; i++) {
+                            ctx.beginPath(); ctx.arc(wallX, topY + i * stp, subR, -Math.PI/2, Math.PI/2); ctx.stroke();
+                        }
+                    } else {
+                        ctx.beginPath(); ctx.arc(wallX, cy - halfW, subR, -Math.PI/2, Math.PI/2); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(wallX, cy + halfW, subR, -Math.PI/2, Math.PI/2); ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            });
+        }
+
+        // 4. 繪製實體障礙牆
+        ctx.fillStyle = '#64748b'; // 石板灰
+        const wallT = 12;
+        if (state.mode === 'slit') {
+            ctx.beginPath();
+            ctx.roundRect(wallX - wallT/2, 0, wallT, cy - halfW, [0, 0, 6, 6]);
+            ctx.roundRect(wallX - wallT/2, cy + halfW, wallT, logicalH - (cy + halfW), [6, 6, 0, 0]);
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.roundRect(wallX - wallT/2, cy - halfW, wallT, widthPx, [6]);
+            ctx.fill();
+        }
+    }
+
+    function loop() {
+        update(); draw(); requestAnimationFrame(loop);
+    }
+
+    // --- UI 互動邏輯 ---
+    const btnClosePanel = document.getElementById('btnClosePanel');
+    const btnOpenPanel = document.getElementById('btnOpenPanel');
+    const mainPanel = document.getElementById('mainPanel');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+
+    btnClosePanel.addEventListener('click', () => {
+        mainPanel.classList.add('collapsed');
+        btnOpenPanel.style.display = 'flex';
+    });
+
+    btnOpenPanel.addEventListener('click', () => {
+        mainPanel.classList.remove('collapsed');
+        btnOpenPanel.style.display = 'none';
+    });
+
+    btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(e => console.log(e));
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        btnFullscreen.innerHTML = document.fullscreenElement ? '✖ 退出全螢幕' : '⛶ 全螢幕';
+    });
+
+    // 啟動
+    setTimeout(updateMathJax, 500);
+    loop();
+
+</script>
+</body>
+</html>

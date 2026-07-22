@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>帶電質點在磁場中的運動 (螺旋線運動)</title>
+    <!-- 引入 Tailwind CSS 用於 UI 排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 p5.js 核心函式庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <!-- 引入字體圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f8fafc; /* Tailwind slate-50 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        #app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            flex-direction: column;
+        }
+
+        @media (min-width: 768px) {
+            #app-container {
+                flex-direction: row;
+            }
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background-color: #ffffff;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            min-height: 50vh;
+        }
+
+        #ui-container {
+            width: 100%;
+            height: 50vh;
+            background-color: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            #ui-container {
+                width: 400px;
+                height: 100vh;
+                border-top: none;
+                border-left: 1px solid #e2e8f0;
+            }
+        }
+
+        /* 全螢幕按鈕樣式 */
+        #fullscreen-btn {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            z-index: 50;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            color: #334155;
+        }
+
+        #fullscreen-btn:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        /* 視角切換提示 */
+        #view-indicator {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background-color: rgba(15, 23, 42, 0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        /* 滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        
+        .math-text {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+        .math-sub {
+            font-size: 0.7em;
+            vertical-align: sub;
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- 畫布區域 -->
+    <div id="canvas-container">
+        <button id="fullscreen-btn" onclick="toggleFullScreen()" title="切換全螢幕">
+            <i class="fas fa-expand"></i>
+        </button>
+        <div id="view-indicator">目前視角：側視圖</div>
+        <!-- p5.js canvas 會自動插入這裡 -->
+    </div>
+
+    <!-- 控制與教學面板 -->
+    <div id="ui-container">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">帶電質點在磁場中的運動</h1>
+            <p class="text-sm text-slate-500 mb-4">觀察勞侖茲力如何造成螺旋線運動</p>
+        </div>
+
+        <!-- 視角切換與播放控制 -->
+        <div class="flex gap-2">
+            <button id="toggle-view-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded shadow transition-colors duration-200 flex items-center justify-center gap-2">
+                <i class="fas fa-eye"></i> 切換至 軸心視角
+            </button>
+            <button id="reset-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-4 rounded shadow transition-colors duration-200" title="重置位置">
+                <i class="fas fa-redo"></i>
+            </button>
+            <button id="pause-btn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-2 px-4 rounded shadow transition-colors duration-200" title="暫停/播放">
+                <i class="fas fa-pause"></i>
+            </button>
+        </div>
+
+        <!-- 參數控制區 -->
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-lg font-semibold text-slate-700 border-b pb-2">實驗參數調整</h2>
+            
+            <!-- 速度 v -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-700">發射速度 <span class="math-text">v</span></label>
+                    <span id="v-val" class="text-sm text-blue-600 font-bold">40</span>
+                </div>
+                <input type="range" id="v-slider" min="10" max="80" value="40" class="w-full">
+            </div>
+
+            <!-- 角度 theta -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-700">入射角 <span class="math-text">&theta;</span> (與磁場夾角)</label>
+                    <span id="theta-val" class="text-sm text-blue-600 font-bold">60&deg;</span>
+                </div>
+                <input type="range" id="theta-slider" min="0" max="90" value="60" class="w-full">
+            </div>
+
+            <!-- 磁場 B -->
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium text-slate-700">磁場強度 <span class="math-text">B</span></label>
+                    <span id="b-val" class="text-sm text-blue-600 font-bold">2.0</span>
+                </div>
+                <input type="range" id="b-slider" min="0.5" max="5.0" step="0.1" value="2.0" class="w-full">
+            </div>
+
+            <!-- 電荷 q -->
+            <div class="flex items-center justify-between pt-2">
+                <label class="text-sm font-medium text-slate-700">電荷性 <span class="math-text">q</span></label>
+                <div class="flex bg-slate-100 rounded-lg p-1">
+                    <button id="q-pos-btn" class="px-3 py-1 text-sm rounded shadow-sm bg-white text-blue-600 font-bold">正電荷 (+)</button>
+                    <button id="q-neg-btn" class="px-3 py-1 text-sm rounded text-slate-500 font-bold hover:text-slate-700">負電荷 (-)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 物理量計算顯示 -->
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 mb-2"><i class="fas fa-calculator mr-1"></i> 即時物理量</h3>
+            <div class="grid grid-cols-2 gap-2 text-sm text-slate-700">
+                <div>圓半徑 <span class="math-text">r</span>： <span id="calc-r" class="font-bold text-slate-900">0.0</span></div>
+                <div>螺距 <span class="math-text">d</span>： <span id="calc-d" class="font-bold text-slate-900">0.0</span></div>
+                <div>平行速度 <span class="math-text">v</span><span class="math-sub">∥</span>： <span id="calc-vx" class="font-bold text-slate-900">0.0</span></div>
+                <div>垂直速度 <span class="math-text">v</span><span class="math-sub">⊥</span>： <span id="calc-vy" class="font-bold text-slate-900">0.0</span></div>
+            </div>
+        </div>
+
+        <!-- 教學引導區 -->
+        <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 flex-1">
+            <h2 class="text-md font-semibold text-amber-800 mb-2"><i class="fas fa-lightbulb mr-1"></i> 物理概念與引導</h2>
+            <div class="text-sm text-amber-900 space-y-3">
+                <p>當帶電質點以一夾角 <span class="math-text">&theta;</span> 進入均勻磁場 <span class="math-text">B</span> 時，速度可分解為：</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>平行磁場方向 (<span class="math-text">v</span><span class="math-sub">∥</span> = <span class="math-text">v</span> cos<span class="math-text">&theta;</span>)：</strong> 不受磁力，作等速直線運動。</li>
+                    <li><strong>垂直磁場方向 (<span class="math-text">v</span><span class="math-sub">⊥</span> = <span class="math-text">v</span> sin<span class="math-text">&theta;</span>)：</strong> 受勞侖茲力影響，作等速圓周運動。</li>
+                </ul>
+                <p>兩者疊加的結果，使質點的軌跡呈現<strong>螺旋線 (Helix)</strong>。</p>
+                
+                <div class="mt-4 border-t border-amber-200 pt-3">
+                    <strong class="text-amber-800">👉 動手試試看：</strong>
+                    <ol class="list-decimal pl-5 mt-1 space-y-1">
+                        <li>調整角度為 <strong>90&deg;</strong>，觀察軌跡變成什麼形狀？</li>
+                        <li>調整角度為 <strong>0&deg;</strong>，質點還會旋轉嗎？</li>
+                        <li>點擊「切換至軸心視角」，從這個角度看，質點的運動是什麼？</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- UI 互動邏輯 ---
+    const vSlider = document.getElementById('v-slider');
+    const thetaSlider = document.getElementById('theta-slider');
+    const bSlider = document.getElementById('b-slider');
+    
+    const vVal = document.getElementById('v-val');
+    const thetaVal = document.getElementById('theta-val');
+    const bVal = document.getElementById('b-val');
+    
+    const qPosBtn = document.getElementById('q-pos-btn');
+    const qNegBtn = document.getElementById('q-neg-btn');
+    
+    const calcR = document.getElementById('calc-r');
+    const calcD = document.getElementById('calc-d');
+    const calcVx = document.getElementById('calc-vx');
+    const calcVy = document.getElementById('calc-vy');
+
+    const toggleViewBtn = document.getElementById('toggle-view-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const viewIndicator = document.getElementById('view-indicator');
+
+    // 物理狀態參數
+    let params = {
+        v: parseFloat(vSlider.value),
+        theta: parseFloat(thetaSlider.value),
+        B: parseFloat(bSlider.value),
+        q: 1, // 1 或 -1
+        m: 1  // 質量設為常數 1
+    };
+
+    let isPaused = false;
+    let isAxialView = false;
+    
+    // 更新 UI 顯示值
+    function updateValues() {
+        params.v = parseFloat(vSlider.value);
+        params.theta = parseFloat(thetaSlider.value);
+        params.B = parseFloat(bSlider.value);
+        
+        vVal.innerText = params.v;
+        thetaVal.innerHTML = params.theta + '&deg;';
+        bVal.innerText = params.B.toFixed(1);
+
+        // 重新計算衍生變量
+        calculatePhysics();
+    }
+
+    // 綁定事件
+    vSlider.addEventListener('input', updateValues);
+    thetaSlider.addEventListener('input', updateValues);
+    bSlider.addEventListener('input', updateValues);
+
+    qPosBtn.addEventListener('click', () => {
+        params.q = 1;
+        qPosBtn.className = "px-3 py-1 text-sm rounded shadow-sm bg-white text-blue-600 font-bold";
+        qNegBtn.className = "px-3 py-1 text-sm rounded text-slate-500 font-bold hover:text-slate-700";
+        calculatePhysics();
+    });
+
+    qNegBtn.addEventListener('click', () => {
+        params.q = -1;
+        qNegBtn.className = "px-3 py-1 text-sm rounded shadow-sm bg-white text-red-600 font-bold";
+        qPosBtn.className = "px-3 py-1 text-sm rounded text-slate-500 font-bold hover:text-slate-700";
+        calculatePhysics();
+    });
+
+    resetBtn.addEventListener('click', () => {
+        simTime = 0;
+        path = [];
+    });
+
+    pauseBtn.addEventListener('click', () => {
+        isPaused = !isPaused;
+        pauseBtn.innerHTML = isPaused ? '<i class="fas fa-play"></i>' : '<i class="fas fa-pause"></i>';
+    });
+
+    // --- 全螢幕控制 ---
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable fullscreen: ${err.message} (${err.name})`);
+            });
+            document.getElementById('fullscreen-btn').innerHTML = '<i class="fas fa-times"></i>';
+        } else {
+            document.exitFullscreen();
+            document.getElementById('fullscreen-btn').innerHTML = '<i class="fas fa-expand"></i>';
+        }
+    }
+
+    // 監聽全螢幕變化以更新按鈕圖示
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            document.getElementById('fullscreen-btn').innerHTML = '<i class="fas fa-expand"></i>';
+        }
+    });
+
+    // --- p5.js 模擬器邏輯 ---
+    let canvasWidth, canvasHeight;
+    let simTime = 0;
+    let path = [];
+    
+    // 物理計算用的內部變數
+    let vx, vy, omega, R, pitch;
+    let particlePos = {x: 0, y: 0, z: 0};
+    
+    // 攝影機參數
+    let cam;
+    let targetEyeX, targetEyeY, targetEyeZ;
+    let targetCenterX, targetCenterY, targetCenterZ;
+    let currentEyeX, currentEyeY, currentEyeZ;
+    let currentCenterX, currentCenterY, currentCenterZ;
+    let viewLerp = 0; // 0: 側視, 1: 軸視
+
+    // 初始設置
+    function setup() {
+        const container = document.getElementById('canvas-container');
+        canvasWidth = container.clientWidth;
+        canvasHeight = container.clientHeight;
+        let canvas = createCanvas(canvasWidth, canvasHeight, WEBGL);
+        canvas.parent('canvas-container');
+        
+        cam = createCamera();
+        setCameraTargets(false); // 初始化為側視圖
+        
+        // 立即設定攝影機位置，不要動畫過渡
+        currentEyeX = targetEyeX; currentEyeY = targetEyeY; currentEyeZ = targetEyeZ;
+        currentCenterX = targetCenterX; currentCenterY = targetCenterY; currentCenterZ = targetCenterZ;
+        
+        calculatePhysics();
+        smooth();
+    }
+
+    function calculatePhysics() {
+        // 將角度轉為弧度
+        let thetaRad = params.theta * Math.PI / 180;
+        
+        // 速度分量
+        vx = params.v * Math.cos(thetaRad);
+        vy = params.v * Math.sin(thetaRad); // 垂直分量大小
+        
+        // 迴旋角頻率 ω = qB/m (取絕對值算半徑)
+        omega = (params.q * params.B) / params.m; 
+        
+        // 半徑 R = mv⊥ / |q|B
+        let absOmega = Math.abs(omega);
+        R = absOmega > 0 ? vy / absOmega : 0;
+        
+        // 螺距 d = v∥ * T = v∥ * 2π/|ω|
+        pitch = absOmega > 0 ? vx * (2 * Math.PI / absOmega) : 0;
+
+        // 更新 UI 面板顯示數值
+        calcR.innerText = R.toFixed(1);
+        calcD.innerText = pitch.toFixed(1);
+        calcVx.innerText = vx.toFixed(1);
+        calcVy.innerText = vy.toFixed(1);
+    }
+
+    // 設定攝影機目標位置
+    function setCameraTargets(axial) {
+        if (axial) {
+            // 軸心視角：從 x 軸正方向往負方向看，稍微有一點點傾斜以看清空間
+            targetEyeX = 400; 
+            targetEyeY = 0; 
+            targetEyeZ = R; // 攝影機對齊圓柱軸心
+            
+            targetCenterX = 0; 
+            targetCenterY = 0; 
+            targetCenterZ = R;
+        } else {
+            // 側視角 (圖中視角)
+            targetEyeX = 100;
+            targetEyeY = -200; // y軸在p5中是向下的，-200表示從上方看
+            targetEyeZ = 450;
+            
+            targetCenterX = 150;
+            targetCenterY = 0;
+            targetCenterZ = 0;
+        }
+    }
+
+    // 視角切換按鈕事件
+    toggleViewBtn.addEventListener('click', () => {
+        isAxialView = !isAxialView;
+        setCameraTargets(isAxialView);
+        
+        if (isAxialView) {
+            toggleViewBtn.innerHTML = '<i class="fas fa-undo"></i> 切換至 側視圖';
+            toggleViewBtn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+            toggleViewBtn.classList.replace('hover:bg-indigo-700', 'hover:bg-emerald-700');
+            viewIndicator.innerText = '目前視角：軸心視角 (等速圓周運動)';
+        } else {
+            toggleViewBtn.innerHTML = '<i class="fas fa-eye"></i> 切換至 軸心視角';
+            toggleViewBtn.classList.replace('bg-emerald-600', 'bg-indigo-600');
+            toggleViewBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-indigo-700');
+            viewIndicator.innerText = '目前視角：側視圖 (螺旋線)';
+        }
+    });
+
+    function draw() {
+        background(255); // 白色背景配合圖片風格
+        
+        // 攝影機平滑過渡 (Lerp)
+        currentEyeX = lerp(currentEyeX, targetEyeX, 0.05);
+        currentEyeY = lerp(currentEyeY, targetEyeY, 0.05);
+        currentEyeZ = lerp(currentEyeZ, targetEyeZ, 0.05);
+        currentCenterX = lerp(currentCenterX, targetCenterX, 0.05);
+        currentCenterY = lerp(currentCenterY, targetCenterY, 0.05);
+        currentCenterZ = lerp(currentCenterZ, targetCenterZ, 0.05);
+        
+        cam.setPosition(currentEyeX, currentEyeY, currentEyeZ);
+        cam.lookAt(currentCenterX, currentCenterY, currentCenterZ);
+
+        // 如果未暫停，更新物理狀態
+        if (!isPaused) {
+            // 運動方程式
+            // 讓起始位置與圖形相符：中心軸為 (x, 0, R)，從 origin 出發
+            particlePos.x = vx * simTime;
+            particlePos.y = -R * Math.sin(omega * simTime); // p5 y 軸朝下，所以加負號讓視覺向上為正
+            particlePos.z = R * (1 - Math.cos(omega * simTime));
+
+            // 紀錄軌跡
+            path.push({x: particlePos.x, y: particlePos.y, z: particlePos.z});
+            
+            // 軌跡過長則從頭開始 (無限循環效果)
+            if (particlePos.x > 500) {
+                path = [];
+                simTime = 0;
+            } else {
+                simTime += 0.1;
+            }
+        }
+
+        // 光照設置，讓球體有立體感
+        ambientLight(150);
+        pointLight(255, 255, 255, currentEyeX, currentEyeY, currentEyeZ);
+
+        // --- 繪製場景 ---
+        push();
+        // 為了讓中心點偏左一點，符合視覺習慣
+        translate(-150, 0, 0); 
+
+        drawMagneticField();
+        drawPath();
+        drawParticleAndVectors();
+
+        pop();
+    }
+
+    // 繪製均勻磁場線 (藍色水平箭頭)
+    function drawMagneticField() {
+        push();
+        // 改用半透明的淺藍色，讓磁力線作為背景不干擾視覺
+        stroke('rgba(56, 189, 248, 0.3)'); 
+        fill('rgba(56, 189, 248, 0.5)');
+        strokeWeight(2);
+        
+        // 加大間距，大幅減少空間中的線條數量
+        let zSpacing = 150;
+        let ySpacing = 150;
+        
+        for (let z = -150; z <= 150; z += zSpacing) {
+            for (let y = -150; y <= 150; y += ySpacing) {
+                // 畫直線
+                line(-100, y, z, 500, y, z);
+                
+                // 畫箭頭 (減少箭頭數量)
+                for (let x = 0; x <= 400; x += 200) {
+                    push();
+                    translate(x, y, z);
+                    // 修正方向：改為 -PI/2，讓圓錐體箭頭確實朝向 x 軸正向 (右方)
+                    rotateZ(-PI / 2); 
+                    noStroke();
+                    cone(4, 12);
+                    pop();
+                }
+            }
+        }
+        
+        // 磁場 B 的標籤 (移至右下角其中一條線上)
+        if (!isAxialView) {
+            push();
+            translate(520, 150, 150);
+            fill('#0284c7'); // 較深的藍色讓字體清楚
+            noStroke();
+            textSize(20);
+            textFont('Times New Roman');
+            textStyle(ITALIC);
+            text("B", 0, 5);
+            
+            // 畫向量箭頭在 B 上面
+            stroke('#0284c7');
+            strokeWeight(1.5);
+            line(-2, -14, 12, -14);
+            line(12, -14, 8, -17);
+            pop();
+        }
+        pop();
+    }
+
+    // 繪製軌跡 (綠色虛線)
+    function drawPath() {
+        if (path.length < 2) return;
+        
+        push();
+        stroke('#22c55e'); // 綠色 Tailwind green-500
+        strokeWeight(2);
+        noFill();
+        
+        // 手動繪製虛線 (在 WEBGL 中 setLineDash 支援不佳)
+        beginShape(LINES);
+        for (let i = 0; i < path.length - 1; i += 3) {
+            vertex(path[i].x, path[i].y, path[i].z);
+            if (i + 1 < path.length) {
+                vertex(path[i+1].x, path[i+1].y, path[i+1].z);
+            }
+        }
+        endShape();
+        pop();
+    }
+
+    // 繪製粒子與速度向量
+    function drawParticleAndVectors() {
+        push();
+        translate(particlePos.x, particlePos.y, particlePos.z);
+        
+        // 1. 繪製質點
+        noStroke();
+        // 正電荷藍色系(如圖)，負電荷紅色系
+        if (params.q > 0) {
+            ambientMaterial('#0ea5e9'); // sky-500
+            specularMaterial(255);
+            shininess(50);
+        } else {
+            ambientMaterial('#ef4444'); // red-500
+            specularMaterial(255);
+            shininess(50);
+        }
+        sphere(12);
+
+        // 若不是完全軸心視角，且有速度，則繪製向量箭頭
+        if (viewLerp < 0.8 && params.v > 0) {
+            // 目前的切線速度方向
+            let vx_current = vx;
+            let vy_current = -R * omega * Math.cos(omega * simTime); // p5 y反向
+            let vz_current = R * omega * Math.sin(omega * simTime);
+            
+            let scaleFactor = 1.5; // 放長向量方便觀察
+
+            // a. 總速度 v (紅色)
+            drawArrow(createVector(0,0,0), createVector(vx_current*scaleFactor, vy_current*scaleFactor, vz_current*scaleFactor), '#ef4444');
+            
+            // b. 垂直分量 v⊥ (紫色)
+            drawArrow(createVector(0,0,0), createVector(0, vy_current*scaleFactor, vz_current*scaleFactor), '#a855f7');
+            
+            // c. 平行分量 v∥ (紫色)
+            drawArrow(createVector(0,0,0), createVector(vx_current*scaleFactor, 0, 0), '#a855f7');
+
+            // 畫輔助虛線構成矩形
+            push();
+            stroke(150);
+            strokeWeight(1);
+            let pV = createVector(vx_current*scaleFactor, vy_current*scaleFactor, vz_current*scaleFactor);
+            let pVy = createVector(0, vy_current*scaleFactor, vz_current*scaleFactor);
+            let pVx = createVector(vx_current*scaleFactor, 0, 0);
+            
+            drawLineDashed(pVx, pV);
+            drawLineDashed(pVy, pV);
+            pop();
+            
+            // 標示文字 (簡單處理，使用p5 text)
+            push();
+            fill(0);
+            noStroke();
+            textSize(16);
+            textFont('Times New Roman');
+            textStyle(ITALIC);
+            // 偏移一點避免重疊
+            text("v", pV.x + 5, pV.y - 5, pV.z);
+            text("q", -20, 15, 0);
+            pop();
+        }
+        pop();
+    }
+
+    // 輔助函式：畫 3D 箭頭
+    function drawArrow(base, vec, colorHex) {
+        push();
+        stroke(colorHex);
+        strokeWeight(3);
+        fill(colorHex);
+        
+        line(base.x, base.y, base.z, vec.x, vec.y, vec.z);
+        
+        translate(vec.x, vec.y, vec.z);
+        // 計算旋轉以對齊向量
+        let v = vec.copy().sub(base);
+        let r = v.mag();
+        if (r > 0) {
+            let theta = acos(v.z / r);
+            let phi = atan2(v.y, v.x);
+            rotateZ(phi);
+            rotateY(theta);
+            rotateX(PI/2); // 調整 cone 的預設方向
+            noStroke();
+            cone(5, 15);
+        }
+        pop();
+    }
+
+    // 輔助函式：畫虛線段
+    function drawLineDashed(v1, v2) {
+        let d = dist(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z);
+        let segments = Math.floor(d / 8);
+        beginShape(LINES);
+        for(let i=0; i<segments; i+=2) {
+            let pA = p5.Vector.lerp(v1, v2, i/segments);
+            let pB = p5.Vector.lerp(v1, v2, (i+1)/segments);
+            vertex(pA.x, pA.y, pA.z);
+            vertex(pB.x, pB.y, pB.z);
+        }
+        endShape();
+    }
+
+    // 處理視窗縮放
+    function windowResized() {
+        const container = document.getElementById('canvas-container');
+        canvasWidth = container.clientWidth;
+        canvasHeight = container.clientHeight;
+        resizeCanvas(canvasWidth, canvasHeight);
+    }
+</script>
+
+</body>
+</html>

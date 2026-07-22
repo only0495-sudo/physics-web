@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>電動機原理 3D 模擬 (換向器 vs 集電環)</title>
+    <style>
+        :root {
+            --accent: #059669; /* Emerald green for Motor */
+            --accent-glow: rgba(5, 150, 105, 0.3);
+            --bg-panel: rgba(255, 255, 255, 0.85);
+            --border: rgba(0, 0, 0, 0.1);
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --radius: 16px;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #f8fafc;
+            color: var(--text);
+        }
+
+        #canvas-container {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1;
+        }
+
+        /* --- UI Sidebar Layout --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10; display: flex; padding: 24px; box-sizing: border-box; gap: 24px;
+        }
+
+        .sidebar {
+            width: 340px; max-height: calc(100vh - 48px); overflow-y: auto;
+            display: flex; flex-direction: column; gap: 16px; pointer-events: auto;
+            scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.2) transparent; padding-right: 4px;
+        }
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+        .glass-panel {
+            background: var(--bg-panel); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border); border-radius: var(--radius); padding: 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); overflow: hidden; transition: max-height 0.3s ease; flex-shrink: 0;
+        }
+
+        .panel-header {
+            padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; user-select: none; background: rgba(0,0,0,0.02); transition: background 0.2s;
+        }
+        .panel-header:hover { background: rgba(0,0,0,0.05); }
+        .panel-content { padding: 0 20px 20px 20px; }
+        .collapsed { max-height: 56px; }
+
+        h1 { font-size: 1.1rem; margin: 0; font-weight: 800; color: #0f172a; }
+        .toggle-icon { font-size: 0.8rem; transition: transform 0.3s; }
+        .collapsed .toggle-icon { transform: rotate(-90deg); }
+        .subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; font-weight: 500; }
+
+        /* --- Controls Styling --- */
+        .control-group { margin-bottom: 20px; }
+        .label-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; font-size: 0.85rem; color: var(--text); font-weight: 600;
+        }
+        .value-badge {
+            background: var(--accent); color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%; appearance: none; background: #e2e8f0; height: 5px; border-radius: 3px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; cursor: pointer;
+        }
+
+        select {
+            width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1;
+            background: white; color: #0f172a; font-weight: bold; font-family: inherit; cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02); outline: none; margin-bottom: 16px;
+        }
+        select:focus { border-color: var(--accent); }
+
+        .btn-primary {
+            width: 100%; padding: 10px; background: var(--accent); border: none; border-radius: 10px; color: white;
+            font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-primary:hover { background: #047857; }
+
+        #fullscreen-btn {
+            position: absolute; top: 24px; right: 24px; pointer-events: auto; background: white; color: #0f172a;
+            border: 1px solid var(--border); border-radius: 12px; padding: 10px 20px; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-weight: 700; font-size: 0.95rem; z-index: 999;
+        }
+        #fullscreen-btn:hover { background: #f1f5f9; }
+
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.75rem; }
+        .color-box { width: 10px; height: 10px; border-radius: 2px; }
+
+        .toggle-row {
+            display: flex; align-items: center; justify-content: space-between; padding: 6px 0; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+        }
+        .switch { position: relative; display: inline-block; width: 36px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1; transition: .3s; border-radius: 18px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        @media (max-width: 768px) {
+            #ui-layer { flex-direction: column; padding: 12px; }
+            .sidebar { width: 100%; max-height: 50vh; }
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="sidebar">
+            <div id="panel-control" class="glass-panel">
+                <div class="panel-header" onclick="togglePanel('panel-control')">
+                    <h1>電動機實驗室 (Motor)</h1>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="panel-content">
+                    <div class="subtitle">電能轉動能的物理機制模擬</div>
+                    
+                    <div class="control-group" style="margin-bottom: 12px;">
+                        <div class="label-row"><span>構造類型選擇</span></div>
+                        <select id="select-mode">
+                            <option value="DC">換向器式 (直流電源)</option>
+                            <option value="SLIP">集電環式 (直流電源)</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <button id="playPauseBtn" class="btn-primary">
+                            <span id="btnIcon">⏸</span> <span id="btnText">暫停</span>
+                        </button>
+                    </div>
+                    <hr style="border:0; border-top:1px solid var(--border); margin: 16px 0;">
+
+                    <div class="control-group">
+                        <div class="label-row">
+                            <span>輸入電壓 (V)</span>
+                            <span class="value-badge" id="val-voltage">5.0</span>
+                        </div>
+                        <input type="range" id="input-voltage" min="-10.0" max="10.0" step="0.5" value="5.0">
+                    </div>
+
+                    <div class="control-group">
+                        <div class="label-row">
+                            <span>磁場強度 (B)</span>
+                            <span class="value-badge" id="val-field">2.0</span>
+                        </div>
+                        <input type="range" id="input-field" min="0" max="4.0" step="0.1" value="2.0">
+                    </div>
+
+                    <div class="control-group" style="margin-bottom: 0;">
+                        <div class="toggle-row">
+                            <span>慢動作模式</span>
+                            <label class="switch"><input type="checkbox" id="check-slow"><span class="slider"></span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-legend" class="glass-panel collapsed">
+                <div class="panel-header" onclick="togglePanel('panel-legend')">
+                    <h1>向量標示說明</h1>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="panel-content">
+                    <div class="legend-item"><div class="color-box" style="background: #0284c7;"></div> 外部磁場 B (N ➔ S)</div>
+                    <div class="legend-item"><div class="color-box" style="background: #ef4444;"></div> 線圈電流 I</div>
+                    <div class="legend-item"><div class="color-box" style="background: #22c55e;"></div> 洛倫茲力 F (磁力)</div>
+                </div>
+            </div>
+            
+            <div id="panel-formula" class="glass-panel collapsed">
+                <div class="panel-header" onclick="togglePanel('panel-formula')">
+                    <h1>物理機制解釋</h1>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="panel-content" style="font-size: 0.8rem; line-height: 1.6;">
+                    <div style="font-family: monospace; background: #f1f5f9; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 8px; border: 1px solid #e2e8f0; color: #0f172a; font-weight: bold;">
+                        F = I·L·B (安培力)<br>
+                        τ = I·A·B·cos(θ) (力矩)
+                    </div>
+                    <b>換向器式：</b>外部接直流電，內部透過換向器在線圈轉過垂直面時自動翻轉電流，使力矩方向始終相同，維持風扇旋轉。<br><br>
+                    <b>集電環式：</b>由於沒有換向機構，線圈內的電流相對於線圈本身不變。一旦轉過 180 度，原本向上的力會變成阻礙旋轉的力，導致馬達最終卡住。
+                </div>
+            </div>
+        </div>
+
+        <button id="fullscreen-btn">⛶ 全螢幕</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- 物理狀態與全局變數 ---
+        const state = {
+            mode: 'DC', 
+            isRunning: true, voltage: 5.0, magneticField: 2.0,
+            slowMotion: false, 
+            currentAngle: 0, rotationSpeed: 0.5, 
+            virtualTime: 0,
+            coilCurrent: 0 
+        };
+
+        function togglePanel(id) { document.getElementById(id).classList.toggle('collapsed'); }
+
+        const UI = {
+            selectMode: document.getElementById('select-mode'),
+            voltageSlider: document.getElementById('input-voltage'), fieldSlider: document.getElementById('input-field'),
+            voltageVal: document.getElementById('val-voltage'), fieldVal: document.getElementById('val-field'),
+            checkSlow: document.getElementById('check-slow'),
+            playPauseBtn: document.getElementById('playPauseBtn'), btnIcon: document.getElementById('btnIcon'),
+            btnText: document.getElementById('btnText'),
+            fullscreenBtn: document.getElementById('fullscreen-btn')
+        };
+
+        // --- Three.js 核心設定 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf8fafc); 
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(28, 22, 38);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05; controls.target.set(0, 2, 8);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(20, 50, 30); dirLight.castShadow = true; scene.add(dirLight);
+
+        const matCopper = new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.6, roughness: 0.4 });
+        const matCopperRed = new THREE.MeshStandardMaterial({ color: 0xff6b6b, metalness: 0.6 });
+        const matCopperBlue = new THREE.MeshStandardMaterial({ color: 0x4dabf7, metalness: 0.6 });
+        const matBrush = new THREE.MeshStandardMaterial({color: 0x333333, roughness: 0.8});
+        const matWire = new THREE.MeshStandardMaterial({color: 0x1e293b, roughness: 0.6});
+        const matFan = new THREE.MeshStandardMaterial({color: 0xf59e0b, roughness: 0.3});
+
+        // --- 磁鐵與標記 ---
+        function createMagnetLabel(text) {
+            const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = 'white'; ctx.font = 'bold 80px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 64, 64);
+            return new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, side: THREE.DoubleSide }));
+        }
+
+        const magnetsGroup = new THREE.Group(); scene.add(magnetsGroup);
+        const mN = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 16), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 })); 
+        mN.position.set(-10, 0, 0); mN.receiveShadow = true; magnetsGroup.add(mN);
+        const mS = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 16), new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 })); 
+        mS.position.set(10, 0, 0); mS.receiveShadow = true; magnetsGroup.add(mS);
+        const lN = createMagnetLabel('N'); lN.position.set(-10, 6.05, 0); lN.rotation.x = -Math.PI / 2; magnetsGroup.add(lN);
+        const lS = createMagnetLabel('S'); lS.position.set(10, 6.05, 0); lS.rotation.x = -Math.PI / 2; magnetsGroup.add(lS);
+
+        for(let z = -6; z <= 6; z+=6) {
+            for(let y = -4; y <= 4; y+=4) magnetsGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-7, y, z), 14, 0x0284c7, 1.2, 0.8));
+        }
+
+        // --- 導線與風車 ---
+        function buildSmoothWire(pts, rad, mat, grp) {
+            const cDist = 0.6; const nPts = [pts[0]];
+            for(let i=1; i<pts.length-1; i++) {
+                const v1 = new THREE.Vector3().subVectors(pts[i-1], pts[i]); const d1 = v1.clone().normalize().multiplyScalar(Math.min(cDist, v1.length()/2));
+                const v2 = new THREE.Vector3().subVectors(pts[i+1], pts[i]); const d2 = v2.clone().normalize().multiplyScalar(Math.min(cDist, v2.length()/2));
+                nPts.push(new THREE.Vector3().addVectors(pts[i], d1), new THREE.Vector3().addVectors(pts[i], d2));
+            }
+            nPts.push(pts[pts.length-1]);
+            grp.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(nPts, false, 'catmullrom', 0.1), 64, rad, 12, false), mat));
+        }
+
+        const rotorGroup = new THREE.Group(); scene.add(rotorGroup);
+        const coilGroup = new THREE.Group(); rotorGroup.add(coilGroup);
+        buildSmoothWire([new THREE.Vector3(4,0,7), new THREE.Vector3(4,0,-7), new THREE.Vector3(-4,0,-7), new THREE.Vector3(-4,0,7)], 0.35, matCopper, coilGroup);
+
+        // 新增貫穿整台馬達的中央主軸，讓結構更符合真實物理機械
+        const centerShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 28, 16), new THREE.MeshStandardMaterial({color: 0x94a3b8, metalness: 0.8, roughness: 0.2}));
+        centerShaft.rotation.x = Math.PI / 2;
+        centerShaft.position.set(0, 0, 0); // 貫穿整個 Z 軸
+        rotorGroup.add(centerShaft);
+
+        // 正確安裝風扇於主軸後方
+        const fanGroup = new THREE.Group(); 
+        fanGroup.position.set(0, 0, -13); 
+        rotorGroup.add(fanGroup);
+        
+        const fanHub = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), matFan); 
+        fanGroup.add(fanHub);
+        
+        for(let i=0; i<4; i++) {
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(1.5, 6, 0.2), matFan); 
+            blade.position.set(0, 3.5, 0); 
+            blade.rotation.x = 0.2; // 扇葉傾角
+            const pivot = new THREE.Group(); 
+            pivot.rotation.z = (Math.PI / 2) * i; 
+            pivot.add(blade); 
+            fanGroup.add(pivot);
+        }
+
+        const rotorExternalGroup = new THREE.Group(); rotorGroup.add(rotorExternalGroup);
+        const statorCircuitGroup = new THREE.Group(); scene.add(statorCircuitGroup);
+
+        const curArrowR = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(4, 0.8, 0), 0, 0xef4444, 1.5, 1.0);
+        const curArrowL = new THREE.ArrowHelper(new THREE.Vector3(0,0,-1), new THREE.Vector3(-4, 0.8, 0), 0, 0xef4444, 1.5, 1.0);
+        const curArrowB = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0, 0.8, -7), 0, 0xef4444, 1.5, 1.0);
+        coilGroup.add(curArrowR, curArrowL, curArrowB);
+
+        const forceArrowR = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 0, 0x22c55e, 1.2, 0.8);
+        const forceArrowL = new THREE.ArrowHelper(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 0, 0x22c55e, 1.2, 0.8);
+        scene.add(forceArrowR, forceArrowL);
+
+        // --- 電路構造邏輯 ---
+        function createSolidPipeGeo(iR, oR, d, tS = 0, tL = Math.PI*2) {
+            const s = new THREE.Shape();
+            if(tL < Math.PI*2 - 0.01) { s.absarc(0,0,oR,tS,tS+tL,false); s.lineTo(iR*Math.cos(tS+tL), iR*Math.sin(tS+tL)); s.absarc(0,0,iR,tS+tL,tS,true); s.lineTo(oR*Math.cos(tS), oR*Math.sin(tS)); }
+            else { s.absarc(0,0,oR,0,Math.PI*2,false); const h = new THREE.Path(); h.absarc(0,0,iR,0,Math.PI*2,true); s.holes.push(h); }
+            const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: false, curveSegments: 32 });
+            g.translate(0,0,-d/2); return g;
+        }
+
+        const buildWireBox = (w, h, d, x, y, z) => {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), matWire); m.position.set(x,y,z); statorCircuitGroup.add(m);
+        };
+
+        function buildDC() {
+            const gS = createSolidPipeGeo(1.4, 1.8, 1.2, 0.1, Math.PI-0.2);
+            const h1 = new THREE.Mesh(gS, matCopperRed); h1.position.set(0,0,10); h1.rotation.z = -Math.PI/2+0.1; rotorExternalGroup.add(h1);
+            const h2 = new THREE.Mesh(gS, matCopperBlue); h2.position.set(0,0,10); h2.rotation.z = Math.PI/2+0.1; rotorExternalGroup.add(h2);
+            buildSmoothWire([new THREE.Vector3(4,0,7), new THREE.Vector3(4,0,8.5), new THREE.Vector3(1.6,0,10)], 0.25, matCopperRed, rotorExternalGroup);
+            buildSmoothWire([new THREE.Vector3(-4,0,7), new THREE.Vector3(-4,0,8.5), new THREE.Vector3(-1.6,0,10)], 0.25, matCopperBlue, rotorExternalGroup);
+            const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,1.5), matBrush); b1.position.set(2.4,0,10); statorCircuitGroup.add(b1);
+            const b2 = new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,1.5), matBrush); b2.position.set(-2.4,0,10); statorCircuitGroup.add(b2);
+            buildWireBox(3.9,0.3,0.3,4.05,0,10); buildWireBox(0.3,6.8,0.3,6,3.25,10); buildWireBox(0.3,0.3,12.3,6,6.5,16); buildWireBox(3,0.3,0.3,4.5,6.5,22);
+            buildWireBox(3.9,0.3,0.3,-4.05,0,10); buildWireBox(0.3,6.8,0.3,-6,3.25,10); buildWireBox(0.3,0.3,12.3,-6,6.5,16); buildWireBox(3,0.3,0.3,-4.5,6.5,22);
+        }
+
+        function buildSlip() {
+            const r1 = new THREE.Mesh(createSolidPipeGeo(1.4,1.8,1), matCopperRed); r1.position.set(0,0,10); rotorExternalGroup.add(r1);
+            const r2 = new THREE.Mesh(createSolidPipeGeo(1.4,1.8,1), matCopperBlue); r2.position.set(0,0,14); rotorExternalGroup.add(r2);
+            buildSmoothWire([new THREE.Vector3(4,0,7), new THREE.Vector3(4,0,8.5), new THREE.Vector3(1.6,0,10)], 0.25, matCopperRed, rotorExternalGroup);
+            buildSmoothWire([new THREE.Vector3(-4,0,7), new THREE.Vector3(-4,0,8), new THREE.Vector3(-0.8,0,9.5), new THREE.Vector3(-0.8,0,12.5), new THREE.Vector3(-1.6,0,14)], 0.25, matCopperBlue, rotorExternalGroup);
+            const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,1.5), matBrush); b1.position.set(0,2.4,10); statorCircuitGroup.add(b1);
+            const b2 = new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,1.5), matBrush); b2.position.set(0,2.4,14); statorCircuitGroup.add(b2);
+            buildWireBox(0.3,4.4,0.3,0,4.3,10); buildWireBox(6.3,0.3,0.3,3,6.5,10); buildWireBox(0.3,0.3,12.3,6,6.5,16); buildWireBox(3,0.3,0.3,4.5,6.5,22);
+            buildWireBox(0.3,4.4,0.3,0,4.3,14); buildWireBox(6.3,0.3,0.3,-3,6.5,14); buildWireBox(0.3,0.3,8.3,-6,6.5,18); buildWireBox(3,0.3,0.3,-4.5,6.5,22);
+        }
+
+        // --- 電池模型 ---
+        const battery = new THREE.Group(); 
+        battery.position.set(0, 6.5, 22); 
+        scene.add(battery);
+        
+        const batBody = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 4, 32), new THREE.MeshStandardMaterial({color:0x333333, metalness: 0.7})); 
+        batBody.rotation.z = Math.PI/2;
+        
+        const batPos = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 32), new THREE.MeshStandardMaterial({color:0xef4444})); 
+        batPos.position.set(2.4, 0, 0); 
+        batPos.rotation.z = Math.PI/2;
+        
+        const batNeg = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 32), new THREE.MeshStandardMaterial({color:0x3b82f6})); 
+        batNeg.position.set(-2.4, 0, 0); 
+        batNeg.rotation.z = Math.PI/2;
+        
+        battery.add(batBody, batPos, batNeg);
+
+        function switchMode(m) {
+            state.mode = m; rotorExternalGroup.clear(); statorCircuitGroup.clear();
+            if(m === 'DC') buildDC(); else buildSlip();
+            state.rotationSpeed = (m === 'SLIP' ? 1.2 : 0.5); state.virtualTime = 0;
+        }
+
+        buildDC();
+
+        // --- UI 事件 ---
+        UI.selectMode.onchange = (e) => switchMode(e.target.value);
+        UI.voltageSlider.oninput = (e) => { state.voltage = parseFloat(e.target.value); UI.voltageVal.innerText = state.voltage.toFixed(1); };
+        UI.fieldSlider.oninput = (e) => { state.magneticField = parseFloat(e.target.value); UI.fieldVal.innerText = state.magneticField.toFixed(1); };
+        UI.checkSlow.onchange = (e) => state.slowMotion = e.target.checked;
+        UI.playPauseBtn.onclick = () => {
+            state.isRunning = !state.isRunning; UI.btnIcon.innerText = state.isRunning ? "⏸" : "▶"; UI.btnText.innerText = state.isRunning ? "暫停" : "啟動";
+        };
+        UI.fullscreenBtn.onclick = () => { if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
+
+        // --- 物理更新 ---
+        function advance(dt) {
+            state.virtualTime += dt;
+            state.coilCurrent = (state.mode === 'DC') ? state.voltage * Math.sign(Math.cos(state.currentAngle)) : state.voltage;
+            const torque = state.coilCurrent * 2.0 * state.magneticField * Math.cos(state.currentAngle);
+            const alpha = (torque - 1.0 * state.rotationSpeed) / 3.0;
+            state.rotationSpeed += alpha * dt;
+            state.currentAngle += state.rotationSpeed * dt;
+            rotorGroup.rotation.z = state.currentAngle;
+            
+            const I = state.coilCurrent, B = state.magneticField;
+            if(Math.abs(I) > 0.1 && B > 0.1) {
+                curArrowR.visible = curArrowL.visible = curArrowB.visible = true;
+                curArrowR.setDirection(new THREE.Vector3(0,0,Math.sign(I))); curArrowL.setDirection(new THREE.Vector3(0,0,Math.sign(-I))); curArrowB.setDirection(new THREE.Vector3(Math.sign(I),0,0));
+                forceArrowR.visible = forceArrowL.visible = true;
+                const rX = 4*Math.cos(state.currentAngle), rY = 4*Math.sin(state.currentAngle);
+                forceArrowR.position.set(rX, rY, 0); forceArrowR.setDirection(new THREE.Vector3(0, Math.sign(I*B), 0)); forceArrowR.setLength(Math.min(5, Math.abs(I*B)*0.25), 1, 0.8);
+                forceArrowL.position.set(-rX, -rY, 0); forceArrowL.setDirection(new THREE.Vector3(0, Math.sign(-I*B), 0)); forceArrowL.setLength(Math.min(5, Math.abs(I*B)*0.25), 1, 0.8);
+            } else { curArrowR.visible = curArrowL.visible = curArrowB.visible = forceArrowR.visible = forceArrowL.visible = false; }
+        }
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if(state.isRunning) advance(Math.min(clock.getDelta(), 0.05) * (state.slowMotion ? 0.2 : 1.0)); else clock.getDelta();
+            controls.update(); renderer.render(scene, camera);
+        }
+        window.onresize = () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+        animate();
+    </script>
+</body>
+</html>

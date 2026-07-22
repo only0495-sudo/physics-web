@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#173d91">
+  <meta name="description" content="整理物理模擬中的預測、證據、解釋與學習進度。">
+  <title>我的物理探究紀錄</title>
+  <link rel="stylesheet" href="notebook.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="notebook.js" defer></script>
+</head>
+<body>
+  <header class="notebook-header">
+    <nav class="notebook-nav" aria-label="網站導覽">
+      <a class="notebook-brand" href="index.html?role=student"><span aria-hidden="true">φ</span><div><strong>探究紀錄</strong><small>MY PHYSICS NOTEBOOK</small></div></a>
+      <div class="nav-actions"><a href="index.html?role=student">回實驗室</a><a href="compare.html">雙模擬比較</a><a href="lesson.html">老師展示台</a></div>
+    </nav>
+    <div class="notebook-hero">
+      <div><p>預測留下痕跡，證據才會變成理解</p><h1>我的物理<br>探究紀錄</h1><span>所有內容只儲存在目前這台裝置。</span></div>
+      <div class="hero-continue" id="continue-card" hidden><span>最近一次</span><strong id="continue-title"></strong><a id="continue-link" href="#">繼續探究 →</a></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="summary-section" aria-labelledby="summary-heading">
+      <div class="section-label"><span>01</span><p id="summary-heading">學習概況</p></div>
+      <div class="summary-cards">
+        <article><span class="summary-symbol blue" aria-hidden="true">✓</span><div><strong id="completed-count">0</strong><p>已完成探究</p></div></article>
+        <article><span class="summary-symbol coral" aria-hidden="true">✎</span><div><strong id="note-count">0</strong><p>留下學習紀錄</p></div></article>
+        <article><span class="summary-symbol green" aria-hidden="true">↗</span><div><strong id="confidence-average">—</strong><p>平均理解信心／4</p></div></article>
+        <article><span class="summary-symbol violet" aria-hidden="true">⇄</span><div><strong id="comparison-count">0</strong><p>雙模擬比較紀錄</p></div></article>
+      </div>
+      <div class="domain-progress" id="domain-progress"></div>
+    </section>
+
+    <section class="comparisons-section" aria-labelledby="comparisons-heading">
+      <div class="section-label"><span>02</span><p>比較探究</p></div>
+      <div class="comparisons-heading">
+        <div><h2 id="comparisons-heading">把兩個模型放在同一個問題下比較</h2><p>保留公平比較條件、兩側觀察與最後結論。</p></div>
+        <a href="compare.html">開啟雙模擬比較 →</a>
+      </div>
+      <div class="comparison-records" id="comparison-records"></div>
+      <div class="comparison-empty" id="comparison-empty"><span>⇄</span><div><strong>尚未留下比較紀錄</strong><p>選兩個相關模擬，找出相同條件與關鍵差異。</p></div><a href="compare.html">開始第一次比較</a></div>
+    </section>
+
+    <section class="records-section" aria-labelledby="records-heading">
+      <div class="section-label"><span>03</span><p>實驗紀錄</p></div>
+      <div class="records-heading">
+        <div><h2 id="records-heading">把觀察整理成自己的證據庫</h2><p id="records-summary">正在整理你的紀錄…</p></div>
+        <div class="record-actions"><button id="print-notebook" type="button">列印</button><button id="export-notebook" type="button">匯出全部紀錄</button></div>
+      </div>
+      <div class="record-toolbar">
+        <label class="record-search"><span aria-hidden="true">⌕</span><input id="record-search" type="search" placeholder="搜尋實驗或筆記內容"></label>
+        <div class="record-filters" role="toolbar" aria-label="篩選紀錄">
+          <button class="active" type="button" data-filter="recorded" aria-pressed="true">有紀錄</button>
+          <button type="button" data-filter="completed" aria-pressed="false">已完成</button>
+          <button type="button" data-filter="all" aria-pressed="false">全部實驗</button>
+        </div>
+      </div>
+      <div class="records-grid" id="records-grid"></div>
+      <div class="notebook-empty" id="notebook-empty" hidden><span>✎</span><h3>還沒有符合的紀錄</h3><p>完成一次模擬中的「預測、證據、解釋」，紀錄就會出現在這裡。</p><a href="index.html?role=student">選一個實驗開始</a></div>
+    </section>
+  </main>
+
+  <footer><strong>物理探究實驗室</strong><span>紀錄保存在瀏覽器中；更換裝置或清除瀏覽資料後不會自動同步。</span></footer>
+  <div class="notebook-toast" id="notebook-toast" role="status" aria-live="polite"></div>
+</body>
+</html>

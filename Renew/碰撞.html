@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>一維碰撞物理模擬器 - 能量深度分析版</title>
+    
+    <!-- 引入 Tailwind CSS 進行快速 UI 佈局 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Chart.js 用於繪製物理數據圖表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 lil-gui 用於專業控制面板 -->
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.19"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        #app-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #ffffff;
+            position: relative; 
+        }
+
+        .pseudo-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+            background-color: #ffffff !important;
+        }
+
+        /* 上半部：2D 動畫區域 */
+        #canvas-container {
+            flex: 0 0 45vh;
+            position: relative;
+            background-color: #ffffff;
+            border-bottom: 2px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        canvas#sim-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 下半部：圖表區域 - Flexbox 橫向滑動排版 */
+        #charts-container {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            gap: 15px;
+            padding: 15px;
+            background-color: #f1f5f9;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin; 
+        }
+
+        #charts-container::-webkit-scrollbar { height: 8px; }
+        #charts-container::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 4px; }
+        #charts-container::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+
+        /* 修復縮放破版的關鍵架構 */
+        .chart-wrapper {
+            background: white;
+            border-radius: 12px;
+            padding: 40px 10px 10px 10px; /* 增加上方留白，避免按鈕擋住圖表標題 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: relative;
+            flex: 1 0 350px; 
+            min-width: 350px; /* 防止壓縮變形 */
+            max-width: 100%; 
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 絕對定位保護層：強迫 Chart.js 聽從容器大小，而非撐開容器 */
+        .canvas-holder {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+        .canvas-holder canvas {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* 全螢幕圖表模式 */
+        .chart-wrapper.expanded {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: none !important;
+            z-index: 99999;
+            border-radius: 0;
+            padding: 50px 20px 20px 20px;
+            background: #ffffff;
+        }
+
+        /* 圖表放大/縮小按鈕 */
+        .chart-expand-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(241, 245, 249, 0.9);
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+            color: #334155;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .chart-expand-btn:hover { background: #e2e8f0; color: #0f172a; }
+        .chart-wrapper.expanded .chart-expand-btn {
+            top: 15px;
+            right: 20px;
+            padding: 8px 16px;
+            font-size: 15px;
+            background: #f87171;
+            color: white;
+            border-color: #ef4444;
+        }
+        .chart-wrapper.expanded .chart-expand-btn:hover { background: #ef4444; }
+
+        /* 系統質心速度顯示 */
+        #vcm-display {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-weight: bold;
+            font-size: 18px;
+            color: #0f172a;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        /* 頂部控制按鈕群組 */
+        #top-right-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 12px;
+            z-index: 20;
+        }
+
+        .control-btn {
+            background: #0f172a;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px; 
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px; 
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .control-btn:hover { background: #334155; transform: translateY(-1px); }
+        .control-btn:active { transform: translateY(1px); }
+
+        #fullscreen-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            font-size: 14px;
+            padding: 8px 12px;
+            z-index: 20;
+        }
+
+        /* GUI 樣式覆寫 */
+        .lil-gui { 
+            --background-color: rgba(255, 255, 255, 0.95) !important;
+            --text-color: #334155 !important;
+            --title-background-color: rgba(248, 250, 252, 0.95) !important;
+            --widget-color: #f1f5f9 !important;
+            --hover-color: #e2e8f0 !important;
+            --focus-color: #3b82f6 !important;
+            --number-color: #2563eb !important;
+            --string-color: #16a34a !important;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+            
+            --font-size: 15px !important;
+            --input-font-size: 15px !important;
+            --widget-height: 34px !important;
+            --padding: 10px !important;
+            --spacing: 10px !important;
+            --folder-indent: 14px !important;
+            --name-width: 45% !important;
+        }
+        .lil-gui.root {
+            border-radius: 12px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+            border: 1px solid #e2e8f0 !important;
+            left: 15px !important; right: auto !important; 
+            top: 70px !important; position: absolute !important; 
+            z-index: 40 !important; 
+            width: 360px !important; 
+            max-height: calc(100vh - 90px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin; 
+        }
+        .lil-gui.root::-webkit-scrollbar { width: 6px; }
+        .lil-gui.root::-webkit-scrollbar-track { background: transparent; }
+        .lil-gui.root::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="canvas-container">
+        <canvas id="sim-canvas"></canvas>
+        
+        <div id="vcm-display">V<sub>CM</sub> = 0.00 m/s</div>
+        
+        <div id="top-right-controls">
+            <button id="reset-btn" class="control-btn" onclick="resetSimulation()" style="background-color: #475569;">
+                <span>🔄 重新開始</span>
+            </button>
+            <button id="play-pause-btn" class="control-btn" onclick="toggleSimulation()">
+                <span id="play-icon">▶️ 播放</span>
+            </button>
+        </div>
+        
+        <button id="fullscreen-btn" class="control-btn" onclick="toggleFullScreen()">
+            <svg id="fs-icon-enter" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.707l4.096-4.096a.5.5 0 0 0 0-.707zm4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.793l-4.096-4.096a.5.5 0 0 1 0-.707zm0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.793l-4.096 4.096a.5.5 0 0 0 0 .707zm-4.344 0a.5.5 0 0 1-.707 0L1.707 1.707V4.5a.5.5 0 1 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.707l4.096 4.096a.5.5 0 0 1 0 .707z"/></svg>
+            <span id="fs-text">全螢幕</span>
+        </button>
+    </div>
+
+    <div id="charts-container">
+        <div class="chart-wrapper" id="wrap-vt">
+            <button class="chart-expand-btn" onclick="toggleChartExpand('wrap-vt')">🔍 放大</button>
+            <div class="canvas-holder"><canvas id="vt-chart"></canvas></div>
+        </div>
+        <div class="chart-wrapper" id="wrap-pt">
+            <button class="chart-expand-btn" onclick="toggleChartExpand('wrap-pt')">🔍 放大</button>
+            <div class="canvas-holder"><canvas id="pt-chart"></canvas></div>
+        </div>
+        <div class="chart-wrapper" id="wrap-et">
+            <button class="chart-expand-btn" onclick="toggleChartExpand('wrap-et')">🔍 放大</button>
+            <div class="canvas-holder"><canvas id="et-chart"></canvas></div>
+        </div>
+        <div class="chart-wrapper" id="wrap-bar" style="display: none;">
+            <button class="chart-expand-btn" onclick="toggleChartExpand('wrap-bar')">🔍 放大</button>
+            <div class="canvas-holder"><canvas id="bar-chart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /** ==========================================
+     * 0. 圖表放大縮小功能 (Expand Mode 徹底修復)
+     * ========================================== */
+    function toggleChartExpand(wrapId) {
+        const wrap = document.getElementById(wrapId);
+        const btn = wrap.querySelector('.chart-expand-btn');
+        const isExpanded = wrap.classList.contains('expanded');
+        
+        if (isExpanded) {
+            wrap.classList.remove('expanded');
+            btn.innerHTML = '🔍 放大';
+        } else {
+            wrap.classList.add('expanded');
+            btn.innerHTML = '🗙 縮小';
+        }
+        
+        // 觸發 Resize 使 Chart.js 主動適應 .canvas-holder 新的外框大小
+        requestAnimationFrame(() => {
+            chartVT.resize(); chartPT.resize(); chartET.resize(); chartBar.resize();
+        });
+    }
+
+    /** ==========================================
+     * 1. 物理狀態與連續碰撞引擎參數 (Physics State)
+     * ========================================== */
+    const params = {
+        timeScale: 0.2, 
+        m1: 2.0, m2: 1.0,
+        v1: 5.0, v2: 1.0,
+        e: 1.0, 
+        collisionMode: '完全彈性 (e=1)',
+        
+        layoutMode: '綜合折線圖 (V, P, E)',
+        barMode: '宏觀 (Ek, U, Q)', 
+        isPlaying: false,
+
+        showCM: false, 
+        viewMode: '實驗室座標系'
+    };
+
+    let state = {
+        x1: 0, x2: 0,
+        v1: params.v1, v2: params.v2,
+        r1: 0, r2: 0,
+        time: 0,
+        E_init_total: 0,
+        Q: 0, 
+        U: 0, 
+        hasFinishedCollision: false,
+        postCollisionRealTime: 0,
+        isEnded: false
+    };
+
+    let collision = {
+        active: false, phase: 0, t: 0,
+        T_comp: 0.6, T_exp: 0.6,
+        O_max: 0, O_final: 0, O_current: 0,
+        v1i: 0, v2i: 0, xcm0: 0, vcm: 0,
+        E_int0: 0 
+    };
+
+    const SCALE = 60; 
+    let lastTime = 0;
+
+    /** ==========================================
+     * 2. 圖表系統初始化 (Chart.js Setup)
+     * ========================================== */
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+    Chart.defaults.animation = false; 
+    
+    const chartData = {
+        time: [],
+        v1: [], v2: [], vcm: [],
+        p1: [], p2: [], pTotal: [],
+        eTotal: [], uTotal: [], qTotal: [], eMech: []
+    };
+
+    const vcmTextPlugin = {
+        id: 'vcmTextPlugin',
+        afterDraw: (chart) => {
+            const dataset = chart.data.datasets.find(d => d.label === '質心速度 Vcm');
+            if (dataset && dataset.data.length > 0) {
+                const ctx = chart.ctx;
+                const vcmValue = dataset.data[0];
+                const yPos = chart.scales.y.getPixelForValue(vcmValue);
+                if (yPos >= chart.chartArea.top && yPos <= chart.chartArea.bottom) {
+                    ctx.save();
+                    ctx.fillStyle = '#64748b'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+                    ctx.font = 'bold 12px sans-serif'; ctx.fillText('V', chart.chartArea.left + 15, yPos - 4);
+                    const w = ctx.measureText('V').width;
+                    ctx.font = 'bold 9px sans-serif'; ctx.fillText('cm', chart.chartArea.left + 15 + w, yPos - 4);
+                    ctx.restore();
+                }
+            }
+        }
+    };
+
+    // 新增：長條圖專屬的外掛，用於在每個長條上方繪製數值與單位
+    const barLabelPlugin = {
+        id: 'barLabelPlugin',
+        afterDatasetsDraw(chart, args, options) {
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((dataset, i) => {
+                const meta = chart.getDatasetMeta(i);
+                if (!meta.hidden) {
+                    meta.data.forEach((element, index) => {
+                        const dataValue = dataset.data[index];
+                        // 設定文字內容，固定取小數點第一位加上 'J'
+                        const text = dataValue.toFixed(1) + ' J';
+
+                        ctx.save();
+                        ctx.fillStyle = '#334155';
+                        ctx.font = 'bold 15px "Segoe UI", sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+
+                        // 取得長條頂端座標，稍微上移 5px 留出空間
+                        const x = element.x;
+                        const y = element.y - 5;
+
+                        // 只有數值大於一個極小值時才顯示標籤，避免零值時文字與底部座標軸擠在一起
+                        if (dataValue > 0.05) {
+                            ctx.fillText(text, x, y);
+                        }
+                        ctx.restore();
+                    });
+                }
+            });
+        }
+    };
+
+    function createLineChart(ctxId, title, yLabel, datasets, plugins = []) {
+        return new Chart(document.getElementById(ctxId).getContext('2d'), {
+            type: 'line',
+            data: { labels: chartData.time, datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { title: { display: true, text: title, font: { size: 16 } }, legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } },
+                scales: { x: { title: { display: true, text: 't (s)' }, ticks: { maxTicksLimit: 8 } }, y: { title: { display: true, text: yLabel } } },
+                elements: { point: { radius: 0 }, line: { borderWidth: 2 } }
+            },
+            plugins: plugins
+        });
+    }
+
+    const chartVT = createLineChart('vt-chart', '速度 v-t', 'v (m/s)', [
+        { label: 'm1', data: chartData.v1, borderColor: '#ef4444' },
+        { label: 'm2', data: chartData.v2, borderColor: '#3b82f6' },
+        { label: '質心速度 Vcm', data: chartData.vcm, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 1 }
+    ], [vcmTextPlugin]);
+
+    const chartPT = createLineChart('pt-chart', '動量 P-t', 'P (kg·m/s)', [
+        { label: 'm1', data: chartData.p1, borderColor: '#ef4444', borderDash: [3, 3] },
+        { label: 'm2', data: chartData.p2, borderColor: '#3b82f6', borderDash: [3, 3] },
+        { label: '系統總動量', data: chartData.pTotal, borderColor: '#8b5cf6', borderWidth: 3 }
+    ]);
+
+    const chartET = createLineChart('et-chart', '能量趨勢 E-t', 'E (J)', [
+        { label: '總動能 Ek', data: chartData.eTotal, borderColor: '#10b981', borderWidth: 2 },
+        { label: '彈力位能 U', data: chartData.uTotal, borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: true, borderWidth: 1.5 },
+        { label: '熱能 Q', data: chartData.qTotal, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, borderWidth: 1.5 },
+        { label: '初始總能量', data: chartData.eMech, borderColor: '#0f172a', borderDash: [2, 2], borderWidth: 1 }
+    ]);
+
+    const chartBar = new Chart(document.getElementById('bar-chart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['總動能 Ek', '彈力位能 U', '熱能耗散 Q', '總能量 E'],
+            datasets: [{
+                label: '能量分布 (J)',
+                data: [0, 0, 0, 0],
+                backgroundColor: ['#10b981', '#f97316', '#ef4444', '#94a3b8'],
+                borderWidth: 1, borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { 
+                title: { display: true, text: '即時能量分佈 (柱狀)', font: { size: 16 } },
+                legend: { display: false } 
+            },
+            scales: {
+                y: { beginAtZero: true, max: 100, title: { display: true, text: 'E (J)' }, ticks: { font: { size: 14 } } },
+                x: { ticks: { font: { size: 14, weight: 'bold' } } }
+            },
+            layout: {
+                padding: { top: 20 } // 確保上方文字不會被切掉
+            }
+        },
+        plugins: [barLabelPlugin] // 載入數值標示外掛
+    });
+
+    /** ==========================================
+     * 3. 控制面板 UI (lil-gui)
+     * ========================================== */
+    const gui = new lil.GUI({ title: '⚙️ 物理參數控制', container: document.getElementById('app-container') });
+    
+    // 把視覺與觀察選單補回來
+    const folderView = gui.addFolder('👀 視覺與觀察視角');
+    folderView.add(params, 'showCM').name('🎯 標示系統質心 (CM)').onChange(() => {
+        if(!params.isPlaying) drawCanvas();
+    });
+    folderView.add(params, 'viewMode', ['實驗室座標系', '質心座標系']).name('🎥 觀察座標系').onChange(() => {
+        if(!params.isPlaying) drawCanvas();
+    });
+
+    const folderPhys = gui.addFolder('物體初始狀態');
+    folderPhys.add(params, 'm1', 0.1, 10, 0.1).name('m1 質量 (kg)').onChange(updateSizes);
+    folderPhys.add(params, 'v1', -10, 10, 0.1).name('m1 初速 (m/s)').onChange(resetSimulation);
+    folderPhys.add(params, 'm2', 0.1, 10, 0.1).name('m2 質量 (kg)').onChange(updateSizes);
+    folderPhys.add(params, 'v2', -10, 10, 0.1).name('m2 初速 (m/s)').onChange(resetSimulation);
+    
+    const folderEnv = gui.addFolder('碰撞環境屬性');
+    folderEnv.add(params, 'collisionMode', ['完全彈性 (e=1)', '非彈性 (e=0.5)', '完全非彈性 (e=0)'])
+       .name('碰撞類型').onChange(m => {
+           params.e = m.includes('1)') ? 1.0 : (m.includes('0.5') ? 0.5 : 0.0);
+           gui.controllersRecursive().forEach(c => c.updateDisplay());
+       });
+    folderEnv.add(params, 'e', 0, 1, 0.01).name('恢復係數 e').listen();
+    
+    const folderChart = gui.addFolder('圖表檢視控制');
+    folderChart.add(params, 'layoutMode', ['綜合折線圖 (V, P, E)', '專注長條圖 (能量分析)']).name('📊 底層版面').onChange(mode => {
+        if (mode.includes('折線圖')) {
+            document.getElementById('wrap-vt').style.display = 'block';
+            document.getElementById('wrap-pt').style.display = 'block';
+            document.getElementById('wrap-et').style.display = 'block';
+            document.getElementById('wrap-bar').style.display = 'none';
+        } else {
+            document.getElementById('wrap-vt').style.display = 'none';
+            document.getElementById('wrap-pt').style.display = 'none';
+            document.getElementById('wrap-et').style.display = 'none';
+            document.getElementById('wrap-bar').style.display = 'block';
+        }
+        
+        setTimeout(() => {
+            chartVT.resize(); chartPT.resize(); chartET.resize(); chartBar.resize();
+        }, 10);
+    });
+    folderChart.add(params, 'barMode', ['宏觀 (Ek, U, Q)', '微觀 (Ecm, Eint, U, Q)']).name('📊 長條圖細節').onChange(() => {
+        recordData(); 
+    });
+
+    function updateSizes() {
+        state.r1 = 0.6 * Math.pow(params.m1, 1/3);
+        state.r2 = 0.6 * Math.pow(params.m2, 1/3);
+        if(!params.isPlaying) drawCanvas();
+    }
+
+    /** ==========================================
+     * 4. 物理引擎與能量計算
+     * ========================================== */
+    function resolvePhysicsStep(dt) {
+        if (!collision.active && (state.x2 - state.x1) <= (state.r1 + state.r2) && (state.v1 - state.v2) > 0) {
+            collision.active = true; collision.phase = 1; collision.t = 0;
+            collision.v1i = state.v1; collision.v2i = state.v2;
+            
+            let M = params.m1 + params.m2;
+            collision.vcm = (params.m1 * state.v1 + params.m2 * state.v2) / M;
+            collision.xcm0 = (params.m1 * state.x1 + params.m2 * state.x2) / M;
+            
+            let E_total_k = 0.5 * params.m1 * state.v1**2 + 0.5 * params.m2 * state.v2**2;
+            let E_cm = 0.5 * M * collision.vcm**2;
+            collision.E_int0 = E_total_k - E_cm; 
+            
+            let dv = collision.v1i - collision.v2i;
+            collision.O_max = dv * (2 * collision.T_comp / Math.PI);
+            let maxAllowed = Math.min(state.r1, state.r2) * 1.2;
+            if (collision.O_max > maxAllowed) {
+                collision.T_comp = (maxAllowed * Math.PI) / (2 * dv); 
+                collision.T_exp = collision.T_comp;
+                collision.O_max = maxAllowed;
+            }
+            collision.O_final = collision.O_max * (1 - params.e); 
+            state.Q = 0; 
+        }
+
+        if (collision.active) {
+            collision.t += dt;
+            let M = params.m1 + params.m2;
+            let Xcm = collision.xcm0 + collision.vcm * collision.t;
+            let O_t = 0, dO_dt = 0;
+
+            if (collision.phase === 1) { 
+                if (collision.t >= collision.T_comp) {
+                    collision.phase = 2; collision.t -= collision.T_comp; 
+                    Xcm = collision.xcm0 + collision.vcm * (collision.T_comp + collision.t);
+                } else {
+                    let angle = (Math.PI / 2) * (collision.t / collision.T_comp);
+                    O_t = collision.O_max * Math.sin(angle);
+                    dO_dt = collision.O_max * (Math.PI / (2 * collision.T_comp)) * Math.cos(angle);
+                }
+                state.Q = 0; 
+            }
+
+            if (collision.phase === 2) { 
+                let Q_final = (1 - params.e * params.e) * collision.E_int0;
+
+                if (collision.t >= collision.T_exp) {
+                    collision.active = false; collision.phase = 0;
+                    O_t = collision.O_final; dO_dt = 0;
+                    state.v1 = collision.vcm - (params.m2 / M) * (params.e * (collision.v1i - collision.v2i));
+                    state.v2 = collision.vcm + (params.m1 / M) * (params.e * (collision.v1i - collision.v2i));
+                    
+                    state.Q = Q_final; 
+                    state.hasFinishedCollision = true; state.postCollisionRealTime = 0;
+                } else {
+                    let angle = (Math.PI / 2) * (collision.t / collision.T_exp);
+                    O_t = collision.O_final + (collision.O_max - collision.O_final) * Math.cos(angle);
+                    dO_dt = -(collision.O_max - collision.O_final) * (Math.PI / (2 * collision.T_exp)) * Math.sin(angle);
+                    
+                    state.Q = Q_final * (collision.t / collision.T_exp);
+                }
+            }
+
+            collision.O_current = O_t;
+            if (collision.active) {
+                let currentDist = (state.r1 + state.r2) - O_t;
+                state.x1 = Xcm - (params.m2 / M) * currentDist;
+                state.x2 = Xcm + (params.m1 / M) * currentDist;
+                state.v1 = collision.vcm + (params.m2 / M) * dO_dt;
+                state.v2 = collision.vcm - (params.m1 / M) * dO_dt;
+            }
+        } else {
+            state.x1 += state.v1 * dt;
+            state.x2 += state.v2 * dt;
+        }
+    }
+
+    function recordData() {
+        let t = parseFloat(state.time.toFixed(3));
+        if (chartData.time.length > 500) { for(let key in chartData) chartData[key].shift(); }
+
+        chartData.time.push(t);
+        chartData.v1.push(state.v1); chartData.v2.push(state.v2);
+        
+        let M = params.m1 + params.m2;
+        let vcm = (params.m1 * state.v1 + params.m2 * state.v2) / M;
+        chartData.vcm.push(vcm);
+        
+        chartData.p1.push(params.m1 * state.v1);
+        chartData.p2.push(params.m2 * state.v2);
+        chartData.pTotal.push(params.m1 * state.v1 + params.m2 * state.v2);
+        
+        let Ek = 0.5 * params.m1 * state.v1**2 + 0.5 * params.m2 * state.v2**2;
+        let Ecm = 0.5 * M * vcm**2;
+        let Eint = Math.max(0, Ek - Ecm); 
+        
+        let U = state.E_init_total - Ek - state.Q;
+        U = Math.max(0, U); 
+
+        chartData.eTotal.push(Ek);
+        chartData.uTotal.push(U);
+        chartData.qTotal.push(state.Q);
+        chartData.eMech.push(state.E_init_total);
+
+        if (params.barMode.includes('宏觀')) {
+            chartBar.data.labels = ['總動能 Ek', '彈力位能 U', '熱能耗散 Q', '總能量 E'];
+            chartBar.data.datasets[0].data = [Ek, U, state.Q, state.E_init_total];
+            chartBar.data.datasets[0].backgroundColor = ['#10b981', '#f97316', '#ef4444', '#94a3b8'];
+        } else {
+            chartBar.data.labels = ['質心動能 Ecm', '內動能 Eint', '彈力位能 U', '熱能耗散 Q', '總能量 E'];
+            chartBar.data.datasets[0].data = [Ecm, Eint, U, state.Q, state.E_init_total];
+            chartBar.data.datasets[0].backgroundColor = ['#3b82f6', '#8b5cf6', '#f97316', '#ef4444', '#94a3b8'];
+        }
+
+        if (chartData.time.length % 3 === 0 || !params.isPlaying) {
+            chartVT.update(); chartPT.update(); chartET.update(); chartBar.update();
+        }
+    }
+
+    /** ==========================================
+     * 5. 2D 渲染與生命週期
+     * ========================================== */
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+        if(!params.isPlaying) drawCanvas();
+    }
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+    function drawDeformedSphere(x, y, r, squish, isLeft, colorBase, label) {
+        ctx.save();
+        let rx = Math.max(0.1, r - squish / 2); let ry = r + squish / 3; 
+        let cx = isLeft ? x - squish / 2 : x + squish / 2;
+        ctx.translate(cx, y);
+
+        ctx.beginPath(); ctx.ellipse(0, ry * 0.9, rx * 0.9, ry * 0.2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; ctx.fill();
+
+        let grad = ctx.createRadialGradient(-rx*0.3, -ry*0.3, rx*0.1, 0, 0, Math.max(rx, ry));
+        grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, colorBase); grad.addColorStop(1, '#000000'); 
+        ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = grad; ctx.fill();
+
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
+    }
+
+    function drawVelocityVector(x, y, v, radius, color, prefix = 'v') {
+        if(Math.abs(v) < 0.05) return;
+        ctx.save(); ctx.translate(x, y - radius - 35); 
+        const arrowLen = Math.max(Math.abs(v) * 16, 20); const dir = v > 0 ? 1 : -1; const headLen = 14;
+
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo((arrowLen - headLen + 1) * dir, 0);
+        ctx.lineWidth = 4; ctx.strokeStyle = color; ctx.stroke();
+
+        ctx.beginPath(); ctx.moveTo(arrowLen * dir, 0);
+        ctx.lineTo((arrowLen - headLen) * dir, -8); ctx.lineTo((arrowLen - headLen) * dir, 8);
+        ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+
+        ctx.fillStyle = color; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`${prefix}=${v.toFixed(1)}`, (arrowLen / 2) * dir, -12);
+        ctx.restore();
+    }
+
+    function drawCanvas() {
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const centerY = canvas.height / 2 + 20; 
+        
+        let M = params.m1 + params.m2;
+        // 計算系統質心的實際物理座標與速度
+        let xcm_phys = (params.m1 * state.x1 + params.m2 * state.x2) / M;
+        let vcm_phys = (params.m1 * state.v1 + params.m2 * state.v2) / M;
+        
+        let renderOffsetX = 50; 
+
+        // 觀察座標系切換邏輯
+        if (params.viewMode === '質心座標系') {
+            // 質心座標系：強制把質心鎖在畫面正中央
+            renderOffsetX = (canvas.width / 2) - xcm_phys * SCALE;
+        } else {
+            // 實驗室座標系：物體太靠右時自動平移畫面
+            let px2_temp = renderOffsetX + state.x2 * SCALE;
+            if(px2_temp + state.r2 * SCALE > canvas.width - 50 && params.isPlaying) {
+                 let shift = ((px2_temp + state.r2 * SCALE) - (canvas.width - 50)) / SCALE;
+                 state.x1 -= shift; 
+                 state.x2 -= shift;
+                 xcm_phys -= shift; 
+                 if (collision.active) collision.xcm0 -= shift;
+            }
+        }
+
+        ctx.beginPath(); ctx.moveTo(0, centerY + Math.max(state.r1, state.r2) * SCALE);
+        ctx.lineTo(canvas.width, centerY + Math.max(state.r1, state.r2) * SCALE);
+        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 4; ctx.stroke();
+
+        let px1 = renderOffsetX + state.x1 * SCALE; 
+        let px2 = renderOffsetX + state.x2 * SCALE;
+        let pxCM = renderOffsetX + xcm_phys * SCALE;
+        
+        let overlap = Math.max(0, (state.r1 + state.r2) - (state.x2 - state.x1));
+        
+        drawDeformedSphere(px1, centerY, state.r1 * SCALE, overlap * (params.m2 / M) * SCALE, true, '#ef4444', 'm1');
+        drawDeformedSphere(px2, centerY, state.r2 * SCALE, overlap * (params.m1 / M) * SCALE, false, '#3b82f6', 'm2');
+
+        // 計算顯示用的速度 (質心視角下，顯示的是兩者的『相對速度』)
+        let disp_v1 = state.v1;
+        let disp_v2 = state.v2;
+        let disp_vcm = vcm_phys;
+        
+        if (params.viewMode === '質心座標系') {
+            disp_v1 = state.v1 - vcm_phys;
+            disp_v2 = state.v2 - vcm_phys;
+            disp_vcm = 0; 
+        }
+
+        drawVelocityVector(px1, centerY, disp_v1, state.r1 * SCALE, '#dc2626', 'v');
+        drawVelocityVector(px2, centerY, disp_v2, state.r2 * SCALE, '#2563eb', 'v');
+
+        // 繪製系統質心標記與速度箭頭 (顏色改為高對比亮紫色)
+        if (params.showCM) {
+            const cmColor = '#9333ea'; // 亮紫色
+            ctx.save();
+            ctx.translate(pxCM, centerY);
+            
+            // 繪製瞄準心符號 (Target)
+            ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            ctx.lineWidth = 2; ctx.strokeStyle = cmColor; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(12, 0);
+            ctx.moveTo(0, -12); ctx.lineTo(0, 12); ctx.stroke();
+            
+            // CM 文字標籤
+            ctx.fillStyle = cmColor; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('CM', 0, 24);
+
+            // 畫出質心速度箭頭 (箭尾緊貼準心)
+            if (Math.abs(disp_vcm) > 0.05) {
+                const arrowLen = Math.max(Math.abs(disp_vcm) * 16, 20); 
+                const dir = disp_vcm > 0 ? 1 : -1; 
+                const headLen = 14;
+
+                // 箭身直接從原點 (準心中心) 出發
+                ctx.beginPath(); 
+                ctx.moveTo(0, 0); 
+                ctx.lineTo((arrowLen - headLen + 1) * dir, 0);
+                ctx.lineWidth = 4; ctx.strokeStyle = cmColor; ctx.stroke();
+
+                // 箭頭
+                ctx.beginPath(); 
+                ctx.moveTo(arrowLen * dir, 0);
+                ctx.lineTo((arrowLen - headLen) * dir, -8); 
+                ctx.lineTo((arrowLen - headLen) * dir, 8);
+                ctx.closePath(); ctx.fillStyle = cmColor; ctx.fill();
+
+                // 速度數值標籤
+                ctx.fillStyle = cmColor; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(`Vcm=${disp_vcm.toFixed(1)}`, (arrowLen / 2) * dir, -12);
+            }
+            ctx.restore();
+        }
+
+        document.getElementById('vcm-display').innerHTML = `V<sub>CM</sub> = ${vcm_phys.toFixed(2)} m/s`;
+    }
+
+    function resetSimulation() {
+        params.isPlaying = false; state.isEnded = false;
+        document.getElementById('play-icon').innerText = '▶️ 播放';
+        
+        if (typeof gui !== 'undefined' && gui._closed) gui.open();
+
+        updateSizes();
+        let centerPhysicsX = (canvas.width / 2 - 50) / SCALE;
+
+        if (params.v1 > params.v2) {
+            let t = 2.0 * params.timeScale; 
+            state.x1 = (centerPhysicsX - state.r1) - params.v1 * t;
+            state.x2 = (centerPhysicsX + state.r2) - params.v2 * t;
+        } else {
+            state.x1 = centerPhysicsX - state.r1 - 4.0;
+            state.x2 = centerPhysicsX + state.r2 + 4.0;
+        }
+
+        state.v1 = params.v1; state.v2 = params.v2; state.time = 0; state.Q = 0; state.U = 0;
+        collision.active = false; collision.phase = 0; collision.O_final = 0;
+        
+        state.E_init_total = 0.5 * params.m1 * params.v1**2 + 0.5 * params.m2 * params.v2**2;
+        state.hasFinishedCollision = false; state.postCollisionRealTime = 0;
+
+        // 稍微拉高最高點的乘數 (從 1.1 -> 1.2)，確保文字不會被切斷
+        chartBar.options.scales.y.max = state.E_init_total * 1.2 || 10;
+
+        for(let key in chartData) chartData[key].length = 0;
+        recordData(); drawCanvas();
+    }
+
+    function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        let dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+        lastTime = timestamp;
+
+        if (params.isPlaying) {
+            resolvePhysicsStep(dt * params.timeScale);
+            state.time += dt * params.timeScale;
+            
+            if (state.hasFinishedCollision) {
+                state.postCollisionRealTime += dt; 
+                if (state.postCollisionRealTime >= 2.5) { 
+                    params.isPlaying = false; state.isEnded = true;
+                    document.getElementById('play-icon').innerText = '⏮️ 重複實驗';
+                }
+            }
+            recordData();
+        }
+        drawCanvas();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function toggleSimulation() {
+        if (state.isEnded) { 
+            resetSimulation(); 
+            params.isPlaying = true; 
+            document.getElementById('play-icon').innerText = '⏸️ 暫停'; 
+            lastTime = performance.now(); 
+            if (typeof gui !== 'undefined') gui.close();
+            return; 
+        }
+
+        params.isPlaying = !params.isPlaying;
+        document.getElementById('play-icon').innerText = params.isPlaying ? '⏸️ 暫停' : '▶️ 播放';
+        
+        if (params.isPlaying) {
+            lastTime = performance.now();
+            if (typeof gui !== 'undefined') gui.close();
+        }
+    }
+
+    function toggleFullScreen() {
+        const app = document.getElementById('app-container');
+        if (!document.fullscreenElement && !app.classList.contains('pseudo-fullscreen')) {
+            app.requestFullscreen ? app.requestFullscreen().catch(() => app.classList.add('pseudo-fullscreen')) : app.classList.add('pseudo-fullscreen');
+        } else {
+            document.fullscreenElement ? document.exitFullscreen() : app.classList.remove('pseudo-fullscreen');
+        }
+    }
+
+    resetSimulation();
+    requestAnimationFrame(gameLoop); 
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#102c69">
+  <meta name="description" content="編排物理模擬、提問與課堂節奏的教師展示台。">
+  <title>物理課堂展示台</title>
+  <link rel="stylesheet" href="lesson.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="lesson.js" defer></script>
+</head>
+<body>
+  <header class="studio-header">
+    <a class="studio-brand" href="index.html?role=teacher" aria-label="回到物理探究實驗室">
+      <span aria-hidden="true">φ</span>
+      <div><strong>課堂展示台</strong><small>PHYSICS LESSON STUDIO</small></div>
+    </a>
+    <label class="lesson-name"><span>本堂課</span><input id="lesson-title" value="物理探究課" aria-label="課堂名稱"></label>
+    <nav class="studio-actions" aria-label="展示台操作">
+      <a href="index.html?role=teacher">首頁</a>
+      <button id="manage-plan" type="button">＋ 編排實驗</button>
+      <button id="export-plan" type="button">匯出教案</button>
+      <button id="fullscreen-stage" type="button">全螢幕</button>
+    </nav>
+  </header>
+
+  <main class="studio-layout">
+    <aside class="sequence-panel" aria-labelledby="sequence-heading">
+      <div class="panel-heading">
+        <div><span>LESSON FLOW</span><h1 id="sequence-heading">課堂流程</h1></div>
+        <strong id="plan-count">0</strong>
+      </div>
+      <ol id="lesson-sequence" class="lesson-sequence"></ol>
+      <button class="add-step" id="add-step" type="button">＋ 加入一個模擬</button>
+      <p class="sequence-help">可調整順序；選取後右側會顯示教學節奏。</p>
+    </aside>
+
+    <section class="simulation-stage" id="simulation-stage" aria-labelledby="current-title">
+      <div class="phase-bar" role="toolbar" aria-label="探究階段">
+        <div class="phase-buttons">
+          <button class="active" type="button" data-phase="predict" aria-pressed="true"><span>1</span>預測</button>
+          <button type="button" data-phase="explore" aria-pressed="false"><span>2</span>操作</button>
+          <button type="button" data-phase="explain" aria-pressed="false"><span>3</span>解釋</button>
+        </div>
+        <p id="phase-copy">先請學生說出預測，再開始操作。</p>
+        <button class="guide-toggle" id="guide-toggle" type="button" aria-expanded="false">教學提示</button>
+      </div>
+      <div class="frame-wrap">
+        <iframe id="simulation-frame" title="目前物理模擬" allow="fullscreen" loading="eager"></iframe>
+        <div class="frame-empty" id="frame-empty" hidden><span>＋</span><h2>先加入一個模擬</h2><button type="button">開啟實驗清單</button></div>
+      </div>
+    </section>
+
+    <aside class="teaching-panel" id="teaching-panel" aria-labelledby="current-title">
+      <button class="mobile-guide-close" id="mobile-guide-close" type="button" aria-label="關閉教學提示">×</button>
+      <p class="guide-kicker" id="current-category">教學提示</p>
+      <h2 id="current-title">選擇一個模擬</h2>
+      <p class="current-summary" id="current-summary">編排後即可在同一個畫面依序展示。</p>
+
+      <section class="guide-card accent" aria-labelledby="current-prompt-heading">
+        <span>全班先回答</span>
+        <h3 id="current-prompt-heading">關鍵提問</h3>
+        <p id="current-question">先預測，再操作。</p>
+        <button id="project-prompt" type="button">投影這個問題</button>
+      </section>
+
+      <section class="guide-card" aria-labelledby="demo-flow-heading">
+        <h3 id="demo-flow-heading">展示節奏</h3>
+        <ol id="demo-flow"></ol>
+      </section>
+
+      <section class="timer-card" aria-labelledby="timer-heading">
+        <div><span>DISCUSSION TIMER</span><h3 id="timer-heading">討論計時</h3></div>
+        <output id="lesson-timer">05:00</output>
+        <div class="timer-actions">
+          <button id="timer-minus" type="button" aria-label="減少一分鐘">−1</button>
+          <button id="timer-toggle" type="button">開始</button>
+          <button id="timer-plus" type="button" aria-label="增加一分鐘">＋1</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <dialog class="catalog-dialog" id="catalog-dialog" aria-labelledby="catalog-dialog-title">
+    <form method="dialog" class="dialog-header">
+      <div><p>LESSON BUILDER</p><h2 id="catalog-dialog-title">編排這堂課的模擬</h2></div>
+      <button value="cancel" aria-label="關閉實驗清單">×</button>
+    </form>
+    <section class="path-presets" aria-labelledby="path-presets-heading">
+      <div class="path-presets-heading">
+        <div><span>CURRICULUM PATHS</span><h3 id="path-presets-heading">從完整主題開始</h3></div>
+        <p>會先帶入一組有前後脈絡的實驗，仍可再個別增減。</p>
+      </div>
+      <div class="path-preset-list" id="lesson-paths"></div>
+    </section>
+    <label class="dialog-search"><span aria-hidden="true">⌕</span><input id="lesson-search" type="search" placeholder="搜尋實驗或概念"></label>
+    <div class="dialog-categories" id="lesson-categories" role="toolbar" aria-label="實驗領域"></div>
+    <div class="lesson-catalog" id="lesson-catalog"></div>
+    <div class="dialog-footer"><span id="selection-count">已選 0 個</span><button id="save-plan" type="button">套用到課堂流程</button></div>
+  </dialog>
+
+  <section class="lesson-prompt" id="lesson-prompt" role="dialog" aria-modal="true" aria-labelledby="projected-question" aria-hidden="true">
+    <div class="prompt-top"><span id="prompt-category">全班討論</span><button id="close-prompt" type="button" aria-label="關閉問題投影">×</button></div>
+    <div class="prompt-content">
+      <p>先不要動手，請先做出預測</p>
+      <h2 id="projected-question">你預測會發生什麼？</h2>
+      <output id="prompt-timer">05:00</output>
+      <button id="prompt-timer-toggle" type="button">開始計時</button>
+    </div>
+  </section>
+
+  <div class="studio-toast" id="studio-toast" role="status" aria-live="polite"></div>
+</body>
+</html>

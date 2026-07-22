@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>腳踏車摩擦力與力學向量模擬器</title>
+  
+  <!-- 載入 p5.js 與 Matter.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg-color: #f8fafc;
+      --panel-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 頂部標題與教學說明 */
+    header {
+      background-color: var(--panel-bg);
+      padding: 15px 20px;
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      z-index: 10;
+    }
+
+    h1 { margin: 0 0 10px 0; font-size: 1.5rem; color: var(--primary); }
+    
+    .instruction-box {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--text-main);
+      background: #eff6ff;
+      padding: 10px 15px;
+      border-left: 4px solid var(--primary);
+      border-radius: 4px;
+      margin-bottom: 0;
+    }
+
+    /* 主體佈局 */
+    #main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      flex-direction: column;
+    }
+
+    @media (min-width: 768px) {
+      #main-container { flex-direction: row; }
+    }
+
+    /* Canvas 區域 */
+    #canvas-wrapper {
+      flex: 2;
+      position: relative;
+      background-color: #e0f2fe;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* 全螢幕按鈕樣式 */
+    #fullscreen-btn {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 20;
+      padding: 8px 12px;
+      background-color: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      color: var(--text-main);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #fullscreen-btn:hover {
+      background-color: #ffffff;
+      transform: scale(1.02);
+    }
+
+    /* 控制面板 */
+    #ui-panel {
+      flex: 1;
+      max-width: 100%;
+      background-color: var(--panel-bg);
+      border-left: 1px solid var(--border-color);
+      padding: 20px;
+      overflow-y: auto;
+      box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+    }
+
+    @media (min-width: 768px) {
+      #ui-panel { max-width: 350px; }
+    }
+
+    .control-group {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px dashed var(--border-color);
+    }
+
+    .control-group h3 {
+      margin-top: 0;
+      font-size: 1.1rem;
+      color: var(--text-main);
+      margin-bottom: 10px;
+    }
+
+    .slider-container { margin-bottom: 15px; }
+    .slider-container label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    input[type=range] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .radio-label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 8px;
+      background: #f1f5f9;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .radio-label:hover { background: #e2e8f0; }
+    .radio-label input { margin-right: 10px; cursor: pointer; }
+
+    .legend {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+    .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+    .color-box { width: 16px; height: 16px; margin-right: 8px; border-radius: 3px; }
+    
+  </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+  <header>
+    <h1>🚲 腳踏車摩擦力與力學向量模擬器</h1>
+    <div class="instruction-box" id="instruction-text">
+      <strong>物理原理解析：</strong>請選擇右側的運動狀態。觀察在不同狀態下，地面給予腳踏車前後輪的「摩擦力」方向為何。後輪是驅動輪，前輪是從動輪，這決定了它們受到的摩擦力方向！
+    </div>
+  </header>
+
+  <div id="main-container">
+    <div id="canvas-wrapper">
+      <button id="fullscreen-btn">⛶ 全螢幕模式</button>
+    </div>
+    
+    <div id="ui-panel">
+      
+      <div class="control-group">
+        <h3>1. 選擇運動狀態</h3>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="state" value="accelerate" checked> 
+            <strong>啟動 (加速)</strong> - 踩踏板帶動後輪
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="state" value="constant"> 
+            <strong>等速前進</strong> - 慣性滑行 / 維持速度
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="state" value="brake"> 
+            <strong>煞車 (減速)</strong> - 阻礙車輪轉動
+          </label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>2. 參數調整</h3>
+        <div class="slider-container">
+          <label>車身總質量 <span id="mass-val">50 kg</span></label>
+          <input type="range" id="mass-slider" min="20" max="100" value="50">
+        </div>
+        <div class="slider-container">
+          <label>地面摩擦係數 (μ) <span id="friction-val">0.5</span></label>
+          <input type="range" id="friction-slider" min="0.1" max="1.0" step="0.1" value="0.5">
+        </div>
+        <div class="slider-container">
+          <label>施力大小 (踩踏/煞車) <span id="force-val">中等</span></label>
+          <input type="range" id="force-slider" min="1" max="10" value="5">
+        </div>
+        <div style="margin-top: 15px;">
+          <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95rem;">
+            <input type="checkbox" id="ignore-drag" style="margin-right: 10px; width: 18px; height: 18px;"> 
+            忽略空氣阻力
+          </label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>3. 顯示選項</h3>
+        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95rem;">
+          <input type="checkbox" id="show-vectors" checked style="margin-right: 10px; width: 18px; height: 18px;"> 
+          顯示力學向量 (Force Vectors)
+        </label>
+        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95rem; margin-top: 10px;">
+          <input type="checkbox" id="show-pip" style="margin-right: 10px; width: 18px; height: 18px;"> 
+          滾動阻力微觀檢視 (輪胎形變)
+        </label>
+        
+        <div class="legend">
+          <div class="legend-item"><div class="color-box" style="background: #ef4444;"></div> 摩擦力 (f)</div>
+          <div class="legend-item"><div class="color-box" style="background: #3b82f6;"></div> 正向力 (N)</div>
+          <div class="legend-item"><div class="color-box" style="background: #22c55e;"></div> 重力 (W = mg)</div>
+          <div class="legend-item"><div class="color-box" style="background: #8b5cf6;"></div> 空氣阻力</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Matter.js 模組別名 ---
+    const Engine = Matter.Engine,
+          Render = Matter.Render,
+          Runner = Matter.Runner,
+          Bodies = Matter.Bodies,
+          Body = Matter.Body,
+          Composite = Matter.Composite,
+          Constraint = Matter.Constraint;
+
+    let engine;
+    let world;
+
+    // --- 腳踏車物件 ---
+    let bike;
+    const WHEEL_RADIUS = 30;
+    const BIKE_LENGTH = 140; // 前後輪軸距
+
+    // --- 控制參數 ---
+    let stateRadios;
+    let currentState = 'accelerate';
+    let pForce = 5; 
+    let baseTorque = 0.05; 
+    
+    // --- 固定世界座標 (解耦物理與螢幕，防止破圖與掉落) ---
+    const WORLD_GROUND_Y = 600;
+
+    // --- 畫中畫 (PiP) 緩衝區 ---
+    let pipBuffer;
+
+    function setup() {
+      let canvasW = document.getElementById('canvas-wrapper').clientWidth;
+      let canvasH = document.getElementById('canvas-wrapper').clientHeight;
+      let canvas = createCanvas(canvasW, canvasH);
+      canvas.parent('canvas-wrapper');
+
+      // 建立微觀檢視的畫中畫緩衝區 (進一步加高到 460，確保輪胎與文字徹底分開)
+      pipBuffer = createGraphics(450, 460);
+
+      // 初始化 Matter.js 引擎
+      engine = Engine.create();
+      world = engine.world;
+
+      // 建立地面 (使用固定世界座標)
+      let ground = Bodies.rectangle(0, WORLD_GROUND_Y, 5000, 60, { 
+        isStatic: true,
+        friction: 0.8 
+      });
+      Composite.add(world, ground);
+
+      // 建立腳踏車 (使用固定世界座標)
+      buildBike(0, WORLD_GROUND_Y - 100);
+
+      // 綁定 UI 事件
+      document.querySelectorAll('input[name="state"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          currentState = e.target.value;
+          updateInstructionText();
+        });
+      });
+
+      document.getElementById('mass-slider').addEventListener('input', (e) => {
+        document.getElementById('mass-val').innerText = e.target.value + ' kg';
+        // 改變車身質量
+        Body.setMass(bike.frame, parseInt(e.target.value));
+      });
+
+      document.getElementById('friction-slider').addEventListener('input', (e) => {
+        let mu = parseFloat(e.target.value);
+        document.getElementById('friction-val').innerText = mu.toFixed(1);
+        ground.friction = mu;
+        bike.wheelRear.friction = mu;
+        bike.wheelFront.friction = mu;
+      });
+
+      document.getElementById('force-slider').addEventListener('input', (e) => {
+        pForce = parseInt(e.target.value);
+        let text = pForce < 4 ? '弱' : (pForce < 8 ? '中等' : '強');
+        document.getElementById('force-val').innerText = text;
+      });
+
+      // 監聽忽略阻力選項改變，更新說明文字
+      document.getElementById('ignore-drag').addEventListener('change', () => {
+        updateInstructionText();
+      });
+
+      // 設定初始說明文字
+      updateInstructionText();
+      
+      // 綁定全螢幕按鈕事件
+      setupFullscreenButton();
+
+      // 預熱物理引擎，讓腳踏車落地穩定，避免一開始「從空中掉落」
+      for (let i = 0; i < 60; i++) {
+        // 鎖定車身角度，確保在預熱掉落期間不會意外翻車導致鏡頭錯位
+        Body.setAngle(bike.frame, 0); 
+        Body.setAngularVelocity(bike.frame, 0);
+        Engine.update(engine, 1000 / 60);
+      }
+    }
+
+    // 全螢幕按鈕邏輯設定
+    function setupFullscreenButton() {
+      const btn = document.getElementById('fullscreen-btn');
+      
+      btn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          // 請求整個頁面全螢幕，這樣控制面板也能保留操作
+          document.documentElement.requestFullscreen().catch(err => {
+            console.log(`全螢幕請求失敗: ${err.message}`);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      });
+
+      // 監聽全螢幕狀態改變以更新按鈕文字
+      document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) {
+          btn.innerHTML = '✖ 退出全螢幕';
+        } else {
+          btn.innerHTML = '⛶ 全螢幕模式';
+        }
+      });
+    }
+
+    function buildBike(startX, startY) {
+      // 若已有腳踏車，先清除
+      if (bike) {
+        Composite.remove(world, bike.composite);
+      }
+
+      let group = Body.nextGroup(true); // 讓腳踏車部件互不碰撞
+
+      // 車輪
+      let wheelOptions = { 
+        friction: 0.5, 
+        restitution: 0, 
+        density: 0.05,
+        frictionAir: 0.001,
+        collisionFilter: { group: group }
+      };
+      
+      let wheelRear = Bodies.circle(startX, startY, WHEEL_RADIUS, wheelOptions);
+      let wheelFront = Bodies.circle(startX + BIKE_LENGTH, startY, WHEEL_RADIUS, wheelOptions);
+
+      // 車架 (使用隱形矩形)
+      let frame = Bodies.rectangle(startX + BIKE_LENGTH/2, startY - 20, BIKE_LENGTH, 10, { 
+        collisionFilter: { group: group },
+        density: 0.1, // 預設質量
+        frictionAir: 0.01
+      });
+
+      // 連結車輪與車架的軸
+      let axelRear = Constraint.create({
+        bodyA: frame,
+        pointA: { x: -BIKE_LENGTH/2, y: 20 },
+        bodyB: wheelRear,
+        stiffness: 0.9,
+        length: 0
+      });
+
+      let axelFront = Constraint.create({
+        bodyA: frame,
+        pointA: { x: BIKE_LENGTH/2, y: 20 },
+        bodyB: wheelFront,
+        stiffness: 0.9,
+        length: 0
+      });
+
+      // 為了穩定性，加上一個不可見的上半部保持車身不輕易翻覆
+      let riderBody = Bodies.circle(startX + BIKE_LENGTH/2 - 20, startY - 80, 20, {
+        collisionFilter: { group: group },
+        density: 0.01
+      });
+      let riderConstraint = Constraint.create({
+        bodyA: frame, bodyB: riderBody, stiffness: 1, length: 60
+      });
+
+      let bikeComposite = Composite.create();
+      Composite.add(bikeComposite, [wheelRear, wheelFront, frame, riderBody, axelRear, axelFront, riderConstraint]);
+      Composite.add(world, bikeComposite);
+
+      bike = {
+        composite: bikeComposite,
+        wheelRear: wheelRear,
+        wheelFront: wheelFront,
+        frame: frame,
+        rider: riderBody
+      };
+    }
+
+    function updateInstructionText() {
+      const box = document.getElementById('instruction-text');
+      let ignoreDrag = document.getElementById('ignore-drag').checked;
+
+      if (currentState === 'accelerate') {
+        box.innerHTML = `<strong>物理原理解析：【啟動 / 加速】</strong><br>騎士踩踏板產生力矩使<strong>後輪</strong>(驅動輪)旋轉。後輪有向後滑的趨勢，因此地面給予向 <strong style="color:#ef4444;">前</strong> 的靜摩擦力推動整車前進。<br><strong>前輪</strong>(從動輪)被車架往前推，有向前滑的趨勢，因此地面給予向 <strong style="color:#ef4444;">後</strong> 的靜摩擦力迫使其產生滾動。`;
+      } else if (currentState === 'constant') {
+        if (ignoreDrag) {
+          box.innerHTML = `<strong>物理原理解析：【等速前進 (無空氣阻力)】</strong><br>在忽略空氣阻力的狀況下，車子仍會受到地面的<strong>滾動阻力</strong>。為了維持等速，騎士只需微踩踏板。<br>此時後輪受到的向 <strong style="color:#ef4444;">前</strong> 推力變小，剛好與前輪的滾動阻力抵銷，使車子保持等速前進。`;
+        } else {
+          box.innerHTML = `<strong>物理原理解析：【等速前進】</strong><br>在真實環境中，車子會受到<strong>空氣阻力</strong>（紫色）與<strong>滾動阻力</strong>。為了維持等速，騎士必須持續踩踏板。<br>此時後輪受到的向 <strong style="color:#ef4444;">前</strong> 推進摩擦力，剛好與所有向後的阻力<strong>互相抵銷（合力為零）</strong>，使車子保持等速。`;
+        }
+      } else if (currentState === 'brake') {
+        box.innerHTML = `<strong>物理原理解析：【減速 / 煞車】</strong><br>煞車系統鎖死或減緩車輪轉動。由於慣性，車子與車輪仍想往前衝（向前滑動趨勢），因此地面給予前後兩輪向 <strong style="color:#ef4444;">後</strong> 的摩擦力，作為減速的阻力。`;
+      }
+    }
+
+    function draw() {
+      background('#e0f2fe'); // 清空背景
+      Engine.update(engine, 1000 / 60); // 更新物理引擎
+
+      // 控制物理邏輯與無限地面
+      applyPhysicsLogic();
+
+      // 設定相機 (Zoom in 與跟隨)
+      let camX = bike.frame.position.x;
+      let camY = bike.frame.position.y;
+      
+      push();
+      translate(width / 2, height / 2 + 50); // 將相機焦點移至畫面中央偏下
+      scale(1.4); // 視角 Zoom in 放大
+      translate(-camX, -camY); // 相機鎖定跟隨車架
+
+      // 繪製地景 (傳入相機 X 座標以繪製無限地面)
+      drawScenery(camX);
+
+      // 繪製腳踏車實體
+      drawBike();
+
+      // 繪製力學向量
+      if (document.getElementById('show-vectors').checked) {
+        drawForceVectors();
+      }
+      
+      pop(); // 恢復相機視角到螢幕空間，準備繪製 HUD 介面
+
+      // 繪製畫中畫 (微觀檢視)
+      if (document.getElementById('show-pip').checked) {
+        drawRollingResistancePiP();
+      }
+    }
+
+    function applyPhysicsLogic() {
+      // 確保車架不會劇烈翻轉
+      Body.setAngle(bike.frame, 0); 
+      Body.setAngularVelocity(bike.frame, 0);
+
+      // 讓靜態地面永遠跟著車子移動 (跑步機模式)，製造無限延伸且不穿模的地板
+      let groundBody = world.bodies.find(b => b.isStatic);
+      if(groundBody) {
+        Body.setPosition(groundBody, { x: bike.frame.position.x, y: WORLD_GROUND_Y });
+      }
+
+      let currentVelocity = bike.frame.velocity.x;
+      let ignoreDrag = document.getElementById('ignore-drag').checked;
+
+      // 阻力分離設定：空氣阻力可忽略，但滾動阻力永遠存在
+      let airDrag = ignoreDrag ? 0 : 0.0015 * currentVelocity;
+      let rollingDrag = 0.0005 * currentVelocity; 
+      
+      if (currentVelocity > 0.1) {
+          Body.applyForce(bike.frame, bike.frame.position, { x: -(airDrag + rollingDrag), y: 0 });
+      }
+
+      // 基礎力矩計算
+      let torque = baseTorque * pForce;
+
+      if (currentState === 'accelerate') {
+        // 加速：對後輪施加正向旋轉力矩
+        let nextOmega = bike.wheelRear.angularVelocity + (torque * 0.05);
+        let idealOmega = currentVelocity / WHEEL_RADIUS;
+        
+        // 避免後輪在物理引擎中過度打滑 (Burnout)，導致前後輪視覺轉速落差過大
+        // 我們限制後輪的轉速，使其最多只比完美滾動狀態快一點點 (足以產生推進力即可)
+        if (nextOmega > idealOmega + 0.15) {
+            nextOmega = idealOmega + 0.15;
+        }
+        Body.setAngularVelocity(bike.wheelRear, nextOmega);
+
+        // 強制前輪與車速同步 (完美滾動)，確保兩輪視覺上轉速一致
+        Body.setAngularVelocity(bike.wheelFront, idealOmega);
+
+        // 限制最高速度
+        if (currentVelocity > 8) {
+           Body.setVelocity(bike.frame, { x: 8, y: bike.frame.velocity.y });
+        }
+      } 
+      else if (currentState === 'constant') {
+        // 等速：施加剛好抵銷 "總阻力(空氣+滾動)" 的動力，達到合力為零
+        // 不論是否忽略空氣阻力，都必須施加些許推力來克服必然存在的「滾動阻力」
+        let targetV = 6;
+        let error = targetV - currentVelocity;
+        let driveTorque = error * 0.02; // 簡單的 P 控制器維持速度
+        
+        if (driveTorque > 0) {
+           Body.setAngularVelocity(bike.wheelRear, bike.wheelRear.angularVelocity + driveTorque);
+        }
+        
+        // 強制車輪轉速與車速同步 (v = r * omega)，防止滑動
+        Body.setAngularVelocity(bike.wheelFront, currentVelocity / WHEEL_RADIUS);
+      } 
+      else if (currentState === 'brake') {
+        // 煞車：對雙輪施加強烈角阻力
+        let brakeFactor = 1 - (0.02 * pForce);
+        Body.setAngularVelocity(bike.wheelRear, bike.wheelRear.angularVelocity * brakeFactor);
+        Body.setAngularVelocity(bike.wheelFront, bike.wheelFront.angularVelocity * brakeFactor);
+        
+        // 額外施加向後的阻力以加速停止
+        if (currentVelocity > 0.1) {
+          Body.applyForce(bike.frame, bike.frame.position, { x: -0.005 * pForce, y: 0 });
+        }
+      }
+    }
+
+    function drawScenery(camX) {
+      // 地面 (涵蓋相機視野)
+      noStroke();
+      fill('#94a3b8');
+      // 使用固定世界座標繪製地面，向下畫深一點 (2000) 確保不破圖
+      rect(camX - width, WORLD_GROUND_Y - 30, width * 2, 2000);
+      
+      // 裝飾線條 (速度感，隨相機位置動態生成)
+      stroke('#cbd5e1');
+      strokeWeight(3);
+      let startX = Math.floor((camX - width) / 100) * 100;
+      for (let i = startX; i < camX + width; i += 100) {
+        line(i, WORLD_GROUND_Y - 30, i + 30, WORLD_GROUND_Y - 30);
+      }
+    }
+
+    function drawBike() {
+      let rx = bike.wheelRear.position.x;
+      let ry = bike.wheelRear.position.y;
+      let fx = bike.wheelFront.position.x;
+      let fy = bike.wheelFront.position.y;
+
+      // --- 車架節點 (以真實車架比例設計) ---
+      let bbX = rx + 45; // Bottom Bracket (踏板軸心)
+      let bbY = ry;
+      let seatX = rx + 30; // 坐墊位置
+      let seatY = ry - 75;
+      let headX = fx - 25; // 龍頭位置
+      let headY = fy - 80;
+
+      // 繪製車架管線
+      stroke('#e11d48'); // 亮紅色車架
+      strokeWeight(6);
+      line(rx, ry, bbX, bbY); // Chain stay
+      line(rx, ry, seatX, seatY); // Seat stay
+      line(bbX, bbY, seatX, seatY); // Seat tube
+      line(bbX, bbY, headX, headY); // Down tube
+      line(seatX, seatY, headX, headY); // Top tube
+      line(fx, fy, headX, headY); // Fork (前叉)
+
+      // 手把與坐墊
+      stroke('#1e293b');
+      strokeWeight(8);
+      line(seatX - 12, seatY, seatX + 15, seatY); // 坐墊
+      line(headX - 10, headY, headX + 15, headY - 10); // 手把
+
+      // --- 繪製騎士 (隨輪胎旋轉踩踏) ---
+      let hipX = seatX;
+      let hipY = seatY - 15;
+      let shoulderX = headX - 25;
+      let shoulderY = headY - 35;
+      let headCenterX = shoulderX + 15;
+      let headCenterY = shoulderY - 30;
+
+      // 身體軀幹
+      stroke('#334155');
+      strokeWeight(14);
+      line(hipX, hipY, shoulderX, shoulderY);
+
+      // 頭部與安全帽
+      noStroke();
+      fill('#fcd34d'); // 臉部膚色
+      circle(headCenterX, headCenterY, 25);
+      fill('#3b82f6'); // 藍色安全帽
+      arc(headCenterX, headCenterY - 2, 28, 28, PI, 0, CHORD);
+
+      // 手臂
+      stroke('#334155');
+      strokeWeight(9);
+      let elbowX = (shoulderX + headX) / 2 + 10;
+      let elbowY = (shoulderY + headY) / 2 - 5;
+      line(shoulderX, shoulderY, elbowX, elbowY); // 上臂
+      line(elbowX, elbowY, headX + 5, headY - 5); // 前臂
+
+      // 腿部與踏板動態運算 (IK 運動學)
+      // 【修正齒輪比】真實腳踏車前大後小，踏板轉1圈後輪約轉2.5圈。
+      let crankAngle = bike.wheelRear.angle * 0.4; 
+      let pedalX = bbX + 18 * cos(crankAngle);
+      let pedalY = bbY + 18 * sin(crankAngle);
+
+      let midLegX = (hipX + pedalX) / 2;
+      let midLegY = (hipY + pedalY) / 2;
+      let legDist = dist(hipX, hipY, pedalX, pedalY);
+      let kneeOffset = sqrt(max(0, 45*45 - (legDist/2)*(legDist/2))); 
+      let legAngle = atan2(pedalY - hipY, pedalX - hipX);
+      let kneeX = midLegX + kneeOffset * cos(legAngle - PI/2);
+      let kneeY = midLegY + kneeOffset * sin(legAngle - PI/2);
+
+      stroke('#0f172a'); // 褲子顏色
+      strokeWeight(11);
+      line(hipX, hipY, kneeX, kneeY); // 大腿
+      line(kneeX, kneeY, pedalX, pedalY); // 小腿
+
+      // 踏板曲柄與踏板
+      stroke('#94a3b8');
+      strokeWeight(4);
+      line(bbX, bbY, pedalX, pedalY);
+      stroke('#1e293b');
+      strokeWeight(6);
+      line(pedalX - 8, pedalY, pedalX + 8, pedalY);
+
+      // 繪製車輪函式
+      const renderWheel = (wheel) => {
+        push();
+        translate(wheel.position.x, wheel.position.y);
+        rotate(wheel.angle);
+        
+        // 輪胎
+        stroke('#1e293b');
+        strokeWeight(6);
+        fill('transparent');
+        circle(0, 0, WHEEL_RADIUS * 2);
+        
+        // 輪框與幅條
+        stroke('#64748b');
+        strokeWeight(2);
+        for (let i = 0; i < 6; i++) {
+          let theta = (PI / 3) * i;
+          line(0, 0, WHEEL_RADIUS * cos(theta), WHEEL_RADIUS * sin(theta));
+        }
+        // 軸心
+        noStroke();
+        fill('#e2e8f0');
+        circle(0, 0, 10);
+        pop();
+      };
+
+      renderWheel(bike.wheelRear);
+      renderWheel(bike.wheelFront);
+    }
+
+    function drawForceVectors() {
+      let fScale = pForce * 15; // 箭頭長度縮放
+      let currentV = bike.frame.velocity.x;
+      
+      let rearContactX = bike.wheelRear.position.x;
+      let rearContactY = bike.wheelRear.position.y + WHEEL_RADIUS;
+      
+      let frontContactX = bike.wheelFront.position.x;
+      let frontContactY = bike.wheelFront.position.y + WHEEL_RADIUS;
+
+      let cgX = bike.frame.position.x;
+      let cgY = bike.frame.position.y;
+      
+      let ignoreDrag = document.getElementById('ignore-drag').checked;
+
+      // --- 繪製重力 (綠色) ---
+      let mass = parseInt(document.getElementById('mass-slider').value);
+      let weightLength = map(mass, 20, 100, 40, 100);
+      drawArrow(cgX, cgY, cgX, cgY + weightLength, '#22c55e', 'W');
+
+      // --- 繪製正向力 (藍色) ---
+      // 假設重量平均分配
+      drawArrow(rearContactX, rearContactY, rearContactX, rearContactY - (weightLength/2), '#3b82f6', 'N1');
+      drawArrow(frontContactX, frontContactY, frontContactX, frontContactY - (weightLength/2), '#3b82f6', 'N2');
+
+      // --- 繪製空氣阻力 (紫色) ---
+      if (!ignoreDrag && currentV > 0.5 && currentState !== 'brake') {
+         drawArrow(cgX, cgY - 30, cgX - (currentV * 4), cgY - 30, '#8b5cf6', '空氣阻力');
+      }
+
+      // --- 繪製摩擦力 (紅色) ---
+      if (currentState === 'accelerate') {
+        // 後輪：推動力（向前）
+        drawArrow(rearContactX, rearContactY, rearContactX + fScale, rearContactY, '#ef4444', 'f (後)');
+        // 前輪：使輪胎滾動的阻力（向後）
+        drawArrow(frontContactX, frontContactY, frontContactX - (fScale*0.5), frontContactY, '#ef4444', 'f (前)');
+      } 
+      else if (currentState === 'brake') {
+        if (currentV > 0.5) { // 只有在還有速度時才有明顯動摩擦/靜摩擦阻力
+          // 煞車：前後輪摩擦力皆向後
+          drawArrow(rearContactX, rearContactY, rearContactX - fScale, rearContactY, '#ef4444', 'f (阻)');
+          drawArrow(frontContactX, frontContactY, frontContactX - fScale, frontContactY, '#ef4444', 'f (阻)');
+        }
+      }
+      else if (currentState === 'constant') {
+        // 等速：後輪施加向前的推力，來抗衡空氣阻力與前輪的滾動阻力
+        if (currentV > 0.5) {
+          let airDragVector = ignoreDrag ? 0 : currentV * 4; // 空氣阻力視覺長度
+          let frontResistVector = currentV * 2.5; // 前輪克服滾動/軸承所需的向後摩擦力
+          let pushVector = frontResistVector + airDragVector; // 合力為零：後推 = 前阻 + 空氣阻力
+          
+          drawArrow(rearContactX, rearContactY, rearContactX + pushVector, rearContactY, '#ef4444', 'f (後推)');
+          drawArrow(frontContactX, frontContactY, frontContactX - frontResistVector, frontContactY, '#ef4444', 'f (前阻)');
+        }
+      }
+    }
+
+    // --- 新增：繪製微觀視角的滾動阻力畫中畫 ---
+    function drawRollingResistancePiP() {
+      let currentV = bike.frame.velocity.x;
+      let isMoving = currentV > 0.5 || currentV < -0.5;
+      
+      pipBuffer.clear();
+      // 背景與邊框
+      pipBuffer.background(255, 250, 245);
+      pipBuffer.stroke('#cbd5e1');
+      pipBuffer.strokeWeight(4);
+      pipBuffer.noFill();
+      pipBuffer.rect(0, 0, pipBuffer.width, pipBuffer.height);
+
+      // 頂部標題與說明文字
+      pipBuffer.noStroke();
+      pipBuffer.fill('#1e293b');
+      pipBuffer.textSize(15); // 稍微放大字體
+      pipBuffer.textLeading(24); // 增加行距
+      pipBuffer.textAlign(LEFT, TOP);
+      pipBuffer.textStyle(BOLD);
+      pipBuffer.text("滾動阻力微觀檢視", 20, 20);
+      
+      pipBuffer.textStyle(NORMAL);
+      pipBuffer.fill('#475569');
+      if (isMoving) {
+        pipBuffer.text("輪胎前進時前方橡膠受擠壓，形變較大，\n導致地面的【正向力 N 往右(前方)偏移】。\n此偏移會產生一個抵抗滾動的逆時針力矩！", 20, 50);
+      } else {
+        pipBuffer.text("靜止時輪胎橡膠形變對稱，\n地面的【正向力 N 剛好通過輪軸中心】，\n不會產生阻力力矩。", 20, 50);
+      }
+
+      // 設定微觀畫布的坐標系 (將原點設在視窗的最下方，確保輪胎遠離上方文字)
+      pipBuffer.push();
+      pipBuffer.translate(pipBuffer.width / 2, pipBuffer.height - 40);
+
+      // 繪製地面
+      pipBuffer.noStroke();
+      pipBuffer.fill('#94a3b8');
+      pipBuffer.rect(-pipBuffer.width/2, 0, pipBuffer.width, 40);
+      pipBuffer.stroke('#64748b');
+      pipBuffer.strokeWeight(2);
+      pipBuffer.line(-pipBuffer.width/2, 0, pipBuffer.width/2, 0);
+
+      // 繪製變形的輪胎
+      let r = 120; // 放大後的輪胎半徑
+      let deformation = 12; // 輪胎底部被壓扁的程度
+      let wheelCenterY = -r + deformation;
+      
+      pipBuffer.push();
+      pipBuffer.translate(0, wheelCenterY);
+      
+      // 【修正】：輪廓(被壓扁的形變)不應該旋轉，因為地面一直在正下方
+      // 所以我們在旋轉 (rotate) "之前" 先畫出壓扁的橡膠外圈
+      pipBuffer.stroke('#1e293b');
+      pipBuffer.strokeWeight(12);
+      pipBuffer.fill('transparent');
+      pipBuffer.beginShape();
+      for(let a = 0; a <= TWO_PI + 0.1; a += 0.1) {
+        let x = r * cos(a);
+        let y = r * sin(a);
+        let worldY = wheelCenterY + y;
+        // 如果超過地面，就壓平
+        if (worldY > 0) { 
+            y = -wheelCenterY; 
+        }
+        pipBuffer.vertex(x, y);
+      }
+      pipBuffer.endShape(CLOSE);
+      
+      // 接下來才開始旋轉內部輪輻與軸心
+      pipBuffer.push();
+      pipBuffer.rotate(bike.wheelFront.angle); // 內部跟著前輪旋轉
+      
+      // 繪製輪輻 (裝飾用，能看出旋轉)
+      pipBuffer.stroke('#64748b');
+      pipBuffer.strokeWeight(3);
+      for(let i=0; i<6; i++) {
+        let a = i * PI/3;
+        pipBuffer.line(0, 0, r*cos(a)*0.85, r*sin(a)*0.85); 
+      }
+      pipBuffer.pop(); // 結束內部旋轉
+      
+      // 畫軸心(置中不隨旋轉改變視覺)
+      pipBuffer.noStroke();
+      pipBuffer.fill('#e2e8f0');
+      pipBuffer.circle(0, 0, 15);
+      
+      pipBuffer.pop(); // 恢復車輪中心的座標系
+
+      // --- 繪製微觀力學向量 ---
+      // 虛線輔助線 (中心線)
+      pipBuffer.stroke('#94a3b8');
+      pipBuffer.strokeWeight(2);
+      pipBuffer.drawingContext.setLineDash([5, 5]);
+      pipBuffer.line(0, wheelCenterY, 0, 0);
+      pipBuffer.drawingContext.setLineDash([]); // 恢復實線
+
+      // W 負載向下
+      drawArrowPG(pipBuffer, 0, wheelCenterY, 0, -20, '#22c55e', 'W (車重負載)');
+
+      // N 正向力向上 (重點：產生偏移！)
+      // 如果有速度，正向力往運動方向(右邊)偏移
+      let offset = isMoving ? (currentV > 0 ? 30 : -30) : 0;
+      drawArrowPG(pipBuffer, offset, 0, offset, wheelCenterY + 30, '#3b82f6', 'N (正向力)');
+
+      pipBuffer.pop();
+
+      // 在主畫布上繪製這個緩衝區 (放在右側靠近 UI 面板的地方)
+      push();
+      drawingContext.shadowOffsetX = 2;
+      drawingContext.shadowOffsetY = 4;
+      drawingContext.shadowBlur = 10;
+      drawingContext.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      let pipX = max(20, width - pipBuffer.width - 20); // 確保不會超出螢幕邊界
+      image(pipBuffer, pipX, 20);
+      pop();
+    }
+
+    // 全域輔助函式
+    function drawArrow(x1, y1, x2, y2, color, label) {
+      if (dist(x1, y1, x2, y2) < 2) return; // 長度太短不畫
+
+      push();
+      stroke(color);
+      strokeWeight(3);
+      fill(color);
+      line(x1, y1, x2, y2);
+      
+      // 箭頭頭部
+      let angle = atan2(y2 - y1, x2 - x1);
+      translate(x2, y2);
+      rotate(angle);
+      triangle(0, 0, -10, 5, -10, -5);
+      
+      // 標籤
+      rotate(-angle); 
+      noStroke();
+      textSize(14);
+      textStyle(BOLD);
+      
+      if (abs(angle - HALF_PI) < 0.1) {
+        textAlign(CENTER, TOP);
+        if(label) text(label, 0, 10);
+      } else {
+        textAlign(CENTER, BOTTOM);
+        if(label) text(label, 0, -10);
+      }
+      pop();
+    }
+
+    // 專供畫布緩衝區 (PG) 使用的箭頭繪製函式
+    function drawArrowPG(pg, x1, y1, x2, y2, color, label) {
+      if (dist(x1, y1, x2, y2) < 2) return;
+      pg.push();
+      pg.stroke(color);
+      pg.strokeWeight(4);
+      pg.fill(color);
+      pg.line(x1, y1, x2, y2);
+      
+      let angle = atan2(y2 - y1, x2 - x1);
+      pg.translate(x2, y2);
+      pg.rotate(angle);
+      pg.triangle(0, 0, -12, 6, -12, -6);
+      
+      pg.rotate(-angle);
+      pg.noStroke();
+      pg.textSize(14);
+      pg.textStyle(BOLD);
+      
+      if (abs(angle - HALF_PI) < 0.1) {
+        pg.textAlign(CENTER, TOP);
+        if(label) pg.text(label, 0, 10);
+      } else if (abs(angle + HALF_PI) < 0.1) { 
+        pg.textAlign(CENTER, BOTTOM);
+        if(label) pg.text(label, 0, -10);
+      } else {
+        pg.textAlign(CENTER, BOTTOM);
+        if(label) pg.text(label, 0, -10);
+      }
+      pg.pop();
+    }
+
+    // 視窗縮放時自適應調整 Canvas
+    function windowResized() {
+      let canvasW = document.getElementById('canvas-wrapper').clientWidth;
+      let canvasH = document.getElementById('canvas-wrapper').clientHeight;
+      resizeCanvas(canvasW, canvasH);
+    }
+  </script>
+</body>
+</html>

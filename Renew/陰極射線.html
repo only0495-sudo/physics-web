@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>陰極射線與 J.J. Thomson 實驗模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        .canvas-container {
+            background-color: #0f172a; /* 深藍黑色背景 */
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans p-4 md:p-8">
+
+<div class="max-w-6xl mx-auto">
+    <!-- 標題區塊 -->
+    <header class="mb-6 text-center md:text-left border-b-2 border-blue-500 pb-4">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">陰極射線與 J.J. Thomson 實驗模擬器</h1>
+        <p class="text-gray-600">透過調整電場與磁場，觀察電子束的偏轉情形，重現測量電子「荷質比 (e/m)」的經典實驗。</p>
+    </header>
+
+    <!-- 模擬器與控制面板區塊 -->
+    <div class="flex flex-col lg:flex-row gap-6 mb-8">
+        <!-- 畫布區 (左側/上方) -->
+        <div class="canvas-container flex-grow relative">
+            <canvas id="simCanvas" width="800" height="400"></canvas>
+            <!-- 標籤覆蓋層 -->
+            <div class="absolute top-2 left-2 text-green-400 text-xs font-mono opacity-70">
+                Cathode Ray Tube Simulator v1.0
+            </div>
+        </div>
+
+        <!-- 控制面板 (右側/下方) -->
+        <div class="w-full lg:w-80 bg-white p-6 rounded-xl shadow-md flex flex-col gap-6">
+            <h2 class="text-xl font-semibold text-gray-800 border-b pb-2">操作面板</h2>
+
+            <!-- 電場滑桿 -->
+            <div class="control-group">
+                <div class="flex justify-between mb-1">
+                    <label class="font-medium text-gray-700">電場強度 (<span class="italic font-serif">E</span>)</label>
+                    <span id="eLabel" class="text-blue-600 font-mono font-bold">0</span>
+                </div>
+                <input type="range" id="eSlider" min="-10" max="10" step="0.5" value="0">
+                <p class="text-xs text-gray-500 mt-1">正值：上極板帶正電；負值：下極板帶正電。</p>
+            </div>
+
+            <!-- 磁場滑桿 -->
+            <div class="control-group">
+                <div class="flex justify-between mb-1">
+                    <label class="font-medium text-gray-700">磁場強度 (<span class="italic font-serif">B</span>)</label>
+                    <span id="bLabel" class="text-blue-600 font-mono font-bold">0</span>
+                </div>
+                <input type="range" id="bSlider" min="-10" max="10" step="0.5" value="0">
+                <p class="text-xs text-gray-500 mt-1">正值：磁場垂直進入紙面 (⊗)；負值：射出紙面 (⊙)。</p>
+            </div>
+
+            <!-- 轉輪選項 -->
+            <div class="control-group border-t pt-4">
+                <label class="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
+                    <input type="checkbox" id="wheelToggle" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                    放入實驗轉輪
+                </label>
+                <p class="text-xs text-gray-500 mt-1">觀察電子是否帶有質量與動量。<br><span class="text-indigo-500">提示：預設打在葉片上方會順時針轉動，試著利用電磁場使其逆時針轉吧！</span></p>
+            </div>
+
+            <!-- 按鈕區 -->
+            <div class="mt-auto flex gap-3">
+                <button id="resetBtn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded transition duration-150">
+                    數值重置
+                </button>
+            </div>
+            
+            <!-- 狀態提示 -->
+            <div id="statusAlert" class="p-3 bg-blue-50 text-blue-800 text-sm rounded border border-blue-200 hidden">
+                <strong>力平衡狀態！</strong><br>電場力與磁場力完全抵消，電子直線前進。
+            </div>
+        </div>
+    </div>
+
+    <!-- 教學引導區塊 -->
+    <div class="bg-white p-6 rounded-xl shadow-md mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            教學引導與物理原理
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-gray-700 leading-relaxed">
+            <div>
+                <h3 class="text-lg font-bold text-gray-800 border-l-4 border-blue-500 pl-2 mb-2">1. 認識陰極射線</h3>
+                <p class="mb-4">陰極射線實際上是從陰極射出的<strong>高速電子流</strong>。因為電子帶<strong>負電荷</strong>，所以它們在電場和磁場中會受到力的作用而偏轉。</p>
+
+                <h3 class="text-lg font-bold text-gray-800 border-l-4 border-blue-500 pl-2 mb-2">2. 電場偏轉 (庫侖力)</h3>
+                <p class="mb-4">電子帶負電，在電場中受到的靜電力方向與電場方向<strong>相反</strong>。試著將電場數值調為正（上極板帶正電），您會觀察到電子受到向上的吸引力而向上偏轉。</p>
+
+                <h3 class="text-lg font-bold text-gray-800 border-l-4 border-blue-500 pl-2 mb-2">3. 磁場偏轉 (洛倫茲力)</h3>
+                <p class="mb-4">電子在磁場中運動會受到洛倫茲力：<span class="bg-gray-100 px-1 rounded font-mono text-sm">F = q(v × B)</span>。利用<strong>右手開掌定則</strong>（四指為磁場，拇指為正電荷速度，掌心為受力），由於電子帶負電，受力方向與正電荷相反。將磁場調為正（進入紙面），向右運動的電子會向下偏轉。</p>
+
+                <h3 class="text-lg font-bold text-gray-800 border-l-4 border-blue-500 pl-2 mb-2">4. 電子具有質量 (轉輪實驗)</h3>
+                <p>勾選右側的「放入實驗轉輪」。當電子打在轉輪的葉片上時，會像風吹動風車一樣使其旋轉，證明了陰極射線並非單純的光波，而是帶有<strong>質量與動量</strong>的實體粒子！</p>
+            </div>
+            
+            <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 h-fit">
+                <h3 class="text-lg font-bold text-indigo-700 mb-3">⭐ 挑戰：J.J. Thomson 的力平衡實驗</h3>
+                <p class="mb-3">J.J. Thomson 在 1897 年利用這個裝置成功測量出電子的「荷質比 (e/m)」。他使用了一個巧妙的方法：</p>
+                <ol class="list-decimal list-inside space-y-2 mb-4 font-medium text-gray-800">
+                    <li>先設定一個特定的「電場強度」，讓電子產生偏轉。</li>
+                    <li>接著加入「磁場」，並慢慢調整磁場強度。</li>
+                    <li>試著讓磁場力剛好抵消電場力，使電子束回到<strong>無偏轉的直線狀態</strong>！</li>
+                </ol>
+                <div class="bg-white p-3 border-l-4 border-indigo-400 text-sm shadow-sm">
+                    <strong>物理算式推導：</strong><br>
+                    當電子不偏轉時，電場力等於磁場力：<br>
+                    <span class="block text-center font-serif text-lg my-1">eE = evB</span>
+                    化簡後可得電子速度：<span class="font-serif text-lg">v = E / B</span><br>
+                    <span class="text-gray-500 mt-1 block">你可以試著將電場設為 10，磁場設為 10，看看會發生什麼事！(電子初速已固定)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 獲取 DOM 元素
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const eSlider = document.getElementById('eSlider');
+    const bSlider = document.getElementById('bSlider');
+    const eLabel = document.getElementById('eLabel');
+    const bLabel = document.getElementById('bLabel');
+    const wheelToggle = document.getElementById('wheelToggle');
+    const resetBtn = document.getElementById('resetBtn');
+    const statusAlert = document.getElementById('statusAlert');
+
+    // 物理與模擬器參數
+    const physics = {
+        dt: 0.01,        // 縮小時間步長以增加物理引擎穩定度(防止強磁場螺旋發散)
+        kE: 0.5,         // 電場視覺縮放常數
+        kB: 0.05,        // 磁場視覺縮放常數
+        gunX: 50,        // 發射點 X
+        gunY: 200,       // 發射點 Y
+        fieldStartX: 280, // 場域開始 X
+        fieldEndX: 520,   // 場域結束 X
+        screenX: 710      // 螢幕 X 座標 (擊中判定)
+    };
+
+    // 狀態變數
+    let particles = [];
+    let glowPoints = [];
+    let animationFrameId;
+
+    // 轉輪物件
+    const wheel = {
+        active: false,
+        x: 600,
+        y: 220, // 將轉輪中心稍微向下移，讓水平射線(y=200)能直接打在葉片上半部產生力矩
+        radius: 35,
+        angle: 0,
+        angularVelocity: 0,
+        friction: 0.99  // 阻尼系數，讓輪子會慢慢停下
+    };
+
+    // 當調整滑桿時，清空現有電子軌跡，模擬真實儀器瞬間反應的視覺效果
+    function clearParticles() {
+        particles = [];
+    }
+    eSlider.addEventListener('input', clearParticles);
+    bSlider.addEventListener('input', clearParticles);
+    
+    // 轉輪開關事件
+    wheelToggle.addEventListener('change', (e) => {
+        wheel.active = e.target.checked;
+        wheel.angularVelocity = 0; // 重置轉速
+        clearParticles();
+    });
+
+    // 粒子類別 (代表電子)
+    class Particle {
+        constructor(x, y, vx) {
+            this.x = x;
+            this.y = y;
+            this.lastX = x;
+            this.lastY = y;
+            this.vx = vx;
+            this.vy = 0;
+            this.active = true;
+        }
+
+        update(E_val, B_val) {
+            if (!this.active) return;
+            
+            this.lastX = this.x;
+            this.lastY = this.y;
+
+            let ax = 0;
+            let ay = 0;
+
+            // 檢查是否在電場與磁場作用區域內
+            if (this.x >= physics.fieldStartX && this.x <= physics.fieldEndX) {
+                // 加速度計算 (模擬電子質量 m=1, 電荷 q=-1 的等效比例)
+                // 1. 電場力：E_val > 0 代表上極板正電，電子受力向上 (-y 方向)
+                const aE = -E_val * physics.kE;
+                
+                // 2. 磁場力 (洛倫茲力 F = q(v x B))
+                // B_val > 0 代表進入紙面 (+z 方向)
+                // v x B 的方向由右手定則決定。因電子帶負電，受力反轉。
+                const aBx = -this.vy * B_val * physics.kB;
+                const aBy = this.vx * B_val * physics.kB;
+
+                ax = aBx;
+                ay = aE + aBy;
+            }
+
+            // 更新速度與位置 (Symplectic Euler積分器)
+            this.vx += ax * physics.dt;
+            this.vy += ay * physics.dt;
+            this.x += this.vx * physics.dt;
+            this.y += this.vy * physics.dt;
+
+            // 轉輪碰撞判定 (傳遞動量產生力矩)
+            if (wheel.active) {
+                const dx = this.x - wheel.x;
+                const dy = this.y - wheel.y;
+                // 快速邊界檢查優化效能
+                if (Math.abs(dx) < wheel.radius && Math.abs(dy) < wheel.radius) {
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < wheel.radius) {
+                        // 撞擊到了轉輪葉片區域
+                        // 力矩 Torque = r x F ∝ r x v = dx * vy - dy * vx
+                        const torque = dx * this.vy - dy * this.vx;
+                        wheel.angularVelocity += torque * 0.0001; // 敏感度常數
+                        
+                        this.active = false;
+                        addGlowPoint(this.x, this.y);
+                        return; // 被轉輪吸收，結束該粒子的更新
+                    }
+                }
+            }
+
+            // 其他邊界碰撞判定
+            if (this.x >= physics.screenX) {
+                // 撞擊接收螢幕
+                this.active = false;
+                this.x = physics.screenX;
+                addGlowPoint(this.x, this.y);
+            } else if (this.y < 30 || this.y > 370) {
+                // 飛出畫布上下邊緣
+                this.active = false; 
+            } else if (this.x >= physics.fieldStartX && this.x <= physics.fieldEndX) {
+                // 撞擊帶電極板判定 (上極板下緣:110, 下極板上緣:300)
+                if (this.y <= 110 || this.y >= 300) {
+                    this.active = false;
+                }
+            }
+        }
+    }
+
+    // 增加螢幕螢光殘影
+    function addGlowPoint(x, y) {
+        glowPoints.push({ x: x, y: y, alpha: 1.0 });
+    }
+
+    // 更新與繪製主循環
+    function loop() {
+        // 基礎物理模式：固定電子初速
+        const v_val = 10;
+        const e_val = parseFloat(eSlider.value);
+        const b_val = parseFloat(bSlider.value);
+
+        // 更新標籤
+        eLabel.innerText = e_val.toFixed(1);
+        bLabel.innerText = b_val.toFixed(1);
+
+        // 偵測力平衡狀態 (提示用)
+        // 當 aE + aBy = 0 且 vx 非常接近初速時
+        const currentAE = -e_val * physics.kE;
+        const currentABy = v_val * b_val * physics.kB; // 假設水平進入
+        if (e_val !== 0 && b_val !== 0 && Math.abs(currentAE + currentABy) < 0.01) {
+            statusAlert.classList.remove('hidden');
+        } else {
+            statusAlert.classList.add('hidden');
+        }
+
+        // 畫面清除與背景重繪
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        drawScreen();
+        drawFields(e_val, b_val);
+        drawWheel();
+        drawElectronGun();
+
+        // 產生新粒子 (稍微增加一點Y軸的隨機偏移，使光束有一點厚度，便於打在轉輪上下兩端)
+        const spawnY = physics.gunY + (Math.random() - 0.5) * 2;
+        particles.push(new Particle(physics.gunX, spawnY, v_val));
+
+        // 繪製與更新電子束
+        ctx.beginPath();
+        ctx.strokeStyle = '#22c55e'; // 螢光綠
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#4ade80';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        let activeParticles = [];
+        
+        // 模擬步驟更新 (為了提高物理精度並保持視覺速度，將步長細分)
+        const subSteps = 20; 
+        
+        for (let i = 0; i < particles.length; i++) {
+            let p = particles[i];
+            if (p.active) {
+                for(let s=0; s<subSteps; s++){
+                    p.update(e_val, b_val);
+                    if (!p.active) break; // 如果在子步驟中撞擊消失，則提早結束計算
+                }
+                
+                // 只有仍存活的粒子才繼續畫線
+                if(p.active) {
+                    ctx.moveTo(p.lastX, p.lastY);
+                    ctx.lineTo(p.x, p.y);
+                    activeParticles.push(p);
+                }
+            }
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0; // 重置陰影避免影響其他元素
+
+        particles = activeParticles; // 清除死掉的粒子釋放記憶體
+
+        // 繪製螢光殘影
+        for (let i = glowPoints.length - 1; i >= 0; i--) {
+            let gp = glowPoints[i];
+            ctx.beginPath();
+            ctx.arc(gp.x, gp.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(74, 222, 128, ${gp.alpha})`;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#4ade80';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            gp.alpha -= 0.02; // 殘影衰減
+            if (gp.alpha <= 0) {
+                glowPoints.splice(i, 1);
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(loop);
+    }
+
+    // 繪製接收螢幕
+    function drawScreen() {
+        ctx.beginPath();
+        ctx.moveTo(physics.screenX, 35);
+        ctx.lineTo(physics.screenX, 365);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#64748b';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('接收屏', physics.screenX + 10, 205);
+    }
+
+    // 繪製電子槍
+    function drawElectronGun() {
+        // 加速極與燈絲
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(20, 180, 20, 40); // 陰極基座
+        ctx.fillStyle = '#f59e0b'; // 燈絲發熱顏色
+        ctx.fillRect(40, 195, 5, 10);
+        
+        // 陽極開口
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(70, 170, 10, 25);
+        ctx.fillRect(70, 205, 10, 25);
+    }
+
+    // 繪製電場極板與磁場指示
+    function drawFields(e_val, b_val) {
+        // --- 繪製電場極板 ---
+        const plateWidth = physics.fieldEndX - physics.fieldStartX;
+        const topPlateY = 100;
+        const bottomPlateY = 300;
+        const plateHeight = 10;
+
+        // 計算顏色強度 (透明度)
+        const eAlpha = Math.min(Math.abs(e_val) / 10, 1);
+        
+        // 上極板顏色 (e_val > 0 為正極紅色，< 0 為負極藍色)
+        let topColor = 'rgba(148, 163, 184, 1)'; // 預設灰
+        let bottomColor = 'rgba(148, 163, 184, 1)'; 
+        
+        if (e_val > 0) {
+            topColor = `rgba(239, 68, 68, ${0.3 + eAlpha*0.7})`;    // 紅
+            bottomColor = `rgba(59, 130, 246, ${0.3 + eAlpha*0.7})`; // 藍
+        } else if (e_val < 0) {
+            topColor = `rgba(59, 130, 246, ${0.3 + eAlpha*0.7})`;    // 藍
+            bottomColor = `rgba(239, 68, 68, ${0.3 + eAlpha*0.7})`;  // 紅
+        }
+
+        ctx.fillStyle = topColor;
+        ctx.fillRect(physics.fieldStartX, topPlateY, plateWidth, plateHeight);
+        
+        ctx.fillStyle = bottomColor;
+        ctx.fillRect(physics.fieldStartX, bottomPlateY, plateWidth, plateHeight);
+
+        // 繪製極性符號
+        ctx.fillStyle = 'white';
+        ctx.font = '16px monospace';
+        if (e_val !== 0) {
+            ctx.fillText(e_val > 0 ? '+' : '-', physics.fieldStartX + plateWidth/2 - 5, topPlateY - 5);
+            ctx.fillText(e_val > 0 ? '-' : '+', physics.fieldStartX + plateWidth/2 - 5, bottomPlateY + 25);
+        }
+
+        // --- 繪製磁場指示 ---
+        if (b_val !== 0) {
+            const bAlpha = Math.min(Math.abs(b_val) / 10, 1);
+            ctx.fillStyle = `rgba(253, 224, 71, ${0.2 + bAlpha*0.8})`; // 黃色指示
+            ctx.strokeStyle = `rgba(253, 224, 71, ${0.2 + bAlpha*0.8})`;
+            ctx.lineWidth = 2;
+            ctx.font = '14px sans-serif';
+
+            const spacing = 35;
+            for (let x = physics.fieldStartX + 15; x <= physics.fieldEndX; x += spacing) {
+                for (let y = topPlateY + 30; y <= bottomPlateY - 10; y += spacing) {
+                    if (b_val > 0) {
+                        // 畫叉叉 (進入紙面)
+                        ctx.beginPath();
+                        ctx.moveTo(x - 5, y - 5);
+                        ctx.lineTo(x + 5, y + 5);
+                        ctx.moveTo(x + 5, y - 5);
+                        ctx.lineTo(x - 5, y + 5);
+                        ctx.stroke();
+                    } else {
+                        // 畫點 (射出紙面)
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(x, y, 7, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+    }
+
+    // 繪製實驗轉輪
+    function drawWheel() {
+        if (!wheel.active) return;
+
+        // 更新轉動角度與套用阻尼摩擦力
+        wheel.angle += wheel.angularVelocity;
+        wheel.angularVelocity *= wheel.friction;
+
+        // 繪製支架
+        ctx.beginPath();
+        ctx.moveTo(wheel.x, wheel.y);
+        ctx.lineTo(wheel.x, 365);
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+
+        // 繪製輪子本體
+        ctx.save();
+        ctx.translate(wheel.x, wheel.y);
+        ctx.rotate(wheel.angle);
+
+        const numBlades = 8;
+        for(let i = 0; i < numBlades; i++) {
+            ctx.rotate(Math.PI * 2 / numBlades);
+            
+            // 支桿
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(wheel.radius - 5, 0);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 葉片
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(wheel.radius - 12, -8, 12, 16);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(wheel.radius - 12, -8, 12, 16);
+        }
+
+        // 軸心
+        ctx.beginPath();
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e293b';
+        ctx.fill();
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // 重置按鈕邏輯
+    resetBtn.addEventListener('click', () => {
+        eSlider.value = 0;
+        bSlider.value = 0;
+        wheelToggle.checked = false;
+        wheel.active = false;
+        wheel.angularVelocity = 0;
+        particles = []; // 清空現有粒子，讓畫面重繪
+        glowPoints = [];
+    });
+
+    // 啟動動畫
+    loop();
+
+</script>
+</body>
+</html>

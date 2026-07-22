@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#112b67">
+  <meta name="description" content="並排操作兩個物理模擬，找出共同變因、差異與物理規律。">
+  <title>雙模擬比較實驗室</title>
+  <link rel="stylesheet" href="compare.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="compare.js" defer></script>
+</head>
+<body>
+  <header class="compare-header">
+    <a class="compare-brand" href="index.html"><span aria-hidden="true">φ×2</span><div><strong>雙模擬比較實驗室</strong><small>COMPARE · CONTROL · EXPLAIN</small></div></a>
+    <nav class="compare-nav"><a href="index.html">首頁</a><a href="notebook.html">學習紀錄</a><button id="export-comparison" type="button">匯出比較單</button><button id="fullscreen-comparison" type="button">全螢幕</button></nav>
+  </header>
+
+  <section class="preset-strip" aria-labelledby="preset-heading">
+    <strong id="preset-heading">快速比較</strong>
+    <div id="compare-presets"></div>
+  </section>
+
+  <main class="compare-workspace" id="compare-workspace">
+    <section class="compare-stage" aria-label="雙模擬操作區">
+      <div class="mobile-tabs" role="tablist" aria-label="手機切換模擬"><button class="active" type="button" data-mobile-pane="left" role="tab" aria-selected="true">模擬 A</button><button type="button" data-mobile-pane="right" role="tab" aria-selected="false">模擬 B</button></div>
+      <div class="simulation-pane left active-mobile" data-pane="left">
+        <label class="simulation-picker"><span>A</span><select id="left-select" aria-label="選擇左側模擬"></select></label>
+        <iframe id="left-frame" title="左側物理模擬" allow="fullscreen"></iframe>
+      </div>
+      <button class="swap-button" id="swap-simulations" type="button" aria-label="交換左右模擬">⇄</button>
+      <div class="simulation-pane right" data-pane="right">
+        <label class="simulation-picker"><span>B</span><select id="right-select" aria-label="選擇右側模擬"></select></label>
+        <iframe id="right-frame" title="右側物理模擬" allow="fullscreen"></iframe>
+      </div>
+    </section>
+
+    <aside class="comparison-guide" aria-labelledby="comparison-question-heading">
+      <div class="guide-head"><div><span>COMPARE LAB</span><h1>比較推理單</h1></div><button class="guide-collapse" id="guide-collapse" type="button" aria-expanded="false">展開</button></div>
+      <div class="guide-body">
+        <section class="compare-question"><span>核心比較問題</span><h2 id="comparison-question-heading">兩個模擬有哪些相同與不同？</h2><p id="comparison-hint">先控制相同條件，再比較結果。</p></section>
+        <ol class="compare-steps"><li><b>1</b><span><strong>找共同量</strong>兩邊先設定一個可以公平比較的條件。</span></li><li><b>2</b><span><strong>找關鍵差異</strong>一次只改一個變因，觀察哪個結果不同。</span></li><li><b>3</b><span><strong>形成解釋</strong>用同一條物理原理說明兩邊。</span></li></ol>
+        <div class="comparison-fields">
+          <label><span>我保持相同</span><input id="compare-same" type="text" placeholder="兩邊共同控制的條件"></label>
+          <label><span>我刻意改變</span><input id="compare-change" type="text" placeholder="只改變哪一個變因？"></label>
+          <div class="result-fields"><label><span>模擬 A 的結果</span><textarea id="compare-left-result" rows="2"></textarea></label><label><span>模擬 B 的結果</span><textarea id="compare-right-result" rows="2"></textarea></label></div>
+          <label><span>我的比較結論</span><textarea id="compare-conclusion" rows="3" placeholder="相同點、不同點，以及物理解釋"></textarea></label>
+        </div>
+        <div class="compare-actions"><span id="compare-save-status">內容只儲存在這台裝置</span><button id="complete-comparison" type="button">完成比較探究</button></div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="compare-toast" id="compare-toast" role="status" aria-live="polite"></div>
+</body>
+</html>

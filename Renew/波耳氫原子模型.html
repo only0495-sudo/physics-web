@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>波耳氫原子模型</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --accent-color: #4a90e2;
+            --btn-absorb: #ff6b6b; /* 紅色系 */
+            --btn-emit: #4ecdc4;   /* 藍綠色系 */
+            --panel-bg: #f8f9fa;
+        }
+
+        body {
+            font-family: -apple-system, "微軟正黑體", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            height: 100%;
+            flex-direction: row;
+        }
+
+        /* 左側：畫布區 */
+        .canvas-area {
+            flex: 2;
+            position: relative;
+            background-color: #fafafa;
+            overflow: hidden;
+            border-right: 1px solid #eee;
+        }
+
+        #atomCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 縮放控制項 */
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 5;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 1px solid #ddd;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            transition: 0.2s;
+        }
+        .zoom-btn:hover { background: #eee; }
+
+        /* 模式切換 (粒子/駐波) */
+        .mode-switch-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            z-index: 5;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* 右側：控制區 */
+        .controls-area {
+            flex: 1;
+            background-color: #fff;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; 
+            box-shadow: -5px 0 15px rgba(0,0,0,0.02);
+            z-index: 10;
+            min-width: 320px;
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 1.5rem; color: #2c3e50; text-align: center;}
+
+        /* 能階圖 Canvas */
+        .energy-chart-container {
+            width: 100%;
+            height: 220px; /* 固定高度 */
+            background: #fff;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+        #energyCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 數據顯示面板 */
+        .info-card {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--accent-color);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+        .info-label { color: #7f8c8d; }
+        .info-value { font-weight: bold; color: #2c3e50; font-family: monospace; font-size: 1.05rem; }
+        
+        .main-status {
+            text-align: center;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+            min-height: 1.5em;
+        }
+
+        .button-group { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
+
+        button.action-btn {
+            padding: 15px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button.action-btn:active { transform: scale(0.98); }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .btn-absorb { background: linear-gradient(135deg, #ff9f43, #ff6b6b); box-shadow: 0 4px 10px rgba(255, 107, 107, 0.3); }
+        .btn-emit { background: linear-gradient(135deg, #4ecdc4, #22a6b3); box-shadow: 0 4px 10px rgba(34, 166, 179, 0.3); }
+
+        /* RWD: 手機直立模式 */
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; }
+            .canvas-area { flex: 1; border-right: none; border-bottom: 1px solid #eee; min-height: 50vh; }
+            .controls-area { flex: 1; padding: 15px; border-radius: 20px 20px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+            .button-group { flex-direction: row; }
+            button.action-btn { flex: 1; padding: 12px; font-size: 1rem; }
+            h1 { font-size: 1.3rem; margin-bottom: 10px; }
+            .info-card { padding: 12px; margin-bottom: 10px; }
+            .energy-chart-container { height: 180px; }
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="canvas-area" id="canvasContainer">
+        <div class="mode-switch-container">
+            <span>粒子模型</span>
+            <label class="switch">
+                <input type="checkbox" id="modeToggle" onchange="toggleMode()">
+                <span class="slider"></span>
+            </label>
+            <span style="color: var(--accent-color)">真實(駐波)</span>
+        </div>
+
+        <canvas id="atomCanvas"></canvas>
+
+        <div class="zoom-controls">
+            <div class="zoom-btn" onclick="adjustZoom(-0.1)">-</div>
+            <div class="zoom-btn" onclick="adjustZoom(0.1)">+</div>
+        </div>
+    </div>
+
+    <div class="controls-area">
+        <h1>波耳氫原子模型</h1>
+        
+        <div class="main-status" id="statusMessage">
+            電子位於 n = 1 (基態)
+        </div>
+
+        <!-- 能階圖區域 -->
+        <div class="energy-chart-container">
+            <canvas id="energyCanvas"></canvas>
+        </div>
+
+        <div class="info-card">
+            <div class="info-row">
+                <span class="info-label">能階變化</span>
+                <span class="info-value" id="dispDeltaN">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">能量變化 (ΔE)</span>
+                <span class="info-value" id="dispEnergy">-</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">光子波長 (λ)</span>
+                <span class="info-value" id="dispWavelength">-</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="action-btn btn-emit" id="btnEmit" onclick="releaseEnergy()" disabled>
+                <span>▼</span> 釋放能量 (隨機躍遷)
+            </button>
+            <button class="action-btn btn-absorb" id="btnAbsorb" onclick="absorbEnergy()">
+                <span>▲</span> 給予能量 (+1)
+            </button>
+        </div>
+        
+        <p style="text-align: center; color: #aaa; font-size: 0.8rem; margin-top: 15px;">
+            滑鼠滾輪可縮放 | E = -13.6/n² eV
+        </p>
+    </div>
+</div>
+
+<script>
+    const atomCanvas = document.getElementById('atomCanvas');
+    const atomCtx = atomCanvas.getContext('2d');
+    const atomContainer = document.getElementById('canvasContainer');
+
+    const energyCanvas = document.getElementById('energyCanvas');
+    const energyCtx = energyCanvas.getContext('2d');
+    const energyContainer = document.querySelector('.energy-chart-container');
+    
+    // ===== 物理常數與參數 =====
+    let currentN = 1;
+    let targetN = 1;
+    const maxN = 5;
+    
+    // 顯示與動畫狀態
+    let scaleFactor = 1.0; 
+    let transitionProgress = 0;
+    let isTransitioning = false;
+    let electronAngle = 0;
+    let wavePhase = 0; 
+    let showWaveMode = false;
+    let photon = null; 
+
+    // ===== 初始化與視窗處理 =====
+    function resizeCanvas() {
+        const rect = atomContainer.getBoundingClientRect();
+        atomCanvas.width = rect.width;
+        atomCanvas.height = rect.height;
+
+        const eRect = energyContainer.getBoundingClientRect();
+        energyCanvas.width = eRect.width;
+        energyCanvas.height = eRect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 100);
+    resizeCanvas();
+
+    atomContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        adjustZoom(delta);
+    });
+
+    function adjustZoom(delta) {
+        scaleFactor += delta;
+        scaleFactor = Math.max(0.4, Math.min(scaleFactor, 2.5));
+    }
+
+    function toggleMode() {
+        showWaveMode = document.getElementById('modeToggle').checked;
+    }
+
+    // ===== 核心邏輯 =====
+
+    function getCenter() {
+        return { x: atomCanvas.width / 2, y: atomCanvas.height / 2 };
+    }
+
+    function getBaseRadius() {
+        const minDim = Math.min(atomCanvas.width, atomCanvas.height);
+        return (minDim / 2 * 0.85) / 25 * scaleFactor;
+    }
+
+    function getEnergy(n) {
+        return -13.6 / (n * n);
+    }
+
+    function updateInfoPanel(nOld, nNew) {
+        if (nOld === nNew) {
+            document.getElementById('dispDeltaN').innerText = "-";
+            document.getElementById('dispEnergy').innerText = "-";
+            document.getElementById('dispWavelength').innerText = "-";
+            return;
+        }
+
+        const deltaN = Math.abs(nNew - nOld);
+        const eOld = getEnergy(nOld);
+        const eNew = getEnergy(nNew);
+        const deltaE = Math.abs(eNew - eOld); 
+        
+        const wavelength = 1240 / deltaE;
+
+        document.getElementById('dispDeltaN').innerText = `${nOld} ➝ ${nNew}`;
+        document.getElementById('dispEnergy').innerText = `${deltaE.toFixed(2)} eV`;
+        
+        let waveText = `${Math.round(wavelength)} nm`;
+        let rangeText = "";
+        if (wavelength < 400) rangeText = "(紫外光)";
+        else if (wavelength > 700) rangeText = "(紅外光)";
+        else rangeText = "(可見光)";
+
+        const wlElem = document.getElementById('dispWavelength');
+        wlElem.innerText = `${waveText} ${rangeText}`;
+        wlElem.style.color = getPhotonColor(wavelength);
+    }
+
+    function getPhotonColor(lambda) {
+        if (lambda < 400) return '#9b59b6';
+        if (lambda > 700) return '#e74c3c';
+        if (lambda >= 400 && lambda < 450) return '#8e44ad';
+        if (lambda >= 450 && lambda < 490) return '#2980b9';
+        if (lambda >= 490 && lambda < 560) return '#27ae60';
+        if (lambda >= 560 && lambda < 590) return '#f1c40f';
+        if (lambda >= 590 && lambda < 635) return '#e67e22';
+        return '#c0392b';
+    }
+
+    // ===== 操作邏輯 =====
+
+    function absorbEnergy() {
+        if (isTransitioning || currentN >= maxN) return;
+        
+        const next = currentN + 1;
+        startTransition(currentN, next);
+        
+        const status = document.getElementById('statusMessage');
+        status.innerHTML = `吸收能量... <span style="color:var(--btn-absorb)">▲</span>`;
+        updateInfoPanel(currentN, next);
+    }
+
+    function releaseEnergy() {
+        if (isTransitioning || currentN <= 1) return;
+
+        const possibleTargets = currentN - 1;
+        const randomDelta = Math.floor(Math.random() * possibleTargets); 
+        const next = (currentN - 1) - randomDelta;
+
+        startTransition(currentN, next);
+
+        const eDiff = Math.abs(getEnergy(next) - getEnergy(currentN));
+        const lambda = 1240 / eDiff;
+        const color = getPhotonColor(lambda);
+
+        const status = document.getElementById('statusMessage');
+        status.innerHTML = `釋放能量! <span style="color:${color}">▼ ${Math.round(lambda)}nm</span>`;
+        updateInfoPanel(currentN, next);
+    }
+
+    function startTransition(start, end) {
+        currentN = start;
+        targetN = end;
+        isTransitioning = true;
+        transitionProgress = 0;
+        updateButtons();
+    }
+
+    function updateButtons() {
+        const lock = isTransitioning;
+        document.getElementById('btnAbsorb').disabled = lock || (targetN >= maxN);
+        document.getElementById('btnEmit').disabled = lock || (targetN <= 1);
+        
+        if (!lock) {
+            const status = document.getElementById('statusMessage');
+            status.innerText = `電子位於 n = ${currentN} ` + (currentN===1?"(基態)":"(受激態)");
+        }
+    }
+
+    // ===== 繪圖迴圈 =====
+
+    function draw() {
+        drawAtom();
+        drawEnergyChart();
+        requestAnimationFrame(draw);
+    }
+
+    // --- 繪製原子模型 (左側) ---
+    function drawAtom() {
+        const { x: cx, y: cy } = getCenter();
+        const baseR = getBaseRadius();
+
+        atomCtx.clearRect(0, 0, atomCanvas.width, atomCanvas.height);
+
+        // 核
+        atomCtx.beginPath();
+        atomCtx.arc(cx, cy, 8 * scaleFactor, 0, Math.PI * 2);
+        atomCtx.fillStyle = '#ff4757';
+        atomCtx.fill();
+        atomCtx.fillStyle = 'white';
+        atomCtx.font = `${12 * scaleFactor}px Arial`;
+        atomCtx.textAlign = 'center';
+        atomCtx.textBaseline = 'middle';
+        atomCtx.fillText('+', cx, cy);
+
+        // 軌道
+        for (let n = 1; n <= maxN; n++) {
+            const r = baseR * n * n;
+            atomCtx.beginPath();
+            atomCtx.arc(cx, cy, r, 0, Math.PI * 2);
+            atomCtx.strokeStyle = (n === currentN && !isTransitioning) ? '#4a90e2' : '#ddd';
+            atomCtx.lineWidth = 1.5;
+            
+            if (n > 1) atomCtx.setLineDash([5, 5]);
+            else atomCtx.setLineDash([]);
+            
+            atomCtx.stroke();
+            atomCtx.setLineDash([]);
+
+            atomCtx.fillStyle = '#aaa';
+            atomCtx.font = `${10 * scaleFactor}px Arial`;
+            atomCtx.fillText(`n=${n}`, cx, cy + r + (12 * scaleFactor));
+        }
+
+        // 計算電子狀態
+        let rCurrent = baseR * currentN * currentN;
+        
+        if (isTransitioning) {
+            const rTarget = baseR * targetN * targetN;
+            const t = transitionProgress;
+            const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            rCurrent = rCurrent + (rTarget - rCurrent) * ease;
+            
+            transitionProgress += 0.02; 
+            
+            if (transitionProgress >= 1) {
+                isTransitioning = false;
+                if (currentN > targetN) {
+                    const eDiff = Math.abs(getEnergy(targetN) - getEnergy(currentN));
+                    const lambda = 1240 / eDiff;
+                    emitPhoton(cx + Math.cos(electronAngle)*rCurrent, cy + Math.sin(electronAngle)*rCurrent, electronAngle, getPhotonColor(lambda));
+                }
+                currentN = targetN;
+                updateButtons();
+            }
+        }
+
+        const angularSpeed = 0.02 / (isTransitioning ? (currentN+targetN)/2 : currentN);
+        electronAngle += angularSpeed;
+        wavePhase += 0.1;
+
+        if (showWaveMode) {
+            atomCtx.beginPath();
+            const waveAmp = 10 * scaleFactor;
+            for (let theta = 0; theta <= Math.PI * 2; theta += 0.01) {
+                const effN = isTransitioning ? (currentN + (targetN-currentN)*transitionProgress) : currentN;
+                const rWave = rCurrent + waveAmp * Math.sin(effN * theta + wavePhase);
+                const wx = cx + rWave * Math.cos(theta);
+                const wy = cy + rWave * Math.sin(theta);
+                if (theta === 0) atomCtx.moveTo(wx, wy);
+                else atomCtx.lineTo(wx, wy);
+            }
+            atomCtx.closePath();
+            atomCtx.strokeStyle = '#2ed573';
+            atomCtx.lineWidth = 3;
+            atomCtx.shadowBlur = 15;
+            atomCtx.shadowColor = '#2ed573';
+            atomCtx.stroke();
+            atomCtx.shadowBlur = 0;
+        } else {
+            const ex = cx + Math.cos(electronAngle) * rCurrent;
+            const ey = cy + Math.sin(electronAngle) * rCurrent;
+            atomCtx.beginPath();
+            atomCtx.arc(ex, ey, 6 * scaleFactor, 0, Math.PI * 2);
+            atomCtx.fillStyle = '#2ed573';
+            atomCtx.shadowBlur = 10;
+            atomCtx.shadowColor = '#2ed573';
+            atomCtx.fill();
+            atomCtx.shadowBlur = 0;
+        }
+
+        drawPhoton();
+    }
+
+    // --- 繪製能階圖 (右側 - 修正文字重疊與高亮) ---
+    function drawEnergyChart() {
+        const w = energyCanvas.width;
+        const h = energyCanvas.height;
+        energyCtx.clearRect(0, 0, w, h);
+
+        const padTop = 30;
+        const padBottom = 20;
+        const padLeft = 40;
+        const padRight = 60; // 右邊留白加大一點給文字
+        const chartH = h - padTop - padBottom;
+
+        // 能量映射：n=1 (-13.6eV) 在底部，n=inf (0eV) 在頂部
+        const mapEnergyToY = (ev) => {
+            return padTop + (ev / -14.5) * chartH;
+        };
+
+        // 1. 準備數據：計算所有線的物理Y座標和初始標籤座標
+        let linesData = [];
+        for(let n=1; n<=maxN; n++) {
+            const ev = getEnergy(n);
+            const y = mapEnergyToY(ev);
+            linesData.push({ 
+                n: n, 
+                ev: ev, 
+                y: y, 
+                labelY: y 
+            });
+        }
+
+        // 2. 解決標籤重疊 (Smart Label Spacing)
+        const minGap = 18; 
+        for (let i = maxN - 2; i >= 0; i--) { 
+            const upperItem = linesData[i+1]; 
+            const currentItem = linesData[i]; 
+            
+            if (currentItem.labelY < upperItem.labelY + minGap) {
+                currentItem.labelY = upperItem.labelY + minGap;
+            }
+        }
+
+        // 3. 繪製線條與標籤
+        linesData.forEach(item => {
+            const { n, ev, y, labelY } = item;
+            const isCurrent = (n === currentN && !isTransitioning);
+
+            // A. 畫物理上的能階線 (位置不變)
+            energyCtx.beginPath();
+            energyCtx.moveTo(padLeft, y);
+            energyCtx.lineTo(w - padRight, y);
+            
+            energyCtx.strokeStyle = isCurrent ? '#4a90e2' : '#ccc';
+            energyCtx.lineWidth = isCurrent ? 2 : 1;
+            energyCtx.stroke();
+
+            // B. 畫標籤 (設定高亮樣式)
+            if (isCurrent) {
+                energyCtx.fillStyle = '#4a90e2';
+                energyCtx.font = "bold 14px Arial"; // 加粗放大
+                energyCtx.shadowColor = '#4a90e2';
+                energyCtx.shadowBlur = 10; // 發光效果
+            } else {
+                energyCtx.fillStyle = '#666';
+                energyCtx.font = "12px Arial";
+                energyCtx.shadowBlur = 0;
+                energyCtx.shadowColor = 'transparent';
+            }
+            
+            // 檢查是否有位移，如果有，畫引導線
+            const isShifted = Math.abs(labelY - y) > 2;
+
+            if (isShifted) {
+                energyCtx.beginPath();
+                energyCtx.strokeStyle = '#eee';
+                energyCtx.lineWidth = 1;
+                // 引導線不需要發光
+                energyCtx.shadowBlur = 0; 
+                
+                // 左側引導線 (n=...)
+                energyCtx.moveTo(padLeft - 2, y); 
+                energyCtx.lineTo(padLeft - 8, labelY);
+                energyCtx.stroke();
+                
+                // 右側引導線 (eV)
+                energyCtx.beginPath();
+                energyCtx.moveTo(w - padRight + 2, y);
+                energyCtx.lineTo(w - padRight + 8, labelY);
+                energyCtx.stroke();
+                
+                // 恢復可能的發光效果 (雖然 stroke 已經畫完了，但為了保險起見，如果是 current 仍保持設定給 fillText)
+                if(isCurrent) energyCtx.shadowBlur = 10;
+
+                // 文字位置調整
+                energyCtx.textAlign = 'right';
+                energyCtx.textBaseline = 'middle';
+                energyCtx.fillText(`n=${n}`, padLeft - 10, labelY);
+                
+                energyCtx.textAlign = 'left';
+                energyCtx.fillText(`${ev.toFixed(2)}eV`, w - padRight + 10, labelY);
+            } else {
+                // 沒有位移，直接畫
+                energyCtx.textAlign = 'right';
+                energyCtx.textBaseline = 'middle';
+                energyCtx.fillText(`n=${n}`, padLeft - 5, y);
+                
+                energyCtx.textAlign = 'left';
+                energyCtx.fillText(`${ev.toFixed(2)}eV`, w - padRight + 5, y);
+            }
+            
+            // 重置陰影，避免影響下一個循環 (雖然有 else，但安全起見)
+            energyCtx.shadowBlur = 0;
+            energyCtx.shadowColor = 'transparent';
+        });
+
+        // 頂部 0eV 標示
+        const yZero = mapEnergyToY(0);
+        energyCtx.beginPath();
+        energyCtx.strokeStyle = '#eee';
+        energyCtx.setLineDash([2,2]);
+        energyCtx.moveTo(padLeft, yZero);
+        energyCtx.lineTo(w - padRight, yZero);
+        energyCtx.stroke();
+        energyCtx.setLineDash([]);
+        energyCtx.fillStyle = '#aaa';
+        energyCtx.font = "12px Arial"; // 確保這邊字體重置
+        energyCtx.shadowBlur = 0;
+        energyCtx.textAlign = 'left';
+        energyCtx.fillText("0eV", w - padRight + 5, yZero);
+
+
+        // 4. 畫電子點
+        let displayEnergy = getEnergy(currentN);
+        
+        if (isTransitioning) {
+            const t = transitionProgress;
+            const ease = t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            const eStart = getEnergy(currentN);
+            const eEnd = getEnergy(targetN);
+            displayEnergy = eStart + (eEnd - eStart) * ease;
+        }
+
+        const electronY = mapEnergyToY(displayEnergy);
+        const electronX = (padLeft + w - padRight) / 2;
+
+        energyCtx.beginPath();
+        energyCtx.arc(electronX, electronY, 5, 0, Math.PI*2);
+        energyCtx.fillStyle = '#2ed573';
+        energyCtx.fill();
+        
+        energyCtx.beginPath();
+        energyCtx.arc(electronX, electronY, 10, 0, Math.PI*2);
+        energyCtx.fillStyle = 'rgba(46, 213, 115, 0.3)';
+        energyCtx.fill();
+    }
+
+
+    // --- 光子動畫 ---
+    function emitPhoton(x, y, angle, color) {
+        photon = {
+            x: x, y: y, angle: angle, dist: 0, color: color, active: true
+        };
+    }
+
+    function drawPhoton() {
+        if (!photon || !photon.active) return;
+        photon.dist += 5 * scaleFactor;
+        
+        const px = photon.x + Math.cos(photon.angle) * photon.dist;
+        const py = photon.y + Math.sin(photon.angle) * photon.dist;
+
+        atomCtx.save();
+        atomCtx.translate(px, py);
+        atomCtx.rotate(photon.angle);
+        atomCtx.beginPath();
+        atomCtx.strokeStyle = photon.color;
+        atomCtx.lineWidth = 3;
+        
+        const waveLen = 15 * scaleFactor;
+        const amp = 6 * scaleFactor;
+        const len = 60 * scaleFactor;
+
+        for (let i = 0; i < len; i+=2) {
+            atomCtx.lineTo(i - len/2, Math.sin(i / waveLen * Math.PI * 2) * amp);
+        }
+        atomCtx.stroke();
+        
+        atomCtx.beginPath();
+        atomCtx.fillStyle = photon.color;
+        atomCtx.moveTo(len/2 + 5, 0);
+        atomCtx.lineTo(len/2 - 5, -5);
+        atomCtx.lineTo(len/2 - 5, 5);
+        atomCtx.fill();
+        atomCtx.restore();
+
+        if (photon.dist > Math.max(atomCanvas.width, atomCanvas.height) / scaleFactor * 1.5) {
+            photon.active = false;
+        }
+    }
+
+    draw();
+    updateButtons();
+
+</script>
+</body>
+</html>

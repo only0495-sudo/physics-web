@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>聲波駐波與管樂器物理模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
+        canvas { background-color: #1e293b; border-radius: 0.5rem; box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); }
+        .slider-thumb::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; }
+        .math-font { font-family: 'Times New Roman', Times, serif; }
+        /* 自訂捲軸 */
+        .record-scroll::-webkit-scrollbar { width: 6px; }
+        .record-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .record-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .record-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* Checkbox color */
+        .form-checkbox { accent-color: #3b82f6; }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body class="text-gray-800 antialiased min-h-screen pb-12">
+
+    <!-- 頂部標題 -->
+    <header class="bg-blue-600 text-white shadow-md py-4">
+        <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                聲波駐波與管樂器模擬器
+            </h1>
+            <p class="text-blue-100 text-sm hidden sm:block">高中物理教學協作專案</p>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 mt-6 flex flex-col lg:flex-row gap-6">
+        
+        <!-- 左側：視覺化與公式 -->
+        <div class="w-full lg:w-2/3 flex flex-col gap-4">
+            
+            <!-- 模式選擇與公式顯示區 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex flex-wrap bg-gray-100 p-1 rounded-lg gap-1">
+                    <button onclick="setMode('open-open')" id="btn-open-open" class="px-4 py-2 rounded-md font-medium text-sm transition-colors bg-white shadow text-blue-600">雙開管</button>
+                    <button onclick="setMode('closed-closed')" id="btn-closed-closed" class="px-4 py-2 rounded-md font-medium text-sm transition-colors text-gray-600 hover:text-gray-900">雙閉管</button>
+                    <button onclick="setMode('closed-open')" id="btn-closed-open" class="px-4 py-2 rounded-md font-medium text-sm transition-colors text-gray-600 hover:text-gray-900">一開一閉</button>
+                    <button onclick="setMode('timbre')" id="btn-timbre" class="px-4 py-2 rounded-md font-medium text-sm transition-colors text-purple-600 hover:text-purple-900 bg-purple-100 hover:bg-purple-200">音色比較</button>
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-100 px-4 py-2 rounded-lg text-center min-w-[200px]">
+                    <div id="formula-title" class="text-xs text-blue-500 font-bold mb-1">對應駐波頻率公式</div>
+                    <div id="formula-display" class="math-font text-lg text-blue-800 font-semibold">
+                        <!-- 公式由 JS 寫入 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 畫布區 -->
+            <div class="relative w-full aspect-[2/1] bg-slate-900 rounded-xl shadow-inner overflow-hidden flex justify-center items-center">
+                <!-- 提示訊息疊加層 -->
+                <div id="resonance-alert" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-5 py-2.5 rounded-full font-bold shadow-lg opacity-0 transition-opacity duration-700 pointer-events-none z-10 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    <span id="resonance-text">發生駐波！</span>
+                </div>
+                <canvas id="simCanvas" width="800" height="400" class="w-full h-full object-contain"></canvas>
+            </div>
+            
+            <div id="canvas-caption" class="text-center text-sm text-gray-500">
+                圖示說明：白色外框為管壁，內部曲線代表空氣分子的<span class="font-bold text-blue-400">位移振幅</span> (Node 為波節，Antinode 為波腹)。
+            </div>
+        </div>
+
+        <!-- 右側：控制面板與紀錄 -->
+        <div class="w-full lg:w-1/3 flex flex-col gap-4">
+            
+            <!-- 參數控制 (內含動態切換) -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 relative min-h-[420px]">
+                
+                <!-- 標準控制面板 (駐波模式) -->
+                <div id="standard-controls">
+                    <h2 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">參數控制面板</h2>
+                    
+                    <!-- 管長 -->
+                    <div class="mb-5">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-gray-700">管長 (L)</label>
+                            <span id="L-val" class="text-sm font-bold text-blue-600">1.00 m</span>
+                        </div>
+                        <input type="range" id="slider-L" min="0.5" max="2.0" step="0.01" value="1.0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                    </div>
+
+                    <!-- 聲速 -->
+                    <div class="mb-5">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-gray-700">聲速 (v)</label>
+                            <span id="v-val" class="text-sm font-bold text-blue-600">340 m/s</span>
+                        </div>
+                        <input type="range" id="slider-v" min="300" max="400" step="1" value="340" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                    </div>
+
+                    <!-- 頻率 -->
+                    <div class="mb-2">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-gray-700">波源頻率 (f)</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="input-f" value="100" min="10" max="2000" step="0.1" class="w-20 text-right border border-gray-300 rounded px-1 py-0.5 text-sm font-bold text-blue-600 focus:outline-none focus:border-blue-500">
+                                <span class="text-sm text-gray-600">Hz</span>
+                            </div>
+                        </div>
+                        <input type="range" id="slider-f" min="10" max="2000" step="0.1" value="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb mb-3">
+                        
+                        <!-- 微調按鈕 -->
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="adjustFreq(-10)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 rounded text-xs font-bold transition">-10</button>
+                            <button onclick="adjustFreq(-1)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 rounded text-xs font-bold transition">-1</button>
+                            <button onclick="adjustFreq(1)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 rounded text-xs font-bold transition">+1</button>
+                            <button onclick="adjustFreq(10)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 rounded text-xs font-bold transition">+10</button>
+                        </div>
+                    </div>
+
+                    <!-- 慢動作開關與尋找按鈕 -->
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-bold text-gray-700">慢動作觀看</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="slow-motion-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        
+                        <button id="btn-auto-find" onclick="autoFindNext()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold shadow transition flex justify-center items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                            </svg>
+                            自動尋找下個駐波
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 音色比較專屬控制面板 (預設隱藏) -->
+                <div id="timbre-controls" class="hidden h-full flex flex-col">
+                    <h2 class="text-lg font-bold text-purple-800 border-b border-purple-200 pb-2 mb-4">樂器音色與泛音控制</h2>
+                    <div id="timbre-instruments-container" class="flex-grow flex flex-col gap-4 overflow-y-auto pr-1">
+                        <!-- 由 JS 動態生成樂器區塊 -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 紀錄清單 -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex-grow flex flex-col">
+                <div class="flex justify-between items-center border-b pb-2 mb-3">
+                    <h2 class="text-lg font-bold text-gray-800">觀測紀錄表</h2>
+                    <span id="record-status" class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-bold">自動紀錄</span>
+                </div>
+                <div id="record-desc" class="text-xs text-gray-500 mb-2">更改管長或管子模式時，紀錄將自動重置。</div>
+                
+                <div class="flex-grow overflow-hidden relative min-h-[150px]">
+                    <ul id="record-list" class="absolute inset-0 overflow-y-auto record-scroll pr-2 flex flex-col gap-2">
+                        <!-- 紀錄項目由 JS 動態生成 -->
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 教學引導區 -->
+    <section class="max-w-6xl mx-auto px-4 mt-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-slate-800 text-white px-6 py-3">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                        <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                    </svg>
+                    教學引導與原理說明
+                </h2>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="font-bold text-lg text-blue-700 mb-2 border-l-4 border-blue-500 pl-2">什麼是管內駐波？</h3>
+                    <p class="text-sm text-gray-700 leading-relaxed mb-4">
+                        當聲波在管內傳遞時，會在管子的端點發生反射。若入射波與反射波的頻率相同，兩者干涉後會形成看起來在原地振動的波，稱為**駐波 (Standing Wave)**。<br>
+                        圖中曲線代表空氣分子的**位移振幅**：<br>
+                        • <span class="font-bold text-red-500">波節 (Node)</span>：空氣分子幾乎不移動的位置。<br>
+                        • <span class="font-bold text-green-500">波腹 (Antinode)</span>：空氣分子振動最劇烈的位置。
+                    </p>
+                    
+                    <h3 class="font-bold text-lg text-blue-700 mb-2 border-l-4 border-blue-500 pl-2">邊界條件與樂器</h3>
+                    <ul class="text-sm text-gray-700 leading-relaxed list-disc pl-5 mb-4">
+                        <li class="mb-1"><b>雙開管 (如長笛)：</b>兩端為開口，空氣可自由進出，因此兩端皆為**波腹**。</li>
+                        <li class="mb-1"><b>雙閉管：</b>兩端被封閉，空氣無法在此振動，因此兩端皆為**波節**。</li>
+                        <li class="mb-1"><b>一開一閉 (如單簧管)：</b>閉口端為波節，開口端為波腹。</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-purple-700 mb-2 border-l-4 border-purple-500 pl-2">模式四：為何音色各不相同？</h3>
+                    <p class="text-sm text-gray-700 leading-relaxed mb-4">
+                        完全相同的音高（基音頻率相同），由不同樂器吹奏出來聽起來卻截然不同。這是因為真實樂器發聲時，除了基音外，還會同時產生頻率為整數倍的<b>泛音（$2f, 3f, 4f...$）</b>。<br>
+                        不同樂器的構造，會導致各泛音的<b>聲音強度（振幅）比例</b>各不相同。將這些不同強度的泛音疊加在一起（傅立葉級數原理），就會造就每種樂器獨一無二的<b>專屬波形</b>，這正是所謂的「音色」。
+                    </p>
+
+                    <h3 class="font-bold text-lg text-blue-700 mb-2 border-l-4 border-blue-500 pl-2">操作建議步驟</h3>
+                    <ol class="text-sm text-gray-700 leading-relaxed list-decimal pl-5 space-y-1">
+                        <li>在畫布上方選擇管子狀態尋找共振頻率。</li>
+                        <li>當波的振幅突然極大並轉為<span class="font-bold text-green-500">鮮綠色</span>時，代表發生駐波。</li>
+                        <li>驗證紀錄表中的數值是否符合上方物理公式。</li>
+                        <li><b>切換至「音色比較」：</b>觀察三種樂器的頻譜圖。利用面板的「播放」按鈕聽聲音，並嘗試「取消勾選」特定的泛音頻率，聽聽看音色與波形會發生什麼神奇的變化！</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 系統核心邏輯 JavaScript -->
+    <script>
+        // --- 狀態變數 ---
+        let mode = 'open-open'; 
+        let L = 1.0;            
+        let v = 340;            
+        let f = 100;            
+        let time = 0;           
+        let recordedModes = []; 
+        let isResonating = false;
+        let alertTimeout = null; 
+
+        // --- 全局樂器設定 (頻譜與合成用) ---
+        const instruments = [
+            { 
+                name: '長笛 Flute', 
+                desc: '(近似開管：含所有泛音)',
+                color: '#60a5fa', // blue-400
+                amps: [1.0, 0.7, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01],
+                toggles: [true, true, true, true, true, true, true, true]
+            },
+            { 
+                name: '單簧管 Clarinet', 
+                desc: '(近似一開一閉：奇數泛音極強)',
+                color: '#4ade80', // green-400
+                amps: [1.0, 0.05, 0.6, 0.02, 0.3, 0.01, 0.15, 0.01],
+                toggles: [true, true, true, true, true, true, true, true]
+            },
+            { 
+                name: '小號 Trumpet', 
+                desc: '(銅管：高頻諧音豐富)',
+                color: '#f87171', // red-400
+                amps: [0.6, 1.0, 0.8, 0.6, 0.4, 0.3, 0.2, 0.1],
+                toggles: [true, true, true, true, true, true, true, true]
+            }
+        ];
+
+        // --- DOM 元素 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderL = document.getElementById('slider-L');
+        const sliderV = document.getElementById('slider-v');
+        const sliderF = document.getElementById('slider-f');
+        const inputF = document.getElementById('input-f');
+        const valL = document.getElementById('L-val');
+        const valV = document.getElementById('v-val');
+        const recordList = document.getElementById('record-list');
+        const alertBox = document.getElementById('resonance-alert');
+        const alertText = document.getElementById('resonance-text');
+        const formulaDisplay = document.getElementById('formula-display');
+        const formulaTitle = document.getElementById('formula-title');
+        const slowMotionToggle = document.getElementById('slow-motion-toggle');
+        const canvasCaption = document.getElementById('canvas-caption');
+        const recordStatus = document.getElementById('record-status');
+        const recordDesc = document.getElementById('record-desc');
+        
+        const standardControls = document.getElementById('standard-controls');
+        const timbreControls = document.getElementById('timbre-controls');
+        const timbreContainer = document.getElementById('timbre-instruments-container');
+
+        // --- Web Audio API (音效合成) ---
+        let audioCtx = null;
+        
+        function playInstrument(instIdx) {
+            // 初始化 AudioContext (需要使用者互動觸發)
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const inst = instruments[instIdx];
+            const baseFreq = 261.63; // 基準音 C4
+            const playDuration = 1.5; // 播放 1.5 秒
+
+            const masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            
+            // 包絡線 (ADSR) 避免聲音爆音/點擊聲
+            masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            masterGain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05); // Attack
+            masterGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + playDuration); // Release
+
+            inst.amps.forEach((amp, i) => {
+                // 如果該泛音被勾選，才發出聲音
+                if (inst.toggles[i]) {
+                    const osc = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.value = baseFreq * (i + 1);
+
+                    // 依據陣列設定泛音的相對強度
+                    gainNode.gain.value = amp;
+
+                    osc.connect(gainNode);
+                    gainNode.connect(masterGain);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + playDuration);
+                }
+            });
+        }
+
+        function toggleHarmonic(instIdx, harmonicIdx, isChecked) {
+            instruments[instIdx].toggles[harmonicIdx] = isChecked;
+            // 下一個 requestAnimationFrame 就會自動重新繪製畫布
+        }
+
+        // --- 初始化音色 UI 面板 ---
+        function buildTimbreUI() {
+            timbreContainer.innerHTML = '';
+            instruments.forEach((inst, instIdx) => {
+                const block = document.createElement('div');
+                block.className = 'p-3 rounded-lg border bg-white shadow-sm';
+                block.style.borderColor = inst.color;
+                
+                block.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <div class="font-bold text-gray-800">${inst.name}</div>
+                            <div class="text-xs text-gray-500">${inst.desc}</div>
+                        </div>
+                        <button onclick="playInstrument(${instIdx})" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-1 px-3 border border-gray-300 rounded shadow-sm flex items-center gap-1 text-sm transition">
+                            ▶️ 聽聽看
+                        </button>
+                    </div>
+                    <div class="text-[11px] font-semibold text-gray-600 mb-1 mt-2">泛音開關：</div>
+                    <div class="grid grid-cols-4 gap-y-1 gap-x-2" id="toggles-${instIdx}"></div>
+                `;
+                timbreContainer.appendChild(block);
+                
+                const togglesContainer = document.getElementById(`toggles-${instIdx}`);
+                inst.toggles.forEach((t, i) => {
+                    const label = document.createElement('label');
+                    label.className = "flex items-center space-x-1 cursor-pointer text-xs text-gray-700";
+                    label.innerHTML = `
+                        <input type="checkbox" checked onchange="toggleHarmonic(${instIdx}, ${i}, this.checked)" class="form-checkbox h-3.5 w-3.5 text-blue-600 rounded cursor-pointer">
+                        <span>${i+1}f</span>
+                    `;
+                    togglesContainer.appendChild(label);
+                });
+            });
+        }
+
+        // --- 事件監聽 ---
+        sliderL.addEventListener('input', (e) => {
+            L = parseFloat(e.target.value);
+            valL.textContent = L.toFixed(2) + ' m';
+            if (mode !== 'timbre') resetRecords();
+        });
+
+        sliderV.addEventListener('input', (e) => {
+            v = parseFloat(e.target.value);
+            valV.textContent = v.toFixed(0) + ' m/s';
+            if (mode !== 'timbre') resetRecords();
+        });
+
+        sliderF.addEventListener('input', (e) => {
+            f = parseFloat(e.target.value);
+            inputF.value = f.toFixed(1);
+        });
+
+        inputF.addEventListener('change', (e) => {
+            let val = parseFloat(e.target.value);
+            if(val < 10) val = 10;
+            if(val > 2000) val = 2000;
+            f = val;
+            e.target.value = f.toFixed(1);
+            sliderF.value = f;
+        });
+
+        // --- 核心邏輯 ---
+
+        function setMode(newMode) {
+            mode = newMode;
+            // 更新按鈕樣式
+            const btns = ['open-open', 'closed-closed', 'closed-open', 'timbre'];
+            btns.forEach(b => {
+                const el = document.getElementById('btn-' + b);
+                if (b === mode) {
+                    if (b === 'timbre') {
+                        el.className = "px-4 py-2 rounded-md font-medium text-sm transition-colors bg-purple-600 shadow text-white";
+                    } else {
+                        el.className = "px-4 py-2 rounded-md font-medium text-sm transition-colors bg-white shadow text-blue-600";
+                    }
+                } else {
+                    if (b === 'timbre') {
+                        el.className = "px-4 py-2 rounded-md font-medium text-sm transition-colors text-purple-600 hover:text-purple-900 bg-purple-50 hover:bg-purple-100";
+                    } else {
+                        el.className = "px-4 py-2 rounded-md font-medium text-sm transition-colors text-gray-600 hover:text-gray-900 hover:bg-gray-200";
+                    }
+                }
+            });
+            updateFormula();
+            
+            // 處理模式切換的 UI 變化
+            if (mode === 'timbre') {
+                standardControls.classList.add('hidden');
+                timbreControls.classList.remove('hidden');
+                
+                canvasCaption.innerHTML = '圖示說明：左側顯示<span class="font-bold text-purple-400">頻譜圖 (泛音強度)</span>，右側顯示將這些泛音疊加後產生的<span class="font-bold text-green-400">合成波形 (音色)</span>。';
+                recordStatus.textContent = "暫停紀錄";
+                recordStatus.className = "text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-bold";
+                recordDesc.textContent = "音色比較模式中，不會捕捉共振駐波。";
+                resetRecords();
+            } else {
+                standardControls.classList.remove('hidden');
+                timbreControls.classList.add('hidden');
+                
+                canvasCaption.innerHTML = '圖示說明：白色外框為管壁，內部曲線代表空氣分子的<span class="font-bold text-blue-400">位移振幅</span> (Node 為波節，Antinode 為波腹)。';
+                recordStatus.textContent = "自動紀錄";
+                recordStatus.className = "text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-bold";
+                recordDesc.textContent = "更改管長或管子模式時，紀錄將自動重置。";
+                resetRecords();
+            }
+        }
+
+        function updateFormula() {
+            let formulaHtml = "";
+            if (mode === 'open-open' || mode === 'closed-closed') {
+                formulaTitle.textContent = "對應駐波頻率公式";
+                formulaHtml = `f<sub>n</sub> = <span class="inline-block align-middle text-center"><span class="block border-b-2 border-blue-800">n v</span><span class="block">2 L</span></span> <span class="text-sm">(n=1, 2, 3...)</span>`;
+            } else if (mode === 'closed-open') {
+                formulaTitle.textContent = "對應駐波頻率公式";
+                formulaHtml = `f<sub>n</sub> = <span class="inline-block align-middle text-center"><span class="block border-b-2 border-blue-800">n v</span><span class="block">4 L</span></span> <span class="text-sm">(n=1, 3, 5...)</span>`;
+            } else if (mode === 'timbre') {
+                formulaTitle.textContent = "波形疊加原理 (傅立葉級數)";
+                formulaHtml = `<div class="text-sm mt-1 text-purple-800">合成波 y(t) = &Sigma; A<sub>n</sub> sin(n&omega;t)</div><div class="text-[11px] text-purple-600 mt-1">控制面板：取消勾選泛音，即可聽見並看見波形改變！</div>`;
+            }
+            formulaDisplay.innerHTML = formulaHtml;
+        }
+
+        function adjustFreq(delta) {
+            let newVal = f + delta;
+            if (newVal < 10) newVal = 10;
+            if (newVal > 2000) newVal = 2000;
+            f = newVal;
+            inputF.value = f.toFixed(1);
+            sliderF.value = f;
+        }
+
+        function resetRecords() {
+            recordedModes = [];
+            recordList.innerHTML = '';
+            // 隱藏警報
+            if (alertTimeout) clearTimeout(alertTimeout);
+            alertBox.classList.remove('opacity-100');
+            alertBox.classList.add('opacity-0');
+            isResonating = false;
+        }
+
+        function getTheoreticalFreqs() {
+            let freqs = [];
+            let n = 1;
+            while (true) {
+                let currentFreq;
+                if (mode === 'open-open' || mode === 'closed-closed') {
+                    currentFreq = (n * v) / (2 * L);
+                    if (currentFreq > 2500) break;
+                    freqs.push({ n: n, freq: currentFreq });
+                    n++;
+                } else if (mode === 'closed-open') {
+                    currentFreq = (n * v) / (4 * L);
+                    if (currentFreq > 2500) break;
+                    if (n % 2 !== 0) { // 只取奇數
+                        freqs.push({ n: n, freq: currentFreq });
+                    }
+                    n += 2;
+                }
+            }
+            return freqs;
+        }
+
+        function autoFindNext() {
+            if (mode === 'timbre') return;
+            const freqs = getTheoreticalFreqs();
+            const next = freqs.find(item => item.freq > f + 0.5);
+            if (next && next.freq <= 2000) {
+                f = next.freq;
+                inputF.value = f.toFixed(1);
+                sliderF.value = f;
+            } else {
+                alert("已超過頻率上限或找不到下一個駐波。");
+            }
+        }
+
+        function recordResonance(n, freq) {
+            if (!recordedModes.includes(n)) {
+                recordedModes.push(n);
+                recordedModes.sort((a, b) => a - b); 
+                
+                recordList.innerHTML = '';
+                recordedModes.forEach(recN => {
+                    let recFreq = 0;
+                    let label = "";
+                    if (mode === 'open-open' || mode === 'closed-closed') {
+                        recFreq = (recN * v) / (2 * L);
+                        label = recN === 1 ? "基音 (n=1)" : `第 ${recN-1} 泛音 (n=${recN})`;
+                    } else {
+                        recFreq = (recN * v) / (4 * L);
+                        let harmonicIdx = Math.floor(recN/2);
+                        label = recN === 1 ? "基音 (n=1)" : `第 ${harmonicIdx} 泛音 (n=${recN})`;
+                    }
+
+                    const li = document.createElement('li');
+                    li.className = "bg-blue-50 border border-blue-100 p-2 rounded flex justify-between items-center text-sm shadow-sm transform transition hover:-translate-y-0.5";
+                    li.innerHTML = `
+                        <span class="font-bold text-gray-700">${label}</span>
+                        <span class="font-mono font-bold text-blue-600 bg-white px-2 py-0.5 rounded shadow-inner">${recFreq.toFixed(1)} Hz</span>
+                    `;
+                    recordList.appendChild(li);
+                });
+                recordList.parentElement.scrollTop = recordList.parentElement.scrollHeight;
+            }
+        }
+
+        // --- 繪圖邏輯：音色比較模式 ---
+        function drawTimbreSpectrum() {
+            const rowHeight = canvas.height / 3;
+            const chartLeftX = 40;
+            const chartWidth = 360;
+            const waveLeftX = 480;
+            const waveWidth = 280;
+
+            // 標題
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('頻率 - 聲音強度 (頻譜圖)', chartLeftX + chartWidth/2, 20);
+            ctx.fillText('時間 - 振幅 (合成波形)', waveLeftX + waveWidth/2, 20);
+
+            // 分隔線
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.moveTo(waveLeftX - 30, 10);
+            ctx.lineTo(waveLeftX - 30, canvas.height - 10);
+            ctx.stroke();
+
+            instruments.forEach((inst, index) => {
+                const yOffset = index * rowHeight;
+                const baseline = yOffset + rowHeight - 20;
+
+                // 樂器名稱標籤
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(inst.name, chartLeftX, yOffset + 35);
+
+                // --- 1. 繪製頻譜圖 (長條圖) ---
+                ctx.beginPath();
+                ctx.strokeStyle = '#64748b'; 
+                ctx.moveTo(chartLeftX, baseline);
+                ctx.lineTo(chartLeftX + chartWidth, baseline);
+                ctx.stroke();
+
+                const barWidth = 24;
+                const spacing = chartWidth / inst.amps.length;
+                const maxBarHeight = rowHeight - 65;
+
+                inst.amps.forEach((A, i) => {
+                    // 若被勾選，顯示正常高度；若取消勾選，降為極小且變暗
+                    const isActive = inst.toggles[i];
+                    const displayAmp = isActive ? A : 0.05; 
+                    const barHeight = displayAmp * maxBarHeight;
+                    const x = chartLeftX + i * spacing + 5;
+                    
+                    const drawColor = isActive ? inst.color : 'rgba(255, 255, 255, 0.15)';
+                    
+                    if (isActive) {
+                        ctx.shadowColor = inst.color;
+                        ctx.shadowBlur = 8;
+                    }
+                    
+                    ctx.fillStyle = drawColor;
+                    ctx.fillRect(x, baseline - barHeight, barWidth, barHeight);
+                    ctx.shadowBlur = 0; // 重置發光
+
+                    // 頻率標籤
+                    ctx.fillStyle = isActive ? '#cbd5e1' : '#64748b';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${i+1}f`, x + barWidth/2, baseline + 15);
+                });
+
+                // --- 2. 繪製合成波形 ---
+                ctx.beginPath();
+                // 畫一條微弱的水平基準線
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.moveTo(waveLeftX, baseline - maxBarHeight/2);
+                ctx.lineTo(waveLeftX + waveWidth, baseline - maxBarHeight/2);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.strokeStyle = inst.color;
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = inst.color;
+                ctx.shadowBlur = 5;
+
+                const waveTime = time * 8; 
+                const baseOmega = (2 * Math.PI) / (waveWidth / 2); 
+                
+                for (let px = 0; px <= waveWidth; px += 2) {
+                    let y = 0;
+                    for (let n = 0; n < inst.amps.length; n++) {
+                        // 只疊加「被勾選」的泛音
+                        if (inst.toggles[n]) {
+                            y += inst.amps[n] * Math.sin((n + 1) * (px * baseOmega) - waveTime);
+                        }
+                    }
+                    y = y * (maxBarHeight / 2.5);
+                    
+                    if (px === 0) {
+                        ctx.moveTo(waveLeftX + px, baseline - maxBarHeight/2 - y);
+                    } else {
+                        ctx.lineTo(waveLeftX + px, baseline - maxBarHeight/2 - y);
+                    }
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0; // 重置發光
+            });
+        }
+
+        // --- 繪圖邏輯：駐波管子模式 ---
+        function drawTubeMode() {
+            const scale = 360; 
+            const tubePxLength = L * scale;
+            const startX = (canvas.width - tubePxLength) / 2;
+            const centerY = canvas.height / 2;
+            const tubeHeight = 180; 
+            const topY = centerY - tubeHeight / 2;
+            const bottomY = centerY + tubeHeight / 2;
+
+            // 1. 繪製管子
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, topY);
+            ctx.lineTo(startX + tubePxLength, topY);
+            ctx.moveTo(startX, bottomY);
+            ctx.lineTo(startX + tubePxLength, bottomY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            if (mode === 'closed-closed' || mode === 'closed-open') {
+                ctx.moveTo(startX, topY);
+                ctx.lineTo(startX, bottomY);
+            }
+            if (mode === 'closed-closed') {
+                ctx.moveTo(startX + tubePxLength, topY);
+                ctx.lineTo(startX + tubePxLength, bottomY);
+            }
+            ctx.stroke();
+
+            // 中心平衡線
+            ctx.beginPath();
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.moveTo(startX, centerY);
+            ctx.lineTo(startX + tubePxLength, centerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 2. 計算共振狀態
+            const freqs = getTheoreticalFreqs();
+            let closest = freqs[0];
+            let minDiff = Infinity;
+            if (freqs.length > 0) {
+                for (let item of freqs) {
+                    let diff = Math.abs(f - item.freq);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closest = item;
+                    }
+                }
+            }
+
+            const gamma = 2.0;
+            let resonanceMultiplier = 0;
+            if (closest) {
+                resonanceMultiplier = (gamma * gamma) / (minDiff * minDiff + gamma * gamma);
+            }
+            
+            const baseAmp = tubeHeight * 0.15;
+            let currentAmp = baseAmp + (tubeHeight * 0.35) * resonanceMultiplier;
+            
+            if (resonanceMultiplier > 0.8) {
+                if (!isResonating) {
+                    isResonating = true;
+                    alertBox.classList.remove('opacity-0');
+                    alertBox.classList.add('opacity-100');
+                    alertText.textContent = `發生駐波！ (n=${closest.n})`;
+                    recordResonance(closest.n, closest.freq);
+
+                    if (alertTimeout) clearTimeout(alertTimeout);
+                    alertTimeout = setTimeout(() => {
+                        alertBox.classList.remove('opacity-100');
+                        alertBox.classList.add('opacity-0');
+                    }, 2500);
+                }
+            } else {
+                if (isResonating) {
+                    isResonating = false;
+                    if (alertTimeout) clearTimeout(alertTimeout);
+                    alertBox.classList.add('opacity-0');
+                    alertBox.classList.remove('opacity-100');
+                }
+                currentAmp = baseAmp * 0.3; 
+            }
+
+            // 3. 繪製波形
+            const k = (2 * Math.PI * f) / v;
+            
+            function getWaveShape(x_phys) {
+                if (mode === 'closed-closed' || mode === 'closed-open') {
+                    return Math.sin(k * x_phys);
+                } else {
+                    return Math.cos(k * x_phys);
+                }
+            }
+
+            ctx.lineWidth = 2;
+            
+            // 包絡線
+            ctx.beginPath();
+            if (resonanceMultiplier > 0.8) {
+                ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+            } else {
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+            }
+            
+            for (let px = 0; px <= tubePxLength; px += 2) {
+                let x_phys = px / scale;
+                let y = getWaveShape(x_phys) * currentAmp;
+                if (px === 0) ctx.moveTo(startX + px, centerY - y);
+                else ctx.lineTo(startX + px, centerY - y);
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            for (let px = 0; px <= tubePxLength; px += 2) {
+                let x_phys = px / scale;
+                let y = getWaveShape(x_phys) * currentAmp;
+                if (px === 0) ctx.moveTo(startX + px, centerY + y);
+                else ctx.lineTo(startX + px, centerY + y);
+            }
+            ctx.stroke();
+
+            // 瞬時波動態
+            ctx.beginPath();
+            const timeFactor = Math.cos(time * 15); 
+            
+            if (resonanceMultiplier > 0.8) {
+                ctx.strokeStyle = '#4ade80';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = '#86efac';
+                ctx.shadowBlur = 15;
+            } else {
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 0;
+            }
+
+            for (let px = 0; px <= tubePxLength; px += 2) {
+                let x_phys = px / scale;
+                let y = getWaveShape(x_phys) * currentAmp * timeFactor;
+                if (px === 0) ctx.moveTo(startX + px, centerY - y);
+                else ctx.lineTo(startX + px, centerY - y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // 標示 (Node / Antinode)
+            if (resonanceMultiplier > 0.8) {
+                ctx.fillStyle = '#fca5a5';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                
+                if (mode === 'closed-closed' || mode === 'closed-open') {
+                    ctx.fillText('Node', startX, bottomY + 25);
+                } else {
+                    ctx.fillStyle = '#86efac';
+                    ctx.fillText('Antinode', startX, bottomY + 25);
+                }
+
+                if (mode === 'closed-closed') {
+                    ctx.fillStyle = '#fca5a5';
+                    ctx.fillText('Node', startX + tubePxLength, bottomY + 25);
+                } else {
+                    ctx.fillStyle = '#86efac';
+                    ctx.fillText('Antinode', startX + tubePxLength, bottomY + 25);
+                }
+            }
+        }
+
+        // --- 主繪圖迴圈 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (mode === 'timbre') {
+                drawTimbreSpectrum();
+            } else {
+                drawTubeMode();
+            }
+        }
+
+        function animate() {
+            let timeStep = slowMotionToggle.checked ? 0.0015 : 0.016; 
+            time += timeStep; 
+            
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        // --- 初始化 ---
+        buildTimbreUI();
+        updateFormula();
+        animate();
+
+    </script>
+</body>
+</html>

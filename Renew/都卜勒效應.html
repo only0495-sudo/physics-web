@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>雙視角都卜勒效應 2D 模擬器</title>
+    
+    <!-- 引入 p5.js (2D 渲染與迴圈控制) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+
+    <style>
+        :root {
+            /* 明亮主題色彩設定 */
+            --primary-cyan: #0097a7; /* 加深青色以在白底清晰 */
+            --primary-pink: #d81b60; /* 加深粉紅以在白底清晰 */
+            --bg-color: #f0f4f8;     /* 淺灰白背景 */
+            --panel-bg: rgba(255, 255, 255, 0.85);
+            --border-color: rgba(0, 0, 0, 0.15);
+            --text-color: #1e293b;   /* 深灰字體 */
+            --text-muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: var(--text-color);
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 啟動畫面 */
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(240, 244, 248, 0.95); z-index: 1000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s; backdrop-filter: blur(10px);
+        }
+        #start-overlay h1 { font-size: 2.5rem; color: var(--text-color); margin-bottom: 10px; }
+        #start-overlay button {
+            padding: 12px 30px; font-size: 1.2rem; background: var(--primary-cyan);
+            color: white; border: none; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 151, 167, 0.4); transition: transform 0.2s;
+        }
+        #start-overlay button:hover { transform: scale(1.05); }
+
+        /* 視角標籤 */
+        .view-label {
+            position: absolute;
+            top: 20px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            backdrop-filter: blur(4px);
+            z-index: 5;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: opacity 0.3s;
+        }
+        #label-source { left: 20px; color: var(--primary-pink); border-color: rgba(216, 27, 96, 0.3); }
+        #label-observer { left: calc(50vw + 20px); color: var(--primary-cyan); border-color: rgba(0, 151, 167, 0.3); }
+
+        /* 中間分隔線 */
+        #split-line {
+            position: absolute;
+            top: 0;
+            left: 50vw;
+            width: 2px;
+            height: 100vh;
+            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.2), transparent);
+            z-index: 4;
+            transform: translateX(-50%);
+            transition: opacity 0.3s;
+        }
+
+        /* 動態狀態描述文字 */
+        #status-text {
+            position: absolute;
+            top: max(120px, calc(50vh - 250px));
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+            background: rgba(16, 24, 39, 0.7);
+            padding: 10px 24px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            pointer-events: none;
+            transition: color 0.3s, border-color 0.3s;
+            white-space: nowrap;
+        }
+
+        /* 重播按鈕 */
+        #replay-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            border-radius: 20px;
+            background: rgba(240, 244, 248, 0.85);
+            color: var(--text-color);
+            border: 2px solid var(--primary-cyan);
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: 0.3s;
+            z-index: 100;
+            display: none;
+        }
+        #replay-btn:hover { background: var(--primary-cyan); color: white; transform: scale(1.05); }
+
+        /* 高質感自訂控制面板 */
+        #custom-gui {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            width: 330px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #custom-gui.collapsed { width: 180px; padding-bottom: 15px; }
+        #custom-gui.collapsed .gui-content { display: none; }
+
+        .gui-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;
+        }
+        .gui-title { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-color); }
+        .toggle-btn {
+            background: rgba(0,0,0,0.05); border: 1px solid var(--border-color);
+            color: var(--text-color); border-radius: 6px; padding: 4px 10px;
+            font-size: 0.8rem; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .toggle-btn:hover { background: rgba(0,0,0,0.1); }
+        .gui-content { display: block; }
+
+        .view-mode-group { display: flex; gap: 8px; margin-bottom: 20px; }
+        .view-btn {
+            flex: 1; padding: 8px 0; background: rgba(0,0,0,0.05); border: 1px solid var(--border-color);
+            border-radius: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text-color); font-weight: 600;
+            transition: 0.2s;
+        }
+        .view-btn.active { background: #e2e8f0; border-color: #94a3b8; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+
+        .control-group { margin-bottom: 15px; }
+        .control-group label {
+            display: flex; justify-content: space-between; align-items: center; font-size: 0.95rem; margin-bottom: 8px;
+            color: var(--text-muted); font-weight: 600;
+        }
+        .control-group label span { color: var(--text-color); font-weight: bold; }
+
+        .reset-btn {
+            background: rgba(255, 255, 255, 0.5); border: 1px solid var(--border-color);
+            color: var(--text-muted); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem;
+            cursor: pointer; margin-right: 8px; transition: 0.2s;
+        }
+        .reset-btn:hover { background: rgba(0, 151, 167, 0.1); color: var(--primary-cyan); border-color: var(--primary-cyan); }
+
+        /* ================= 新增：動態方向箭頭控制器樣式 ================= */
+        .arrow-slider-container {
+            position: relative;
+            width: 100%;
+            height: 24px;
+            cursor: pointer;
+            margin-top: 5px;
+            margin-bottom: 5px;
+            touch-action: none; /* 防止手機拖曳時畫面捲動 */
+        }
+        
+        .arrow-track {
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            height: 4px;
+            background: rgba(0,0,0,0.08);
+            border-radius: 2px;
+            transform: translateY(-50%);
+        }
+        
+        .arrow-center {
+            position: absolute;
+            top: 10%; bottom: 10%; left: 50%;
+            width: 3px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 1px;
+            transform: translateX(-50%);
+        }
+        
+        .arrow-vector {
+            position: absolute;
+            top: 50%; left: 50%;
+            height: 6px;
+            background: currentColor;
+            transform-origin: left center;
+            transform: translateY(-50%);
+            pointer-events: none;
+            border-radius: 3px;
+            /* 移除了 transition，讓拖曳完全跟隨滑鼠/手指，不再有卡頓感 */
+        }
+        
+        /* 預設：繪製箭頭頭部 */
+        .arrow-vector::after {
+            content: '';
+            position: absolute;
+            right: -2px; /* 箭頭稍微突出 */
+            top: 50%;
+            border-left: 10px solid currentColor;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            transform: translateY(-50%);
+        }
+
+        /* 歸零狀態：當數值為 0 時，變成一個圓點按鈕 */
+        .arrow-slider-container.is-zero .arrow-vector {
+            height: 0; /* 隱藏箭頭的線條 */
+        }
+        
+        .arrow-slider-container.is-zero .arrow-vector::after {
+            right: -8px; /* 將圓點完美置中於 0 的位置 */
+            border: none;
+            width: 16px;
+            height: 16px;
+            background-color: currentColor;
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3); /* 增加立體感，提示可拖曳 */
+        }
+
+        .source-color { color: var(--primary-pink); }
+        .observer-color { color: var(--primary-cyan); }
+        /* ============================================================= */
+
+        /* 傳統滑桿 (保留給頻率與音量使用) */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: rgba(0, 0, 0, 0.1); border-radius: 4px; }
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px; width: 18px; border-radius: 50%; background: white; cursor: pointer;
+            -webkit-appearance: none; margin-top: -5px; box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            border: 2px solid #ccc; transition: transform 0.2s;
+        }
+        input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
+        #slider-freq::-webkit-slider-thumb { border-color: #f59e0b; }
+        #slider-vol::-webkit-slider-thumb { border-color: #64748b; }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .mode-btn {
+            flex: 1; padding: 8px 0; background: rgba(0,0,0,0.05); border: 1px solid var(--border-color);
+            border-radius: 8px; color: var(--text-color); cursor: pointer; transition: 0.3s;
+            font-size: 0.9rem; font-weight: 600;
+        }
+        .mode-btn.active { background: #e2e8f0; border-color: #94a3b8; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
+
+        /* 物理公式疊加層 */
+        #formula-panel {
+            position: absolute; top: 25px; right: 40px; background: var(--panel-bg);
+            padding: 20px 40px; border-radius: 20px; border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: flex; align-items: center;
+            z-index: 10; backdrop-filter: blur(12px);
+        }
+        .formula-text {
+            font-size: 3.8rem; font-weight: 700; font-family: 'Times New Roman', serif;
+            font-style: italic; display: flex; align-items: center; color: var(--text-color);
+        }
+        .fraction { position: relative; width: 45px; height: 1.5em; margin-left: 15px; }
+        .fraction-line {
+            position: absolute; top: 50%; left: 0; width: 100%; height: 4px;
+            background-color: var(--text-color); transform: translateY(-50%); border-radius: 2px; z-index: 1;
+        }
+        .top-container { position: absolute; bottom: 50%; left: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 4px; z-index: 2; }
+        .bottom-container { position: absolute; top: 50%; left: 0; width: 100%; display: flex; justify-content: center; margin-top: 8px; z-index: 2; }
+        .symbol { display: inline-block; transition: transform 0.1s ease-out, color 0.3s, text-shadow 0.3s; transform-origin: center; }
+
+        /* 全螢幕按鈕 */
+        #fullscreen-btn {
+            position: absolute; bottom: 30px; right: 30px; background: rgba(255,255,255,0.8);
+            border: 1px solid var(--border-color); color: var(--text-color); padding: 10px 20px;
+            border-radius: 30px; cursor: pointer; z-index: 10; font-weight: 600; backdrop-filter: blur(5px);
+            transition: 0.2s; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        #fullscreen-btn:hover { background: #f1f5f9; transform: translateY(-2px); }
+
+        /* 手機版 RWD */
+        @media (max-width: 768px) {
+            #custom-gui { width: 90vw; left: 5vw; bottom: 160px; padding: 15px; }
+            #custom-gui.collapsed { width: 150px; }
+            #formula-panel { top: 60px; right: 5vw; left: 5vw; justify-content: center; transform: scale(0.7); }
+            #fullscreen-btn { top: 15px; right: 15px; bottom: auto; padding: 8px 12px; font-size: 0.8rem; }
+            .view-label { font-size: 0.8rem; padding: 5px 10px; }
+            #status-text { font-size: 1.1rem; top: 110px; }
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+    <!-- 啟動畫面 -->
+    <div id="start-overlay">
+        <h1>雙視角都卜勒效應</h1>
+        <p style="margin-bottom: 40px; font-size: 1.2rem; color: #475569;">點擊下方按鈕解鎖音效與互動</p>
+        <button onclick="hideOverlayAndStart()">開始體驗</button>
+    </div>
+
+    <!-- 重播按鈕 (常駐於左上角，模式二專用) -->
+    <button id="replay-btn" onclick="startMode2Scenario()">重播呼嘯而過</button>
+
+    <!-- 標籤與分隔線 -->
+    <div id="split-line"></div>
+    <div id="label-source" class="view-label">波源視角</div>
+    <div id="label-observer" class="view-label">觀察者視角</div>
+
+    <!-- 動態狀態文字 -->
+    <div id="status-text">相對靜止，頻率不變</div>
+
+    <!-- 右上角：巨大化極簡公式 -->
+    <div id="formula-panel">
+        <span class="formula-text">
+            <span>f = </span>
+            <span class="fraction">
+                <span class="top-container"><span class="symbol" id="sym-v">v</span></span>
+                <span class="fraction-line"></span>
+                <span class="bottom-container"><span class="symbol" id="sym-lambda">λ</span></span>
+            </span>
+        </span>
+    </div>
+
+    <!-- 左下角：客製化控制面板 -->
+    <div id="custom-gui">
+        <div class="gui-header">
+            <h3 class="gui-title">物理參數控制</h3>
+            <button class="toggle-btn" onclick="toggleGUI()" id="gui-toggle-btn">收起</button>
+        </div>
+
+        <div class="gui-content" id="gui-content">
+            <div class="view-mode-group">
+                <button class="view-btn active" id="btn-mode1" onclick="setViewMode(1)">一：相對運動</button>
+                <button class="view-btn" id="btn-mode2" onclick="setViewMode(2)">二：呼嘯而過</button>
+            </div>
+
+            <!-- 使用向量箭頭替代波源速度拉桿 -->
+            <div class="control-group">
+                <label>波源速度 (v_s) 
+                    <div style="display:flex; align-items:center;">
+                        <button class="reset-btn" onclick="resetSpeed('vSource', 'vector-vs', 'val-vs')">歸零</button>
+                        <span id="val-vs">0.0 m/s</span>
+                    </div>
+                </label>
+                <div class="arrow-slider-container" id="container-vs">
+                    <div class="arrow-track"></div>
+                    <div class="arrow-center"></div>
+                    <div class="arrow-vector source-color" id="vector-vs"></div>
+                </div>
+            </div>
+
+            <!-- 使用向量箭頭替代觀察者速度拉桿 -->
+            <div class="control-group">
+                <label>觀察者速度 (v_o) 
+                    <div style="display:flex; align-items:center;">
+                        <button class="reset-btn" onclick="resetSpeed('vObserver', 'vector-vo', 'val-vo')">歸零</button>
+                        <span id="val-vo">0.0 m/s</span>
+                    </div>
+                </label>
+                <div class="arrow-slider-container" id="container-vo">
+                    <div class="arrow-track"></div>
+                    <div class="arrow-center"></div>
+                    <div class="arrow-vector observer-color" id="vector-vo"></div>
+                </div>
+            </div>
+
+            <!-- 頻率保留拉桿 (因為只有正值，不需要箭頭) -->
+            <div class="control-group">
+                <label>發射頻率 (f₀) <span id="val-freq">10.0 Hz</span></label>
+                <input type="range" id="slider-freq" min="1" max="30" step="0.5" value="10.0">
+            </div>
+
+            <!-- 音量保留拉桿 -->
+            <div class="control-group">
+                <label>音量大小 <span id="val-vol">50 %</span></label>
+                <input type="range" id="slider-vol" min="0" max="1" step="0.01" value="0.5">
+            </div>
+
+            <div class="btn-group">
+                <button class="mode-btn active" id="btn-beep" onclick="setAudioMode('Beep')">單音回饋</button>
+                <button class="mode-btn" id="btn-mute" onclick="setAudioMode('Mute')">靜音</button>
+            </div>
+        </div>
+    </div>
+
+    <button id="fullscreen-btn" onclick="toggleFullScreen()">進入全螢幕</button>
+
+    <!-- 2D 畫布容器 -->
+    <div id="canvas-container"></div>
+
+    <script>
+        /**
+         * 物理與系統狀態 (保持不變)
+         */
+        const STATE = {
+            viewMode: 1,           
+            waveSpeed: 340.0,      
+            baseFreq: 10.0,        
+            vSource: 0.0,
+            vObserver: 0.0,
+            volume: 0.5,           
+            audioMode: 'Beep',
+            isRunning: false,
+            isDragging: false,     
+            baseAudioFreq: 261.63, 
+            
+            mode2State: 'none',     
+            mode2Phase: 'approaching',
+            mode2CrossTime: 0,
+            
+            pixelScale: 2.0,       
+            timeScale: 0.15        
+        };
+
+        let simTime = 0;   
+        let realTime = 0;  
+
+        let sourceX = 0;
+        let observerX = 400; 
+        let bgSourceX = 0;       
+        let bgObserverX = 400;   
+        let sourceY, observerY;
+        
+        let waves = [];
+        let lastWaveEmitTime = 0;
+        
+        let sourceGlow = 0;
+        let observerGlow = 0;
+        let freqHistory = [];
+        let trees = [];
+
+        let audioCtx;
+
+        const symV = document.getElementById('sym-v');
+        const symLambda = document.getElementById('sym-lambda');
+        let statusEl;
+
+        function hideOverlayAndStart() {
+            document.getElementById('start-overlay').style.display = 'none';
+            startSimulation();
+        }
+
+        function toggleGUI() {
+            const gui = document.getElementById('custom-gui');
+            const btn = document.getElementById('gui-toggle-btn');
+            gui.classList.toggle('collapsed');
+            if (gui.classList.contains('collapsed')) {
+                btn.innerText = '展開';
+            } else {
+                btn.innerText = '收起';
+            }
+        }
+
+        /**
+         * 設定向量箭頭的值並更新 CSS 表現
+         */
+        function setArrowSliderValue(vectorId, stateKey, valId, val) {
+            STATE[stateKey] = val;
+            const vector = document.getElementById(vectorId);
+            const valEl = document.getElementById(valId);
+            const container = vector.parentElement;
+            
+            valEl.innerText = `${val.toFixed(1)} m/s`;
+
+            // 動態切換歸零時的圓點狀態與非零時的箭頭狀態
+            if (val === 0) {
+                container.classList.add('is-zero');
+            } else {
+                container.classList.remove('is-zero');
+            }
+
+            // 計算長度比例 (最大 100m/s，對應一半軌道寬度 50%)
+            let pct = Math.abs(val) / 100;
+            vector.style.width = `calc(50% * ${pct})`;
+
+            // 設定箭頭方向：正值向右 (0度)，負值向左 (180度)
+            if (val >= 0) {
+                vector.style.transform = `translateY(-50%) rotate(0deg)`;
+            } else {
+                vector.style.transform = `translateY(-50%) rotate(180deg)`;
+            }
+        }
+
+        /**
+         * 歸零按鈕邏輯
+         */
+        function resetSpeed(stateKey, vectorId, valId) {
+            setArrowSliderValue(vectorId, stateKey, valId, 0);
+            updateFormulaStyle();
+            
+            if (!STATE.isRunning || STATE.isDragging) {
+                recalculateWavesPreview();
+            }
+        }
+
+        function setViewMode(mode) {
+            STATE.viewMode = mode;
+            document.getElementById('btn-mode1').classList.remove('active');
+            document.getElementById('btn-mode2').classList.remove('active');
+            document.getElementById('btn-mode' + mode).classList.add('active');
+
+            const isSplit = (mode === 1);
+            document.getElementById('split-line').style.opacity = isSplit ? '1' : '0';
+            document.getElementById('label-source').style.opacity = isSplit ? '1' : '0';
+            document.getElementById('label-observer').style.opacity = isSplit ? '1' : '0';
+
+            if (isSplit) {
+                document.getElementById('replay-btn').style.display = 'none';
+                STATE.mode2State = 'none';
+                STATE.isRunning = true;
+                
+                if (observerX - sourceX < 300 || observerX - sourceX > 600) {
+                    observerX = sourceX + 450;
+                    waves.forEach(w => {
+                        w.prevDist = Math.abs(observerX - w.x);
+                        let r = STATE.waveSpeed * (simTime - w.timeEmitted);
+                        w.hit = (r > w.prevDist);
+                    });
+                }
+            } else {
+                document.getElementById('replay-btn').style.display = 'block';
+                startMode2Scenario();
+            }
+        }
+
+        function startMode2Scenario() {
+            // 更新 UI 與狀態為呼嘯而過預設值
+            setArrowSliderValue('vector-vs', 'vSource', 'val-vs', 80);
+            setArrowSliderValue('vector-vo', 'vObserver', 'val-vo', -80);
+            updateFormulaStyle();
+
+            let relSpeed = STATE.vSource - STATE.vObserver; 
+            let physTime = 4.0 * STATE.timeScale; 
+            let initialDist = relSpeed * physTime; 
+            
+            sourceX = -initialDist / 2;
+            observerX = initialDist / 2;
+            bgSourceX = sourceX;
+            bgObserverX = observerX;
+            
+            waves = [];
+            freqHistory = [];
+            
+            STATE.mode2State = 'running';
+            STATE.mode2Phase = 'approaching';
+            STATE.isRunning = true;
+            STATE.isDragging = false;
+        }
+
+        function startDrag() {
+            if (!STATE.isRunning) return;
+            STATE.isDragging = true;
+        }
+
+        function endDrag() {
+            if (!STATE.isDragging) return;
+            STATE.isDragging = false;
+            
+            const currentF = freqHistory[freqHistory.length - 1]?.f || STATE.baseAudioFreq;
+            if (STATE.audioMode === 'Beep' && STATE.isRunning) {
+                playBeep(currentF);
+            }
+        }
+
+        function recalculateWavesPreview() {
+            waves = [];
+            const T = 1.0 / STATE.baseFreq;
+            
+            let physicalWidth = width / STATE.pixelScale;
+            let maxAge = (physicalWidth * 3) / STATE.waveSpeed; 
+            let numWaves = Math.floor(maxAge / T);
+
+            for (let i = 0; i <= numWaves; i++) {
+                let age = i * T;
+                let tEmitted = simTime - age;
+                let emitX = sourceX - STATE.vSource * age;
+                let radius = STATE.waveSpeed * age;
+                
+                waves.push({
+                    x: emitX,
+                    timeEmitted: tEmitted,
+                    hit: radius > Math.abs(observerX - emitX),
+                    prevRadius: radius,
+                    prevDist: Math.abs(observerX - emitX)
+                });
+            }
+            lastWaveEmitTime = simTime;
+        }
+
+        function updateFreqGraphPreview() {
+            const direction = Math.sign(observerX - sourceX) || 1;
+            const v_s_proj = STATE.vSource * direction;
+            const v_o_proj = STATE.vObserver * direction;
+            
+            const effective_v_s = Math.min(v_s_proj, STATE.waveSpeed * 0.95);
+            const ratio = (STATE.waveSpeed - v_o_proj) / (STATE.waveSpeed - effective_v_s);
+            let currentDopplerFreq = STATE.baseAudioFreq * Math.max(0.1, ratio);
+            
+            currentDopplerFreq = constrain(currentDopplerFreq, 50, 2000);
+            freqHistory.push({ t: realTime, f: currentDopplerFreq });
+        }
+
+        /**
+         * 綁定向量箭頭滑動事件
+         */
+        function bindArrowSlider(containerId, vectorId, stateKey, valId, updateFn) {
+            const container = document.getElementById(containerId);
+            let isDraggingSlider = false;
+
+            function updateFromEvent(e) {
+                const rect = container.getBoundingClientRect();
+                let clientX = e.clientX;
+                if (e.touches && e.touches.length > 0) clientX = e.touches[0].clientX;
+
+                // 計算相對軌道的 X 座標並映射到 -100 ~ 100
+                let x = clientX - rect.left;
+                let pct = x / rect.width; 
+                let val = (pct - 0.5) * 200; 
+                val = Math.max(-100, Math.min(100, val));
+                val = Math.round(val); // 取整數
+
+                setArrowSliderValue(vectorId, stateKey, valId, val);
+                updateFn();
+            }
+
+            container.addEventListener('mousedown', (e) => {
+                isDraggingSlider = true;
+                startDrag();
+                updateFromEvent(e);
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingSlider) updateFromEvent(e);
+            });
+            window.addEventListener('mouseup', () => {
+                if (isDraggingSlider) {
+                    isDraggingSlider = false;
+                    endDrag();
+                }
+            });
+
+            // 支援手機觸控
+            container.addEventListener('touchstart', (e) => {
+                isDraggingSlider = true;
+                startDrag();
+                updateFromEvent(e);
+            }, {passive: false});
+            window.addEventListener('touchmove', (e) => {
+                if (isDraggingSlider) updateFromEvent(e);
+            }, {passive: false});
+            window.addEventListener('touchend', () => {
+                if (isDraggingSlider) {
+                    isDraggingSlider = false;
+                    endDrag();
+                }
+            });
+        }
+
+        function setupUI() {
+            // 1. 綁定新版的向量箭頭 (波源)
+            bindArrowSlider('container-vs', 'vector-vs', 'vSource', 'val-vs', () => {
+                updateFormulaStyle();
+                if (STATE.isDragging || !STATE.isRunning) recalculateWavesPreview();
+            });
+
+            // 2. 綁定新版的向量箭頭 (觀察者)
+            bindArrowSlider('container-vo', 'vector-vo', 'vObserver', 'val-vo', () => {
+                updateFormulaStyle();
+                if (STATE.isDragging || !STATE.isRunning) recalculateWavesPreview();
+            });
+
+            // 初始化向量箭頭長度與方向
+            setArrowSliderValue('vector-vs', 'vSource', 'val-vs', 0);
+            setArrowSliderValue('vector-vo', 'vObserver', 'val-vo', 0);
+
+            // 3. 原有的傳統滑桿綁定 (頻率與音量保留)
+            const sliders = [
+                { id: 'slider-freq', stateKey: 'baseFreq', valId: 'val-freq', unit: 'Hz' },
+                { id: 'slider-vol', stateKey: 'volume', valId: 'val-vol', unit: '%' }
+            ];
+
+            sliders.forEach(s => {
+                const el = document.getElementById(s.id);
+                const valEl = document.getElementById(s.valId);
+                
+                if (s.id !== 'slider-vol') {
+                    el.addEventListener('mousedown', startDrag);
+                    el.addEventListener('touchstart', startDrag, {passive: true});
+                }
+
+                el.addEventListener('input', (e) => {
+                    STATE[s.stateKey] = parseFloat(e.target.value);
+                    if (s.id === 'slider-vol') {
+                        valEl.innerText = `${Math.round(STATE[s.stateKey] * 100)} %`;
+                    } else {
+                        valEl.innerText = `${STATE[s.stateKey].toFixed(1)} ${s.unit}`;
+                        if (STATE.isDragging || !STATE.isRunning) recalculateWavesPreview();
+                    }
+                });
+            });
+
+            window.addEventListener('mouseup', endDrag);
+            window.addEventListener('touchend', endDrag);
+        }
+
+        function updateFormulaStyle() {
+            let dirToObserver = Math.sign(observerX - sourceX) || 1;
+            let dirToSource = -dirToObserver;
+
+            let v_o_towards = STATE.vObserver * dirToSource;
+            let v_s_towards = STATE.vSource * dirToObserver;
+
+            let scaleV = 1 + (v_o_towards / 100) * 0.5;
+            let scaleLambda = 1 - (v_s_towards / 100) * 0.5;
+
+            scaleV = Math.max(0.5, Math.min(1.5, scaleV));
+            scaleLambda = Math.max(0.5, Math.min(1.5, scaleLambda));
+
+            symV.style.transform = `scale(${scaleV})`;
+            if (Math.abs(v_o_towards) > 0.5) {
+                symV.style.color = 'var(--primary-cyan)';
+                symV.style.textShadow = '0 0 12px rgba(0, 151, 167, 0.6)';
+            } else {
+                symV.style.color = 'var(--text-color)';
+                symV.style.textShadow = 'none';
+            }
+
+            symLambda.style.transform = `scale(${scaleLambda})`;
+            if (Math.abs(v_s_towards) > 0.5) {
+                symLambda.style.color = 'var(--primary-pink)';
+                symLambda.style.textShadow = '0 0 12px rgba(216, 27, 96, 0.6)';
+            } else {
+                symLambda.style.color = 'var(--text-color)';
+                symLambda.style.textShadow = 'none';
+            }
+        }
+
+        function setAudioMode(mode) {
+            STATE.audioMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${mode.toLowerCase()}`).classList.add('active');
+        }
+
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight);
+            canvas.parent('canvas-container');
+            sourceY = height / 2;
+            observerY = height / 2;
+            statusEl = document.getElementById('status-text');
+            generateForest();
+            setupUI();
+        }
+
+        function resumeAudioOnInteraction() {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        document.addEventListener('click', resumeAudioOnInteraction, { once: true });
+        document.addEventListener('touchstart', resumeAudioOnInteraction, { once: true, passive: true });
+
+        function generateForest() {
+            trees = [];
+            for(let x = 0; x < 5000; x += random(40, 100)) {
+                trees.push({
+                    x: x + random(-15, 15),
+                    h: random(100, 220),
+                    w: random(60, 100),
+                    trunkW: random(14, 24),
+                    col: random([ '#4ade80', '#22c55e', '#16a34a', '#15803d', '#10b981', '#059669' ]) 
+                });
+            }
+        }
+
+        function startSimulation() {
+            if(!audioCtx) initAudio();
+            STATE.isRunning = true;
+            lastWaveEmitTime = simTime;
+        }
+
+        function initAudio() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+        }
+
+        function playBeep(frequency) {
+            if (STATE.audioMode !== 'Beep' || !audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            if (STATE.volume <= 0.01) return;
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(STATE.volume, audioCtx.currentTime + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.16);
+        }
+
+        // ================= 物理運算與繪圖邏輯皆維持原樣 ================= //
+        function draw() {
+            if (!STATE.isRunning && STATE.mode2State !== 'paused' && !STATE.isDragging) return;
+
+            realTime = millis() / 1000.0;
+            let realDt = deltaTime / 1000.0;
+            let physDt = realDt * STATE.timeScale; 
+
+            updateFormulaStyle();
+
+            if (!STATE.isDragging && STATE.isRunning) {
+                simTime += physDt;
+                updatePhysics(physDt, simTime);
+            } else if (STATE.isDragging) {
+                updateFreqGraphPreview();
+            }
+
+            background(240, 244, 248);
+
+            let sCamPx = sourceX * STATE.pixelScale;
+            let oCamPx = observerX * STATE.pixelScale;
+            let sBgPx = bgSourceX * STATE.pixelScale;
+            let oBgPx = bgObserverX * STATE.pixelScale;
+
+            if (STATE.viewMode === 1) {
+                push();
+                drawingContext.save();
+                drawingContext.beginPath();
+                drawingContext.rect(0, 0, width / 2, height);
+                drawingContext.clip();
+                
+                push();
+                translate(width / 4 - sBgPx, 0); 
+                drawBackground(sBgPx, width / 2);
+                pop();
+                
+                push();
+                translate(width / 4 - sCamPx, 0); 
+                drawEntities();
+                pop();
+                
+                drawingContext.restore();
+                pop();
+
+                push();
+                drawingContext.save();
+                drawingContext.beginPath();
+                drawingContext.rect(width / 2, 0, width / 2, height);
+                drawingContext.clip();
+                
+                push();
+                translate(width * 0.75 - oBgPx, 0); 
+                drawBackground(oBgPx, width / 2);
+                pop();
+                
+                push();
+                translate(width * 0.75 - oCamPx, 0); 
+                drawEntities();
+                pop();
+                
+                drawingContext.restore();
+                pop();
+            } else {
+                let midPx = (sCamPx + oCamPx) / 2;
+                let midBgPx = (sBgPx + oBgPx) / 2;
+                
+                push();
+                translate(width / 2 - midBgPx, 0);
+                drawBackground(midBgPx, width);
+                pop();
+                
+                push();
+                translate(width / 2 - midPx, 0);
+                drawEntities();
+                pop();
+            }
+
+            drawFreqGraph();
+
+            let curF = freqHistory.length > 0 ? freqHistory[freqHistory.length - 1].f : STATE.baseAudioFreq;
+            if (curF > STATE.baseAudioFreq * 1.005) {
+                statusEl.innerHTML = "相對接近，頻率上升 f⭡";
+                statusEl.style.color = "var(--primary-pink)";
+                statusEl.style.borderColor = "rgba(216, 27, 96, 0.4)";
+            } else if (curF < STATE.baseAudioFreq * 0.995) {
+                statusEl.innerHTML = "相對遠離，頻率下降 f⭣";
+                statusEl.style.color = "var(--primary-cyan)";
+                statusEl.style.borderColor = "rgba(0, 151, 167, 0.4)";
+            } else {
+                statusEl.innerHTML = "相對靜止，頻率不變";
+                statusEl.style.color = "white";
+                statusEl.style.borderColor = "rgba(255, 255, 255, 0.2)";
+            }
+
+            sourceGlow = max(0, sourceGlow - realDt * 100);
+            observerGlow = max(0, observerGlow - realDt * 100);
+        }
+
+        function updatePhysics(dt, physTime) {
+            sourceX += STATE.vSource * dt;
+            observerX += STATE.vObserver * dt;
+            
+            // 新增：背景移動速度倍率，數字越大，樹木往後退的速度感越強
+            const bgSpeedFactor = 3.5; 
+            bgSourceX += STATE.vSource * dt * bgSpeedFactor;
+            bgObserverX += STATE.vObserver * dt * bgSpeedFactor;
+
+            if (STATE.viewMode === 1) {
+                let dist = observerX - sourceX;
+                let currentLambda = (STATE.waveSpeed - STATE.vSource) / STATE.baseFreq;
+                
+                if (currentLambda > 0) {
+                    if (dist < 300) {
+                        let jumpN = Math.ceil((300 - dist) / currentLambda);
+                        observerX += jumpN * currentLambda;
+                        
+                        waves.forEach(w => {
+                            w.prevDist = Math.abs(observerX - w.x);
+                            let r = STATE.waveSpeed * (physTime - w.timeEmitted);
+                            w.hit = (r > w.prevDist);
+                        });
+                    } 
+                    else if (dist > 600) {
+                        let jumpN = Math.ceil((dist - 600) / currentLambda);
+                        observerX -= jumpN * currentLambda;
+                        
+                        waves.forEach(w => {
+                            w.prevDist = Math.abs(observerX - w.x);
+                            let r = STATE.waveSpeed * (physTime - w.timeEmitted);
+                            w.hit = (r > w.prevDist);
+                        });
+                    }
+                }
+            } 
+            else if (STATE.viewMode === 2 && STATE.mode2State === 'running') {
+                let dist = observerX - sourceX;
+                if (STATE.mode2Phase === 'approaching' && dist <= 0) {
+                    STATE.mode2Phase = 'departing';
+                    STATE.mode2CrossTime = realTime;
+                } 
+                else if (STATE.mode2Phase === 'departing' && (realTime - STATE.mode2CrossTime >= 10.0)) {
+                    STATE.mode2State = 'paused';
+                    STATE.isRunning = false;
+                }
+            }
+
+            const emitInterval = 1.0 / STATE.baseFreq;
+            if (physTime - lastWaveEmitTime >= emitInterval) {
+                waves.push({
+                    x: sourceX,
+                    timeEmitted: physTime,
+                    hit: false,
+                    prevRadius: 0,
+                    prevDist: Math.abs(observerX - sourceX)
+                });
+                lastWaveEmitTime = physTime;
+                sourceGlow = 20; 
+            }
+
+            const direction = Math.sign(observerX - sourceX) || 1;
+            const v_s_proj = STATE.vSource * direction;
+            const v_o_proj = STATE.vObserver * direction;
+            
+            const effective_v_s = Math.min(v_s_proj, STATE.waveSpeed * 0.95);
+            const ratio = (STATE.waveSpeed - v_o_proj) / (STATE.waveSpeed - effective_v_s);
+            let currentDopplerFreq = STATE.baseAudioFreq * Math.max(0.1, ratio);
+            
+            currentDopplerFreq = constrain(currentDopplerFreq, 50, 2000);
+            freqHistory.push({ t: realTime, f: currentDopplerFreq });
+
+            for (let i = waves.length - 1; i >= 0; i--) {
+                let w = waves[i];
+                let age = physTime - w.timeEmitted;
+                let radius = STATE.waveSpeed * age; 
+                let distToObserver = Math.abs(observerX - w.x); 
+                
+                if (!w.hit && w.prevRadius <= w.prevDist && radius > distToObserver) {
+                    w.hit = true;
+                    observerGlow = 25; 
+                    playBeep(currentDopplerFreq);
+                }
+
+                w.prevRadius = radius;
+                w.prevDist = distToObserver;
+
+                let radiusPx = radius * STATE.pixelScale;
+                if (radiusPx > max(width, height) * 2.0) {
+                    waves.splice(i, 1);
+                }
+            }
+        }
+
+        function drawFreqGraph() {
+            let gw = min(500, width * 0.8); 
+            let gh = 130;                   
+            let gx = width / 2 - gw / 2;
+            let gy = height - gh - 20;
+
+            push();
+            fill(255, 255, 255, 220);
+            stroke(0, 0, 0, 30);
+            strokeWeight(1);
+            rect(gx, gy, gw, gh, 12);
+
+            fill(50);
+            noStroke();
+            textAlign(CENTER, TOP);
+            textSize(14);
+            textStyle(BOLD);
+            text("頻率 - 時間分佈圖 (Hz vs Time)", width / 2, gy + 8);
+
+            const maxTimeSpan = 8; 
+            freqHistory = freqHistory.filter(pt => realTime - pt.t <= maxTimeSpan);
+
+            if (freqHistory.length > 0) {
+                let plotX = gx + 15;
+                let plotW = gw - 30;
+                let plotY = gy + 35;
+                let plotH = gh - 45;
+
+                stroke(0, 0, 0, 10);
+                strokeWeight(1);
+                line(plotX, plotY + plotH/2, plotX + plotW, plotY + plotH/2);
+
+                stroke(216, 27, 96); 
+                strokeWeight(2.5);
+                noFill();
+                beginShape();
+                for (let pt of freqHistory) {
+                    let px = map(pt.t, realTime - maxTimeSpan, realTime, plotX, plotX + plotW);
+                    let py = map(pt.f, 100, 600, plotY + plotH, plotY);
+                    py = constrain(py, plotY, plotY + plotH);
+                    vertex(px, py);
+                }
+                endShape();
+                
+                noStroke();
+                fill(100);
+                textAlign(LEFT, BOTTOM);
+                textSize(13);
+                text(`相對靜止頻率 = ${STATE.baseAudioFreq.toFixed(1)} Hz`, gx + 15, gy + gh - 8);
+
+                let curF = freqHistory[freqHistory.length - 1].f;
+                fill(0, 151, 167); 
+                textAlign(RIGHT, BOTTOM);
+                textSize(16);
+                text(`接收頻率: ${curF.toFixed(1)} Hz`, gx + gw - 15, gy + gh - 8);
+            }
+            pop();
+        }
+
+        function drawBackground(camOffsetPx, paneWidth) {
+            stroke(0, 0, 0, 40);
+            strokeWeight(2);
+            line(camOffsetPx - paneWidth, height/2 + 20, camOffsetPx + paneWidth, height/2 + 20);
+
+            let buffer = 400;
+            let viewLeft = camOffsetPx - paneWidth / 2 - buffer;
+            let viewRight = camOffsetPx + paneWidth / 2 + buffer;
+
+            noStroke();
+            drawingContext.shadowBlur = 0;
+            
+            let templateWidth = 5000 * STATE.pixelScale;
+            let startCycle = Math.floor(viewLeft / templateWidth);
+            let endCycle = Math.floor(viewRight / templateWidth);
+
+            for (let cycle = startCycle; cycle <= endCycle; cycle++) {
+                let cycleOffset = cycle * templateWidth;
+                
+                for (let t of trees) {
+                    let tPx = t.x * STATE.pixelScale + cycleOffset;
+                    let wPx = t.w * STATE.pixelScale;
+                    
+                    if (tPx + wPx > viewLeft && tPx - wPx < viewRight) {
+                        fill('#78350f');
+                        rect(tPx - t.trunkW/2, height/2 + 20 - t.h * 0.3, t.trunkW, t.h * 0.3);
+                        fill(t.col);
+                        triangle(tPx, height/2 + 20 - t.h, tPx - wPx/2, height/2 + 20 - t.h * 0.2, tPx + wPx/2, height/2 + 20 - t.h * 0.2);
+                    }
+                }
+            }
+        }
+
+        function drawEntities() {
+            noFill();
+            for (let w of waves) {
+                let age = simTime - w.timeEmitted;
+                let radiusPx = STATE.waveSpeed * age * STATE.pixelScale; 
+                let alpha = 180; 
+                
+                if (alpha > 0) {
+                    stroke(216, 27, 96, alpha); 
+                    strokeWeight(2);
+                    drawingContext.shadowBlur = 0; 
+                    circle(w.x * STATE.pixelScale, sourceY, radiusPx * 2);
+                }
+            }
+
+            drawEntity(sourceX * STATE.pixelScale, sourceY, '#d81b60', 15 + sourceGlow * 0.3, sourceGlow);
+            drawEntity(observerX * STATE.pixelScale, observerY, '#0097a7', 15 + observerGlow * 0.3, observerGlow);
+            
+            drawVelocityVector(sourceX * STATE.pixelScale, sourceY, STATE.vSource, '#d81b60');
+            drawVelocityVector(observerX * STATE.pixelScale, observerY, STATE.vObserver, '#0097a7');
+        }
+
+        function drawEntity(x, y, colorCode, radius, glowPower) {
+            noStroke();
+            fill(colorCode);
+            drawingContext.shadowBlur = 10 + glowPower * 2;
+            drawingContext.shadowColor = colorCode;
+            circle(x, y, radius * 2);
+        }
+
+        function drawVelocityVector(x, y, velocity, colorCode) {
+            if (Math.abs(velocity) < 0.5) return;
+            
+            drawingContext.shadowBlur = 0;
+            stroke(colorCode);
+            strokeWeight(4);
+            fill(colorCode);
+            
+            const length = velocity * 2.0; 
+            const endX = x + length;
+            
+            line(x, y, endX, y);
+            
+            const arrowSize = 16;
+            const dir = Math.sign(velocity);
+            triangle(
+                endX, y,
+                endX - dir * arrowSize, y - arrowSize * 0.8,
+                endX - dir * arrowSize, y + arrowSize * 0.8
+            );
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            sourceY = height / 2;
+            observerY = height / 2;
+            document.getElementById('label-observer').style.left = `calc(50vw + 20px)`;
+        }
+
+        function toggleFullScreen() {
+            const btn = document.getElementById('fullscreen-btn');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+                btn.innerText = '退出全螢幕';
+            } else {
+                document.exitFullscreen();
+                btn.innerText = '進入全螢幕';
+            }
+        }
+    </script>
+</body>
+</html>

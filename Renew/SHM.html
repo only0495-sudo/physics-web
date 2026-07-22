@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>高中物理 - 簡諧運動實驗室 (v7.4 角度修正版)</title>
+<style>
+  :root {
+    --primary: #6c5ce7;
+    --bg: #f4f7f6;
+    --panel-bg: #ffffff;
+    --color-x: #0984e3;
+    --color-v: #00b894;
+    --color-a: #d63031;
+    --color-ucm-light: #74b9ff;
+    --color-natural: #e67e22;
+    --color-pause: #f1c40f;
+  }
+
+  body {
+    font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif;
+    background-color: var(--bg);
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; margin: 0; padding: 10px;
+    overscroll-behavior: none;
+  }
+
+  .nav-bar {
+    display: flex; gap: 8px; margin-bottom: 10px; background: white;
+    padding: 6px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    flex-wrap: wrap; justify-content: center;
+  }
+  .nav-btn {
+    border: none; background: transparent; padding: 8px 16px;
+    font-size: 0.95rem; font-weight: bold; color: #888; cursor: pointer;
+    border-radius: 40px; transition: 0.3s; white-space: nowrap;
+  }
+  .nav-btn:hover { color: var(--primary); background: #f0f0f0; }
+  .nav-btn.active { background: var(--primary); color: white; box-shadow: 0 3px 8px rgba(108, 92, 231, 0.4); }
+
+  .main-container {
+    background: var(--panel-bg); padding: 15px; border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1); text-align: center;
+    width: 1100px; max-width: 100%; box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .mode-section { display: none; animation: fadeIn 0.3s ease; }
+  .mode-section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  h1 { margin: 5px 0; color: #2c3e50; font-size: 1.3rem; }
+  .subtitle { color: #636e72; margin-bottom: 10px; font-size: 0.9rem; line-height: 1.4; }
+
+  canvas {
+    background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+    cursor: default; touch-action: none; display: block; margin: 0 auto;
+    width: 100%; height: auto;
+  }
+
+  .controls { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .control-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+
+  .action-btn {
+    background: linear-gradient(135deg, #0984e3, #74b9ff); color: white; border: none;
+    padding: 6px 18px; font-size: 0.95rem; border-radius: 50px; cursor: pointer;
+    font-weight: bold; box-shadow: 0 3px 8px rgba(9, 132, 227, 0.3);
+    transition: transform 0.2s; white-space: nowrap;
+  }
+  .action-btn:hover { transform: translateY(-2px); }
+  
+  .reset-btn { background: linear-gradient(135deg, #d63031, #ff7675); }
+  
+  .pause-btn { background: linear-gradient(135deg, #f39c12, #f1c40f); color: white; min-width: 80px; }
+  .pause-btn.paused { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+
+  .unit-toggle-group { display: flex; gap: 0; background: #eee; padding: 2px; border-radius: 20px; border: 1px solid #ddd; }
+  .unit-btn { padding: 4px 12px; border-radius: 15px; cursor: pointer; font-size: 0.85rem; font-weight: bold; border: none; background: transparent; color: #666; }
+  .unit-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+  .angle-input-wrapper, .checkbox-group { display: flex; align-items: center; gap: 5px; background: #f8f9fa; padding: 4px 12px; border-radius: 20px; border: 1px solid #eee; }
+  .angle-input { width: 45px; padding: 3px; text-align: center; font-weight: bold; font-size: 0.95rem; border: 1px solid #ccc; border-radius: 4px; }
+  .cb-item { display: flex; align-items: center; font-weight: bold; cursor: pointer; font-size: 0.9rem; user-select: none; }
+  input[type="checkbox"], input[type="radio"] { margin-right: 5px; transform: scale(1.1); cursor: pointer; }
+
+  .lab-radio-group { display: flex; gap: 12px; background: #eee; padding: 6px 15px; border-radius: 20px; flex-wrap: wrap; justify-content: center; }
+  .lab-radio-label { display: flex; align-items: center; cursor: pointer; font-weight: bold; font-size: 0.9rem; user-select: none; }
+
+  .status-text { margin-top: 5px; font-weight: bold; color: var(--color-x); min-height: 20px; font-size: 0.9rem; }
+</style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+<div class="nav-bar">
+  <button class="nav-btn active" onclick="switchMode('vector')">模式一：投影原理</button>
+  <button class="nav-btn" onclick="switchMode('horiz')">模式二：水平彈簧</button>
+  <button class="nav-btn" onclick="switchMode('vert')">模式三：鉛直彈簧</button>
+</div>
+
+<div class="main-container">
+
+  <div id="mode-vector" class="mode-section active">
+    <h1>SHM 原理：圓周運動投影分析</h1>
+    <div class="subtitle">觀察 <span style="color:var(--color-ucm-light)">淺色箭頭(圓周運動)</span> 如何投影至 <span style="color:var(--color-x)">深色箭頭(簡諧運動)</span></div>
+
+    <canvas id="vectorCanvas"></canvas>
+
+    <div class="controls">
+      <div class="control-row">
+          <button class="action-btn" id="rotateBtn" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">旋轉視角 (3D)</button>
+          
+          <button class="action-btn pause-btn" id="btnPauseVec" onclick="togglePause('vector')">暫停</button>
+
+          <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
+            <label class="cb-item" style="color: var(--primary);">
+              <input type="checkbox" id="slowMoCheckVec"> 慢動作
+            </label>
+          </div>
+
+          <div class="unit-toggle-group">
+             <button class="unit-btn active" id="btnUnitDeg1" onclick="setAxisUnit('deg')">度 (Deg)</button>
+             <button class="unit-btn" id="btnUnitRad1" onclick="setAxisUnit('rad')">弧度 (Rad)</button>
+          </div>
+
+          <div class="angle-input-wrapper" style="background: #fff3cd; border-color: #ffeeba;">
+            <label class="cb-item" style="color: #856404;">
+              <input type="checkbox" id="pauseCheck"> 指定角度
+            </label>
+            <input type="number" id="angleInput" class="angle-input" value="45" min="0" max="720" step="15" disabled>
+            <span style="font-weight:bold; color:#856404">°</span>
+          </div>
+      </div>
+
+      <div class="checkbox-group">
+        <label class="cb-item" style="color:var(--color-x)"><input type="checkbox" id="checkDisp" checked> 位移 x</label>
+        <label class="cb-item" style="color:var(--color-v)"><input type="checkbox" id="checkVel"> 速度 v</label>
+        <label class="cb-item" style="color:var(--color-a)"><input type="checkbox" id="checkAcc"> 加速度 a</label>
+      </div>
+    </div>
+  </div>
+
+  <div id="mode-horiz" class="mode-section">
+    <h1>水平彈簧實驗</h1>
+    <div class="subtitle">拖曳木塊改變振幅，觀察 <span style="color:#e67e22; font-weight:bold;">右側圖形高度</span> 隨振幅變化</div>
+
+    <div class="controls" style="margin-bottom: 10px; margin-top: 0;">
+      <div class="control-row">
+        <div class="lab-radio-group">
+          <label class="lab-radio-label" style="color:var(--color-x)"><input type="radio" name="horizView" value="x" checked onchange="forceRender()"> 位移</label>
+          <label class="lab-radio-label" style="color:var(--color-v)"><input type="radio" name="horizView" value="v" onchange="forceRender()"> 速度</label>
+          <label class="lab-radio-label" style="color:var(--color-a)"><input type="radio" name="horizView" value="a" onchange="forceRender()"> 加速度</label>
+        </div>
+        <div class="unit-toggle-group">
+           <button class="unit-btn active" id="btnUnitDeg2" onclick="setAxisUnit('deg')">度</button>
+           <button class="unit-btn" id="btnUnitRad2" onclick="setAxisUnit('rad')">弧度</button>
+        </div>
+      </div>
+    </div>
+    <canvas id="horizCanvas"></canvas>
+    <div class="status-text" id="horizStatus">請拖曳木塊離開平衡點...</div>
+    <div class="controls">
+      <div class="control-row">
+        <button class="action-btn pause-btn" id="btnPauseHoriz" onclick="togglePause('horiz')">暫停</button>
+        <button class="action-btn reset-btn" id="resetHorizBtn">重置實驗</button>
+        <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
+            <label class="cb-item" style="color: var(--primary);">
+              <input type="checkbox" id="slowMoCheckHoriz"> 慢動作
+            </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mode-vert" class="mode-section">
+    <h1>鉛直彈簧實驗 (受力分析)</h1>
+    <div class="subtitle">比較 <span style="color:var(--color-natural); font-weight:bold;">彈簧原長</span> 與 <span style="color:#555; font-weight:bold;">平衡點</span>，觀察彈力變化</div>
+
+    <div class="controls" style="margin-bottom: 10px; margin-top: 0;">
+      <div class="control-row">
+        <div class="lab-radio-group">
+          <label class="lab-radio-label" style="color:var(--color-x)"><input type="radio" name="vertView" value="x" checked onchange="forceRender()"> 位移 y</label>
+          <label class="lab-radio-label" style="color:var(--color-v)"><input type="radio" name="vertView" value="v" onchange="forceRender()"> 速度 v</label>
+          <label class="lab-radio-label" style="color:var(--color-a)"><input type="radio" name="vertView" value="a" onchange="forceRender()"> 加速度 a</label>
+        </div>
+        <div class="unit-toggle-group">
+           <button class="unit-btn active" id="btnUnitDeg3" onclick="setAxisUnit('deg')">度</button>
+           <button class="unit-btn" id="btnUnitRad3" onclick="setAxisUnit('rad')">弧度</button>
+        </div>
+      </div>
+      <div class="control-row" style="margin-top:5px;">
+        <div class="lab-radio-group" style="background: #e3f2fd; border: 1px solid #90caf9;">
+          <span style="font-size:0.9rem; font-weight:bold; color:#555; margin-right:5px;">力向量顯示：</span>
+          <label class="lab-radio-label" style="color:#333" title="顯示重力(mg)與彈力(Fs)"><input type="radio" name="vertForceMode" value="component" checked onchange="forceRender()"> 分力 (mg + Fs)</label>
+          <label class="lab-radio-label" style="color:var(--color-force-net)" title="顯示淨回復力(F_net)"><input type="radio" name="vertForceMode" value="net" onchange="forceRender()"> 合力 (回復力)</label>
+        </div>
+      </div>
+    </div>
+    <canvas id="vertCanvas"></canvas>
+    <div class="status-text" id="vertStatus">請拖曳木塊離開平衡點...</div>
+    <div class="controls">
+       <div class="control-row">
+        <button class="action-btn pause-btn" id="btnPauseVert" onclick="togglePause('vert')">暫停</button>
+        <button class="action-btn reset-btn" id="resetVertBtn">重置實驗</button>
+        <div class="checkbox-group" style="background: #e3f2fd; border-color: #bbdefb;">
+            <label class="cb-item" style="color: var(--primary);">
+              <input type="checkbox" id="slowMoCheckVert"> 慢動作
+            </label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ================= 全域控制 =================
+  let currentMode = 'vector';
+  let vectorAnimId, horizAnimId, vertAnimId;
+  let axisUnit = 'deg';
+  const MAX_PHYS_DISPLACEMENT = 200; 
+
+  // 暫停狀態管理
+  let isPausedVec = false;
+  let isPausedHoriz = false;
+  let isPausedVert = false;
+
+  function isMobile() { return window.innerWidth < 900; }
+  function resizeCanvas() {
+    const w = document.querySelector('.main-container').clientWidth - 20;
+    const h = isMobile() ? 650 : 500;
+    ['vectorCanvas', 'horizCanvas', 'vertCanvas'].forEach(id => {
+      const c = document.getElementById(id); if(c) { c.width = w; c.height = h; }
+    });
+  }
+  window.addEventListener('resize', () => { resizeCanvas(); forceRender(); });
+  resizeCanvas();
+
+  function forceRender() {
+    if(currentMode === 'horiz' && !horizIsAnimating) renderHorizFrame();
+    if(currentMode === 'vert' && !vertIsAnimating) renderVertFrame();
+  }
+
+  function togglePause(mode) {
+      if(mode === 'vector') {
+          isPausedVec = !isPausedVec;
+          updatePauseBtn('btnPauseVec', isPausedVec);
+      } else if(mode === 'horiz') {
+          isPausedHoriz = !isPausedHoriz;
+          updatePauseBtn('btnPauseHoriz', isPausedHoriz);
+      } else if(mode === 'vert') {
+          isPausedVert = !isPausedVert;
+          updatePauseBtn('btnPauseVert', isPausedVert);
+      }
+  }
+
+  function updatePauseBtn(id, isPaused) {
+      const btn = document.getElementById(id);
+      if(isPaused) {
+          btn.textContent = "繼續";
+          btn.classList.add('paused');
+      } else {
+          btn.textContent = "暫停";
+          btn.classList.remove('paused');
+      }
+  }
+
+  function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.mode-section').forEach(sec => sec.classList.remove('active'));
+    if(vectorAnimId) cancelAnimationFrame(vectorAnimId);
+    if(horizAnimId) cancelAnimationFrame(horizAnimId);
+    if(vertAnimId) cancelAnimationFrame(vertAnimId);
+    
+    if (mode === 'vector') {
+      document.querySelector('button[onclick="switchMode(\'vector\')"]').classList.add('active');
+      document.getElementById('mode-vector').classList.add('active');
+      vectorLoop();
+    } else if (mode === 'horiz') {
+      document.querySelector('button[onclick="switchMode(\'horiz\')"]').classList.add('active');
+      document.getElementById('mode-horiz').classList.add('active');
+      horizLoop();
+    } else {
+      document.querySelector('button[onclick="switchMode(\'vert\')"]').classList.add('active');
+      document.getElementById('mode-vert').classList.add('active');
+      vertLoop();
+    }
+  }
+
+  function setAxisUnit(unit) {
+    axisUnit = unit;
+    ['1','2','3'].forEach(id => {
+        document.getElementById('btnUnitDeg'+id).classList.toggle('active', unit === 'deg');
+        document.getElementById('btnUnitRad'+id).classList.toggle('active', unit === 'rad');
+    });
+    forceRender();
+  }
+
+  // ================= 繪圖工具庫 =================
+  function drawArrow(ctx, fromX, fromY, vecX, vecY, color, label, lineWidth=3, style='solid') {
+    const toX = fromX + vecX; const toY = fromY + vecY;
+    const len = Math.sqrt(vecX*vecX + vecY*vecY);
+    if (len < 1 && style!=='ghost') return {x: toX, y: toY};
+    
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lineWidth;
+    
+    if (style === 'ghost') { 
+        ctx.globalAlpha = 0.5; 
+    } else if (style === 'dashed') { 
+        ctx.setLineDash([5, 3]); ctx.globalAlpha = 0.6; 
+    } else { 
+        ctx.globalAlpha = 1.0; ctx.setLineDash([]); 
+    }
+    
+    ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+    
+    const angle = Math.atan2(vecY, vecX); const headLen = 8 + lineWidth;
+    ctx.beginPath(); ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI/6), toY - headLen * Math.sin(angle - Math.PI/6));
+    ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI/6), toY - headLen * Math.sin(angle + Math.PI/6));
+    ctx.closePath(); ctx.fill();
+    
+    if (label && style !== 'ghost' && style !== 'dashed') {
+      ctx.font = "bold 15px Arial";
+      let textY = toY - 10; if (vecY > 0) textY = toY + 20; 
+      const w = ctx.measureText(label).width; ctx.fillText(label, toX - w/2, textY);
+    }
+    ctx.restore(); return {x: toX, y: toY};
+  }
+
+  function drawDashedLine(ctx, x1, y1, x2, y2, color="#999") {
+    ctx.save();
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCycleGraph(ctx, currentPhase, x, y, w, h, config, overrideScale) {
+      const mid = y + h/2; const graphW = w - 50; const startX = x + 40; 
+      ctx.save();
+      // 背景
+      ctx.fillStyle="#fff"; ctx.fillRect(x,y,w,h);
+      ctx.beginPath(); ctx.strokeStyle="#ddd"; ctx.lineWidth=1;
+      ctx.moveTo(startX, y + 10); ctx.lineTo(startX, y+h - 10); 
+      ctx.moveTo(startX, mid); ctx.lineTo(startX + graphW, mid); ctx.stroke();
+
+      let formulaArg = (axisUnit === 'deg') ? "θ" : "ωt";
+      let formulaText = config.formulaBase + formulaArg + (config.formulaSuffix || "");
+      ctx.fillStyle = config.color; ctx.font = "bold 14px Arial"; ctx.textAlign = "left";
+      ctx.fillText(config.label, x + 5, y + 20);
+      ctx.font = "italic 16px Times New Roman"; ctx.fillStyle = "#555"; ctx.textAlign = "right";
+      ctx.fillText(formulaText, x + w - 5, y + 20);
+
+      ctx.font = "10px Arial"; ctx.fillStyle = "#888"; ctx.textAlign = "center";
+      const steps = 4;
+      for (let i = 0; i <= steps; i++) {
+          const ratio = i / steps; const px = startX + ratio * graphW;
+          ctx.beginPath(); ctx.strokeStyle = "#f0f0f0"; 
+          ctx.moveTo(px, y+10); ctx.lineTo(px, y+h-10); ctx.stroke();
+          let txt = "";
+          if (axisUnit === 'deg') txt = (i * 90) + "°"; else { const labels = ["0", "π/2", "π", "3π/2", "2π"]; txt = labels[i]; }
+          ctx.fillText(txt, px, mid + 15);
+      }
+
+      let scale = (overrideScale !== undefined) ? overrideScale : h*0.4;
+      
+      const maxPossibleScale = (h*0.45); 
+      if(overrideScale !== undefined) {
+          ctx.beginPath(); ctx.strokeStyle = "#eee"; ctx.lineWidth = 1;
+          ctx.rect(startX, mid - maxPossibleScale, graphW, maxPossibleScale*2);
+          ctx.stroke();
+      } else {
+           ctx.beginPath(); ctx.strokeStyle = "#eee"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+           drawCurvePoints(ctx, startX, mid, graphW, config, 100, 2*Math.PI, scale);
+           ctx.stroke(); ctx.setLineDash([]); 
+      }
+
+      if (Math.abs(scale) > 0.5) {
+        ctx.beginPath(); ctx.strokeStyle = config.color; ctx.lineWidth = 2;
+        drawCurvePoints(ctx, startX, mid, graphW, config, 100, currentPhase, scale);
+        ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.strokeStyle = config.color; ctx.lineWidth = 2;
+        ctx.moveTo(startX, mid); ctx.lineTo(startX + (currentPhase / (Math.PI*2)) * graphW, mid);
+        ctx.stroke();
+      }
+
+      let curVal = getFuncVal(config.type, currentPhase);
+      const curPx = startX + (currentPhase / (Math.PI*2)) * graphW;
+      const curPy = mid - curVal * scale;
+      ctx.beginPath(); ctx.arc(curPx, curPy, 5, 0, Math.PI*2); ctx.fillStyle=config.color; ctx.fill();
+      ctx.restore();
+  }
+
+  function getFuncVal(type, angle) {
+      if (type === 'cos') return Math.cos(angle);
+      if (type === 'neg_sin') return -Math.sin(angle);
+      if (type === 'neg_cos') return -Math.cos(angle); return 0;
+  }
+
+  function drawCurvePoints(ctx, startX, mid, graphW, config, steps, maxAngle, scale) {
+      for (let i = 0; i <= steps; i++) {
+          const ratio = i / steps; const angle = ratio * Math.PI * 2;
+          if (angle > maxAngle && maxAngle > 0.1) break; 
+          let val = getFuncVal(config.type, angle);
+          const px = startX + ratio * graphW;
+          const py = mid - val * scale;
+          if (i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+  }
+
+  function drawCoilSpring(ctx, sx, sy, ex, ey, coils, width) {
+    const dx = ex - sx; const dy = ey - sy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < 5) return;
+    ctx.save(); ctx.beginPath(); ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.lineWidth = 3;
+    const stretch = dist / (coils * 10); 
+    const r = Math.min(255, 60 + stretch * 150);
+    ctx.strokeStyle = `rgb(${r}, 80, 80)`;
+    const ux = dx/dist; const uy = dy/dist; const nx = -uy; const ny = ux;
+    const pad = 20; let curX = sx + ux*pad; let curY = sy + uy*pad;
+    ctx.moveTo(sx, sy); ctx.lineTo(curX, curY);
+    const activeLen = dist - pad*2; const step = activeLen / coils;
+    for(let i=0; i<coils; i++){
+       const p1x = curX + ux*(step*0.25) + nx*width; const p1y = curY + uy*(step*0.25) + ny*width;
+       const p2x = curX + ux*(step*0.75) - nx*width; const p2y = curY + uy*(step*0.75) - ny*width;
+       const p3x = curX + ux*step; const p3y = curY + uy*step;
+       ctx.lineTo(p1x, p1y); ctx.lineTo(p2x, p2y); ctx.lineTo(p3x, p3y);
+       curX = p3x; curY = p3y;
+    }
+    ctx.lineTo(ex, ey); ctx.stroke(); ctx.restore();
+  }
+
+
+  // ================= 模式一 (Vector Mode) =================
+  const vCanvas = document.getElementById('vectorCanvas');
+  const vCtx = vCanvas.getContext('2d');
+  const vBaseOmega = 0.02; 
+  let vTime = 0; let vViewAngle = 0; let vTargetAngle = 0; let vIsSpecifyAngle = false;
+
+  const btnRotate = document.getElementById('rotateBtn');
+  const chkPause = document.getElementById('pauseCheck');
+  const chkSlowMoVec = document.getElementById('slowMoCheckVec'); 
+  const inpAngle = document.getElementById('angleInput');
+  const chkDisp = document.getElementById('checkDisp');
+  const chkVel = document.getElementById('checkVel');
+  const chkAcc = document.getElementById('checkAcc');
+
+  btnRotate.addEventListener('click', (e) => {
+    vTargetAngle = (vTargetAngle === 0) ? 1 : 0;
+    e.target.textContent = (vTargetAngle === 1) ? "回到側面視角" : "旋轉視角 (3D)";
+  });
+  chkPause.addEventListener('change', () => {
+    vIsSpecifyAngle = chkPause.checked; inpAngle.disabled = !vIsSpecifyAngle;
+    if(vIsSpecifyAngle) {
+       let deg = Math.round(((vTime * vBaseOmega) % (Math.PI*2)) * 180 / Math.PI);
+       if(deg<0) deg+=360; inpAngle.value = deg;
+       document.getElementById('btnPauseVec').style.opacity = '0.5';
+    } else {
+       document.getElementById('btnPauseVec').style.opacity = '1';
+    }
+  });
+
+  function vectorLoop() {
+    if (currentMode !== 'vector') return;
+    const w = vCanvas.width; const h = vCanvas.height;
+    vCtx.clearRect(0, 0, w, h);
+    vViewAngle += (vTargetAngle - vViewAngle) * 0.05;
+
+    let splitX, graphW, graphX, chartH, cx, cy;
+    if (isMobile()) {
+        splitX = 0; cx = w / 2; cy = h * 0.3;
+        graphX = 0; graphW = w; chartH = (h * 0.6) / 3;
+    } else {
+        splitX = w * 0.5; cx = splitX / 2; cy = h / 2 + 20;
+        graphX = splitX; graphW = w - splitX; chartH = h / 3;
+    }
+
+    // 計算最大可用半徑
+    let maxR = Math.min(isMobile() ? w : splitX, h) * 0.45; 
+    if (!isMobile() && maxR > splitX/2 - 20) maxR = splitX/2 - 20;
+    const vR = maxR; 
+
+    const speedMultiplier = chkSlowMoVec.checked ? 0.2 : 1.0;
+    let theta;
+    if (vIsSpecifyAngle) {
+        let deg = parseFloat(inpAngle.value) || 0;
+        theta = deg * Math.PI / 180; vTime = theta / vBaseOmega;
+    } else {
+        if (!isPausedVec) {
+            vTime += speedMultiplier;
+        }
+        theta = vBaseOmega * vTime;
+    }
+    const currentPhase = theta % (Math.PI * 2);
+    const cosT = Math.cos(theta); const sinT = Math.sin(theta);
+    
+    const rX = vR * cosT; 
+    const rY_3d = -vR * sinT * vViewAngle; 
+    
+    const ucmX = cx + rX; 
+    const ucmY = cy + rY_3d;
+    const shmX = cx + rX; 
+    const shmY = cy; 
+
+    // 畫軌道圓盤
+    vCtx.beginPath(); vCtx.ellipse(cx, cy, vR, vR*vViewAngle, 0, 0, Math.PI*2);
+    vCtx.strokeStyle="#e0e0e0"; vCtx.lineWidth=2; vCtx.stroke();
+    
+    // --- 修正: 畫 3D 視角下的夾角扇形與文字 ---
+    if (vViewAngle > 0.05) {
+        vCtx.save();
+        vCtx.beginPath();
+        vCtx.moveTo(cx, cy); // 關鍵修正：必須回到圓心，才能畫出扇形
+
+        let drawPhase = currentPhase % (Math.PI * 2);
+        
+        // 畫扇形 (逆時針方向)
+        vCtx.ellipse(cx, cy, vR*0.25, (vR*0.25)*vViewAngle, 0, 0, -drawPhase, true);
+        
+        vCtx.fillStyle = "rgba(255, 200, 0, 0.5)"; // 半透明黃色
+        vCtx.fill();
+
+        // --- 繪製 θ 文字 ---
+        let midAngle = -drawPhase / 2;
+        let textR = vR * 0.35; // 文字半徑
+        
+        let tx = cx + textR * Math.cos(midAngle);
+        let ty = cy + textR * Math.sin(midAngle) * vViewAngle;
+
+        vCtx.fillStyle = "#e67e22";
+        vCtx.font = "bold 18px Times New Roman";
+        vCtx.textAlign = "center";
+        vCtx.textBaseline = "middle";
+        vCtx.fillText("θ", tx, ty);
+
+        vCtx.restore();
+    }
+    // --------------------------------
+
+    // 畫 X 軸
+    vCtx.beginPath(); vCtx.moveTo(isMobile()?0:0, cy); vCtx.lineTo(isMobile()?w:splitX, cy); 
+    vCtx.strokeStyle="#bbb"; vCtx.stroke();
+
+    if (vViewAngle > 0.05) {
+        drawDashedLine(vCtx, ucmX, ucmY, shmX, shmY);
+    }
+
+    vCtx.beginPath(); vCtx.arc(ucmX, ucmY, 8, 0, Math.PI*2);
+    vCtx.fillStyle="#b2bec3"; vCtx.fill(); vCtx.strokeStyle="#888"; vCtx.stroke(); 
+    
+    vCtx.beginPath(); vCtx.arc(shmX, shmY, 12, 0, Math.PI*2);
+    vCtx.fillStyle="#2c3e50"; vCtx.fill(); vCtx.strokeStyle="white"; vCtx.stroke(); 
+
+    // 1. 位移
+    if (chkDisp.checked) {
+       drawArrow(vCtx, cx, cy, rX, 0, "#0984e3", "x", 3);
+       const endU = drawArrow(vCtx, cx, cy, rX, rY_3d, "#74b9ff", null, 3, 'solid');
+       drawDashedLine(vCtx, endU.x, endU.y, cx + rX, cy);
+    }
+
+    // 2. 速度
+    const vMag = vR * vBaseOmega * 25; 
+    const vx_u = -vMag * sinT; 
+    const vy_u = -vMag * cosT * vViewAngle; 
+    const vx_shm = vx_u; 
+
+    if (chkVel.checked) {
+       const endV_U = drawArrow(vCtx, ucmX, ucmY, vx_u, vy_u, "#55efc4", null, 3, 'solid');
+       const endV_S = drawArrow(vCtx, shmX, shmY, vx_shm, 0, "#00b894", "v", 3);
+       drawDashedLine(vCtx, endV_U.x, endV_U.y, endV_S.x, endV_S.y);
+    }
+
+    // 3. 加速度
+    const aMag = vR * vBaseOmega * vBaseOmega * 1500; 
+    const ax_u = -aMag * cosT;
+    const ay_u = aMag * sinT * vViewAngle; 
+    const ax_shm = ax_u;
+
+    if (chkAcc.checked) {
+       const endA_U = drawArrow(vCtx, ucmX, ucmY, ax_u, ay_u, "#ff7675", null, 3, 'solid');
+       const endA_S = drawArrow(vCtx, shmX, shmY, ax_shm, 0, "#d63031", "a", 3);
+       drawDashedLine(vCtx, endA_U.x, endA_U.y, endA_S.x, endA_S.y);
+    }
+
+    const startY = isMobile() ? (h * 0.4) : 0; 
+    drawCycleGraph(vCtx, currentPhase, graphX, startY, graphW, chartH, {
+        label: "位移 (Displacement)", color: "#0984e3", formulaBase: "x = R cos ", type: "cos"
+    });
+    drawCycleGraph(vCtx, currentPhase, graphX, startY + chartH, graphW, chartH, {
+        label: "速度 (Velocity)", color: "#00b894", formulaBase: "v = -Rω sin ", type: "neg_sin"
+    });
+    drawCycleGraph(vCtx, currentPhase, graphX, startY + chartH*2, graphW, chartH, {
+        label: "加速度 (Acceleration)", color: "#d63031", formulaBase: "a = -Rω² cos ", type: "neg_cos"
+    });
+    vectorAnimId = requestAnimationFrame(vectorLoop);
+  }
+
+  // ================= 模式二 (Horizontal) =================
+  const hCanvas = document.getElementById('horizCanvas');
+  const hCtx = hCanvas.getContext('2d');
+  const chkSlowMoHoriz = document.getElementById('slowMoCheckHoriz'); 
+  let hEqX = 250, hFloorY = 300, hWallX = 30;
+  let hBlockX = 250; let hAmp = 0; let hIsDragging = false;
+  let hIsAnimating = false; let hTime = 0;
+  const hStatus = document.getElementById('horizStatus');
+  const hResetBtn = document.getElementById('resetHorizBtn');
+  const hRadios = document.getElementsByName('horizView');
+  function getHorizView() { for(const r of hRadios) if(r.checked) return r.value; return 'x'; }
+
+  function horizLoop() {
+    if (currentMode !== 'horiz') return;
+    if (hIsAnimating && !isPausedHoriz) { 
+        const speed = chkSlowMoHoriz.checked ? 0.4 : 2.5;
+        hTime += speed; 
+        
+        const t_sec = hTime * 0.5; 
+        const x = hAmp * Math.cos(vBaseOmega * t_sec); 
+        hBlockX = hEqX + x; 
+        hStatus.textContent = `位移 x = ${Math.round(x)}`; 
+    }
+    renderHorizFrame(); 
+    horizAnimId = requestAnimationFrame(horizLoop);
+  }
+  function renderHorizFrame() {
+    const w = hCanvas.width; const h = hCanvas.height; hCtx.clearRect(0,0,w,h);
+    let animW, animH, graphX, graphY, graphW, graphH, hSplitX;
+    if (isMobile()) { animW=w; animH=h*0.5; hSplitX=0; graphX=0; graphY=animH; graphW=w; graphH=h-animH; hWallX=30; hEqX=w/2; hFloorY=animH-50; } 
+    else { hSplitX=w*0.5; animW=hSplitX; animH=h; graphX=hSplitX; graphY=0; graphW=w-hSplitX; graphH=h; hWallX=30; hEqX=hSplitX/2; hFloorY=h/2+50; }
+    if(!hIsDragging && !hIsAnimating && hAmp===0) hBlockX = hEqX;
+
+    hCtx.save(); hCtx.fillStyle="#fafafa"; hCtx.fillRect(0,0,animW,animH);
+    hCtx.fillStyle="#b2bec3"; hCtx.fillRect(0, hFloorY-100, hWallX, 100);
+    hCtx.strokeStyle="#333"; hCtx.lineWidth=2; hCtx.beginPath(); hCtx.moveTo(0, hFloorY); hCtx.lineTo(animW, hFloorY); hCtx.stroke();
+    hCtx.beginPath(); hCtx.setLineDash([5,5]); hCtx.strokeStyle="#bbb"; hCtx.moveTo(hEqX, 50); hCtx.lineTo(hEqX, hFloorY+30); hCtx.stroke(); hCtx.setLineDash([]);
+    hCtx.fillStyle="#888"; hCtx.fillText("x=0", hEqX-10, hFloorY+25);
+    
+    drawCoilSpring(hCtx, hWallX, hFloorY-30, hBlockX-30, hFloorY-30, 10, 10);
+
+    hCtx.fillStyle = hIsDragging ? "#74b9ff" : "#0984e3"; hCtx.fillRect(hBlockX-30, hFloorY-60, 60, 60);
+    hCtx.strokeStyle="#2d3436"; hCtx.lineWidth=2; hCtx.strokeRect(hBlockX-30, hFloorY-60, 60, 60);
+
+    const dx = hBlockX - hEqX; let vx = 0, ax = 0; const t_sec = hTime * 0.5;
+    if (hIsAnimating) { vx = -hAmp * vBaseOmega * Math.sin(vBaseOmega * t_sec); ax = -hAmp * vBaseOmega * vBaseOmega * Math.cos(vBaseOmega * t_sec); } else { ax = -0.01 * dx / 2; } 
+    const view = getHorizView();
+    
+    if(view==='x') drawArrow(hCtx, hEqX, hFloorY+40, dx, 0, "#0984e3", "x", 4);
+    else if(view==='v' && hIsAnimating) drawArrow(hCtx, hBlockX, hFloorY-70, vx*25, 0, "#00b894", "v", 4);
+    else if(view==='a') drawArrow(hCtx, hBlockX, hFloorY-80, ax*3000, 0, "#d63031", "a", 4);
+    hCtx.restore();
+
+    const currentPhysAmp = hIsAnimating ? hAmp : Math.abs(dx);
+    const maxGraphHeight = graphH * 0.45;
+    const realScale = (currentPhysAmp / MAX_PHYS_DISPLACEMENT) * maxGraphHeight;
+
+    const phase = (vBaseOmega * t_sec) % (Math.PI*2); let cfg = {};
+    if (view === 'x') cfg = { label: "x-t", color: "#0984e3", formulaBase: "x = A cos ", type: "cos" };
+    else if (view === 'v') cfg = { label: "v-t", color: "#00b894", formulaBase: "v = -Aω sin ", type: "neg_sin" };
+    else cfg = { label: "a-t", color: "#d63031", formulaBase: "a = -Aω² cos ", type: "neg_cos" }; 
+    
+    drawCycleGraph(hCtx, phase, graphX, graphY, graphW, graphH, cfg, realScale);
+  }
+  hCanvas.addEventListener('mousedown', hStart); hCanvas.addEventListener('touchstart', hStart, {passive:false});
+  window.addEventListener('mousemove', hMove); window.addEventListener('touchmove', hMove, {passive:false});
+  window.addEventListener('mouseup', hEnd); window.addEventListener('touchend', hEnd);
+  
+  hResetBtn.addEventListener('click', () => { 
+      hIsAnimating = false; hIsDragging = false; 
+      isPausedHoriz = false; updatePauseBtn('btnPauseHoriz', false);
+      hBlockX = hEqX; hTime = 0; hStatus.textContent = "請拖曳木塊..."; 
+      renderHorizFrame(); 
+  });
+  
+  function hStart(e) { if (currentMode !== 'horiz' || hIsAnimating) return; const r = hCanvas.getBoundingClientRect(); const x = (e.clientX || e.touches[0].clientX) - r.left; const px = x*(hCanvas.width/r.width); if (px >= hBlockX - 30 && px <= hBlockX + 30) { hIsDragging = true; hStatus.textContent = "設定振幅中..."; e.preventDefault(); }}
+  function hMove(e) { if (currentMode !== 'horiz' || !hIsDragging) return; const r = hCanvas.getBoundingClientRect(); const x = (e.clientX || e.touches[0].clientX) - r.left; let mx = x*(hCanvas.width/r.width); if (mx < hWallX + 40) mx = hWallX + 40; if (mx > hCanvas.width - 40) mx = hCanvas.width - 40; hBlockX = mx; renderHorizFrame(); e.preventDefault(); }
+  function hEnd(e) { if (currentMode !== 'horiz' || !hIsDragging) return; hIsDragging = false; let disp = hBlockX - hEqX; if (Math.abs(disp) < 2) { hBlockX = hEqX; hStatus.textContent = "位移太小"; renderHorizFrame(); } else { hAmp = disp; hTime = 0; hIsAnimating = true; }}
+
+  // ================= 模式三 (Vert) =================
+  const zCanvas = document.getElementById('vertCanvas');
+  const zCtx = zCanvas.getContext('2d');
+  const chkSlowMoVert = document.getElementById('slowMoCheckVert'); 
+  let zEqY = 300, zCeilY = 50, zAnchorX = 250;
+  let zBlockY = 300; let zAmp = 0; let zIsDragging = false;
+  let zIsAnimating = false; let zTime = 0;
+  const zStatus = document.getElementById('vertStatus');
+  const zResetBtn = document.getElementById('resetVertBtn');
+  const zRadios = document.getElementsByName('vertView');
+  const zForceRadios = document.getElementsByName('vertForceMode');
+  function getVertView() { for(const r of zRadios) if(r.checked) return r.value; return 'x'; }
+  function getForceMode() { for(const r of zForceRadios) if(r.checked) return r.value; return 'component'; }
+
+  function vertLoop() {
+    if (currentMode !== 'vert') return;
+    if (zIsAnimating && !isPausedVert) { 
+        const speed = chkSlowMoVert.checked ? 0.4 : 2.5;
+        zTime += speed; 
+        
+        const t_sec = zTime * 0.5; 
+        const y = zAmp * Math.cos(vBaseOmega * t_sec); 
+        zBlockY = zEqY + y; 
+        const f = -y * 0.5; 
+        zStatus.textContent = `位移 y = ${Math.round(y)} | 合力 F_net ≈ ${Math.round(f)}`; 
+    }
+    renderVertFrame(); vertAnimId = requestAnimationFrame(vertLoop);
+  }
+  function renderVertFrame() {
+    const w = zCanvas.width; const h = zCanvas.height; zCtx.clearRect(0,0,w,h);
+    let animW, animH, graphX, graphY, graphW, graphH, zSplitX;
+    if (isMobile()) { animW=w; animH=h*0.6; zSplitX=0; graphX=0; graphY=animH; graphW=w; graphH=h-animH; zAnchorX=w/2; zCeilY=30; zEqY=animH/2+30; } 
+    else { zSplitX=w*0.5; animW=zSplitX; animH=h; graphX=zSplitX; graphY=0; graphW=w-zSplitX; graphH=h; zAnchorX=zSplitX/2; zCeilY=40; zEqY=h/2; }
+    if(!zIsDragging && !zIsAnimating && zAmp===0) zBlockY = zEqY;
+
+    const naturalLen = (zEqY - zCeilY) - 80; 
+    const naturalY = zCeilY + naturalLen;
+
+    zCtx.save(); zCtx.fillStyle="#fafafa"; zCtx.fillRect(0,0,animW,animH);
+    zCtx.fillStyle="#b2bec3"; zCtx.fillRect(zAnchorX-60, zCeilY-10, 120, 10);
+    zCtx.beginPath(); zCtx.setLineDash([5,5]); zCtx.lineWidth=2; zCtx.strokeStyle="var(--color-natural)"; 
+    zCtx.moveTo(zAnchorX-120, naturalY); zCtx.lineTo(zAnchorX+120, naturalY); zCtx.stroke(); 
+    zCtx.fillStyle="var(--color-natural)"; zCtx.fillText("原長 (L0)", zAnchorX+125, naturalY+4);
+    zCtx.beginPath(); zCtx.strokeStyle="#bbb"; zCtx.lineWidth=1;
+    zCtx.moveTo(zAnchorX-100, zEqY); zCtx.lineTo(zAnchorX+100, zEqY); zCtx.stroke(); zCtx.setLineDash([]);
+    zCtx.fillStyle="#888"; zCtx.fillText("平衡點 (y=0)", zAnchorX+105, zEqY+4);
+
+    drawCoilSpring(zCtx, zAnchorX, zCeilY, zAnchorX, zBlockY-30, 14, 12);
+
+    zCtx.fillStyle = zIsDragging ? "#74b9ff" : "#0984e3"; zCtx.fillRect(zAnchorX-30, zBlockY-30, 60, 60);
+    zCtx.strokeStyle="#2d3436"; zCtx.lineWidth=2; zCtx.strokeRect(zAnchorX-30, zBlockY-30, 60, 60);
+
+    const dy = zBlockY - zEqY; const forceMode = getForceMode(); const fx = zAnchorX - 60;
+    const Fg = 80; const k_vis = 1; 
+    
+    if (forceMode === 'component') {
+        drawArrow(zCtx, fx, zBlockY, 0, Fg, "var(--color-force-g)", "mg", 3);
+        const extension = (zBlockY-30) - zCeilY - naturalLen;
+        const Fs_mag = extension * k_vis; 
+        if(Math.abs(Fs_mag)>1) drawArrow(zCtx, fx-15, zBlockY, 0, -Fs_mag, "var(--color-force-s)", "Fs", 3);
+    } else {
+        const Fnet = -dy * k_vis; 
+        if (Math.abs(Fnet) > 2) drawArrow(zCtx, fx, zBlockY, 0, Fnet, "var(--color-force-net)", "F_net", 4);
+    }
+
+    const view = getVertView(); const vecX = zAnchorX + 60; const t_sec = zTime * 0.5; let vy = 0, ay = 0;
+    if (zIsAnimating) { vy = -zAmp * vBaseOmega * Math.sin(vBaseOmega * t_sec); ay = -zAmp * vBaseOmega * vBaseOmega * Math.cos(vBaseOmega * t_sec); }
+    
+    if(view==='x') drawArrow(zCtx, vecX, zEqY, 0, dy, "#0984e3", "y", 4);
+    else if(view==='v' && zIsAnimating) drawArrow(zCtx, vecX, zBlockY, 0, vy*25, "#00b894", "v", 4);
+    else if(view==='a') drawArrow(zCtx, vecX, zBlockY, 0, ay*3000, "#d63031", "a", 4);
+    zCtx.restore();
+
+    const currentPhysAmp = zIsAnimating ? zAmp : Math.abs(dy);
+    const maxGraphHeight = graphH * 0.45;
+    const realScale = (currentPhysAmp / MAX_PHYS_DISPLACEMENT) * maxGraphHeight;
+
+    const phase = (vBaseOmega * t_sec) % (Math.PI*2); let cfg = {};
+    if (view === 'x') cfg = { label: "y-t", color: "#0984e3", formulaBase: "y = A cos ", type: "cos" };
+    else if (view === 'v') cfg = { label: "v-t", color: "#00b894", formulaBase: "v = -Aω sin ", type: "neg_sin" };
+    else cfg = { label: "a-t", color: "#d63031", formulaBase: "a = -Aω² cos ", type: "neg_cos" }; 
+    
+    drawCycleGraph(zCtx, phase, graphX, graphY, graphW, graphH, cfg, realScale);
+  }
+  zCanvas.addEventListener('mousedown', zStart); zCanvas.addEventListener('touchstart', zStart, {passive:false});
+  window.addEventListener('mousemove', zMove); window.addEventListener('touchmove', zMove, {passive:false});
+  window.addEventListener('mouseup', zEnd); window.addEventListener('touchend', zEnd);
+  
+  zResetBtn.addEventListener('click', () => { 
+      zIsAnimating = false; zIsDragging = false; 
+      isPausedVert = false; updatePauseBtn('btnPauseVert', false);
+      zBlockY = zEqY; zTime = 0; zStatus.textContent = "請拖曳木塊..."; 
+      renderVertFrame(); 
+  });
+  
+  function zStart(e) { if (currentMode !== 'vert' || zIsAnimating) return; const r = zCanvas.getBoundingClientRect(); const y = (e.clientY || e.touches[0].clientY) - r.top; const py = y*(zCanvas.height/r.height); if (py >= zBlockY - 40 && py <= zBlockY + 40) { zIsDragging = true; zStatus.textContent = "設定振幅中..."; e.preventDefault(); }}
+  function zMove(e) { if (currentMode !== 'vert' || !zIsDragging) return; const r = zCanvas.getBoundingClientRect(); const y = (e.clientY || e.touches[0].clientY) - r.top; let my = y*(zCanvas.height/r.height); if (my < zCeilY + 40) my = zCeilY + 40; if (my > zCanvas.height - 40) my = zCanvas.height - 40; zBlockY = my; renderVertFrame(); e.preventDefault(); }
+  function zEnd(e) { if (currentMode !== 'vert' || !zIsDragging) return; zIsDragging = false; let disp = zBlockY - zEqY; if (Math.abs(disp) < 2) { zBlockY = zEqY; zStatus.textContent = "位移太小"; renderVertFrame(); } else { zAmp = disp; zTime = 0; zIsAnimating = true; }}
+
+  switchMode('vector');
+</script>
+</body>
+</html>

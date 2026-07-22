@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>卡文迪西扭秤實驗 - 3D 物理模擬器</title>
+    <!-- 引入 Three.js 核心與 OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #e74c3c;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+            --panel-bg: rgba(255, 255, 255, 0.95);
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #canvas-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #control-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 350px;
+            height: 100%;
+            background-color: var(--panel-bg);
+            padding: 25px;
+            box-sizing: border-box;
+            box-shadow: -2px 0 15px rgba(0,0,0,0.3);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 10;
+        }
+        h1 {
+            font-size: 1.4rem;
+            color: var(--primary);
+            margin: 0 0 5px 0;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+        }
+        .control-group {
+            background: #f1f2f6;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+            margin-top: 5px;
+        }
+        button:hover { background-color: #c0392b; }
+        .explanation {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #444;
+            background: #eef2f5;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.75rem;
+            margin-right: 5px;
+        }
+        .badge-m { background-color: #2ecc71; color: #000; font-weight:bold; }
+        .badge-M { background-color: #e67e22; color: #fff; font-weight:bold; }
+        
+        #data-display {
+            font-family: monospace;
+            font-size: 1rem;
+            color: #d35400;
+            font-weight: bold;
+            line-height: 1.4;
+        }
+        
+        /* 迷你圖表容器 */
+        #graph-container {
+            width: 100%;
+            height: 100px;
+            background: #2c3e50;
+            border-radius: 6px;
+            margin-top: 5px;
+            position: relative;
+        }
+        canvas#graph-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .graph-label {
+            position: absolute;
+            top: 5px; left: 8px;
+            color: #ecf0f1; font-size: 10px;
+        }
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255,255,255,0.9);
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            pointer-events: none;
+            font-size: 0.9rem;
+        }
+        
+        /* 浮動 UI (面板收起時顯示) */
+        #floating-ui {
+            position: absolute;
+            top: 75px; /* 往下移，避免與全螢幕按鈕重疊 */
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            flex-wrap: wrap;
+        }
+        #floating-ui.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .float-btn {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #bdc3c7;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        .float-btn:hover { background: #fff; border-color: #3498db; }
+        .float-btn.laser-btn { border-color: #e74c3c; color: #d35400; }
+        
+        /* 面板收起動畫 */
+        #control-panel {
+            transition: transform 0.3s ease-in-out;
+        }
+        #control-panel.collapsed {
+            transform: translateX(100%);
+        }
+    </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="canvas-container"></div>
+    
+    <div id="controls-hint">
+        滑鼠左鍵：旋轉視角 | 滑鼠右鍵：平移 | 滾輪：縮放
+    </div>
+
+    <!-- 永遠顯示的畫布全螢幕按鈕 (改為小圖示) -->
+    <button class="float-btn" id="btn-fullscreen-global" style="position: absolute; top: 20px; left: 20px; z-index: 30; width: 40px; height: 40px; padding: 0; justify-content: center; font-size: 1.2rem;" title="切換全螢幕">⛶</button>
+
+    <!-- 浮動控制列 (面板收起時顯示) -->
+    <div id="floating-ui">
+        <button class="float-btn" id="btn-show-panel">◀ 顯示面板</button>
+        <label class="float-btn laser-btn" style="cursor: pointer;">
+            <input type="checkbox" id="cb-laser-float" style="width: 20px; height: 20px; cursor: pointer;">
+            開啟雷射光束
+        </label>
+    </div>
+
+    <div id="control-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 5px;">
+            <h1 style="border: none; padding: 0; margin: 0;">卡文迪西扭秤實驗</h1>
+            <button id="btn-hide-panel" style="width: auto; margin: 0; padding: 6px 12px; background: #95a5a6; font-size: 0.85rem; border-radius: 4px;">收起 ➔</button>
+        </div>
+        
+        <div class="explanation">
+            <p><strong>3D 物理核心：</strong>本模擬器精確計算空間中 4 個質點間的引力向量 <strong>F = G(Mm / r²)</strong>，並利用外積求出真實力矩。光線的反射亦遵守 3D 幾何法則。</p>
+            <p style="color: #c0392b; font-weight: bold; margin-bottom: 0;">💡 光學槓桿的必要性：<br>請試著在「不開燈」時觀察裝置。由於萬有引力極微弱，鏡子轉動幅度極小（肉眼難辨）。必須透過拉長光線投射距離，將微小的角度改變放大為尺上的位移。</p>
+        </div>
+
+        <div class="control-group">
+            <label><span>大球質量 <span class="badge badge-M">M</span></span> <span id="val-M">100</span></label>
+            <input type="range" id="slider-M" min="10" max="500" value="100" step="10">
+            
+            <label><span>扭線恢復係數 (κ)</span> <span id="val-k">0.050</span></label>
+            <input type="range" id="slider-k" min="0.01" max="0.1" value="0.05" step="0.005">
+        </div>
+
+        <div class="control-group" style="border-left-color: #f39c12; background: #fff3e0;">
+            <label style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 0; cursor: pointer;">
+                <input type="checkbox" id="cb-laser" style="width: 18px; height: 18px; margin: 0; cursor: pointer;">
+                <span style="color: #d35400; font-weight: bold; font-size: 1rem;">開啟雷射光束 (光學槓桿)</span>
+            </label>
+        </div>
+
+        <div class="control-group">
+            <div id="data-display">
+                鏡子轉角: 0.00°<br>
+                光線轉角: ---<br>
+                尺上讀數: ---
+            </div>
+            <div id="graph-container">
+                <div class="graph-label">角度 θ 震盪圖</div>
+                <canvas id="graph-canvas"></canvas>
+            </div>
+        </div>
+
+        <button id="btn-toggle-pos">切換 M 位置 (反轉引力矩)</button>
+        <button id="btn-reset" style="background-color: #7f8c8d;">重置平衡</button>
+        
+    </div>
+</div>
+
+<script>
+/** * ==========================================
+ * 物理參數與變數定義 (嚴謹物理引擎)
+ * ==========================================
+ */
+const G_sim = 0.008;     // 大幅縮小引力常數，讓旋轉角度極小 (貼近真實微弱感)
+let mass_M = 100;        // 大球質量
+let mass_m = 0.1;        // 小球質量
+let kappa = 0.05;        // 提高扭線恢復係數，讓擺動幅度被嚴格限制
+const damping = 0.6;     // 阻尼係數 (調整至會緩慢擺動幾次後停止)
+
+// 動力學狀態
+let theta = 0;           // 扭秤當前旋轉角度 (繞 Y 軸)
+let omega = 0;           // 角速度
+
+// 幾何尺寸設定
+const L_rod = 120;       // 小球連接桿半長
+const M_dist = 160;      // 大球距離中心的半徑
+const M_angle_offset = Math.PI / 8; // 大球偏移角度
+let M_position_state = 1; // 1: 順時針狀態, -1: 逆時針狀態
+let current_M_phi = M_angle_offset; // 用於平滑過場動畫
+
+// 光學系統尺寸與狀態
+const laser_z = 600;     // ❗將尺與光源大幅拉遠，展現光學槓桿的放大威力
+const laser_height = 0;  // 高度對齊中心
+let isLaserOn = false;   // 預設關閉雷射
+
+// 圖表歷史
+let historyTheta = new Array(200).fill(0);
+
+/** * ==========================================
+ * Three.js 視覺化設定
+ * ==========================================
+ */
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+// 加上微弱的霧氣增加空間感
+scene.fog = new THREE.FogExp2(0xffffff, 0.0008);
+
+// 攝影機 (稍微往後退以看見全貌)
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 3000);
+camera.position.set(300, 250, 650);
+
+// 渲染器
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// 滑鼠控制
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.target.set(0, 0, 200); // 將視角中心調整到裝置與尺的中間
+
+// 燈光
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(100, 200, 100);
+dirLight.castShadow = true;
+dirLight.shadow.camera.top = 300;
+dirLight.shadow.camera.bottom = -300;
+dirLight.shadow.camera.left = -300;
+dirLight.shadow.camera.right = 300;
+scene.add(dirLight);
+
+const pointLight = new THREE.PointLight(0xff0000, 0.5, 300);
+pointLight.position.set(0, 0, laser_z - 10);
+pointLight.visible = isLaserOn; // 依狀態顯示
+scene.add(pointLight); 
+
+/** * ==========================================
+ * 建立 3D 模型物件
+ * ==========================================
+ */
+// 1. 扭秤系統 (包含扭線、橫桿、小球、鏡子)
+const torsionBalance = new THREE.Group();
+
+// 扭線 (中心垂直線)
+const wireGeo = new THREE.CylinderGeometry(0.5, 0.5, 200);
+const wireMat = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, roughness: 0.4 });
+const wire = new THREE.Mesh(wireGeo, wireMat);
+wire.position.y = 100;
+torsionBalance.add(wire);
+
+// 橫桿
+const rodGeo = new THREE.CylinderGeometry(1.5, 1.5, L_rod * 2);
+rodGeo.rotateZ(Math.PI / 2); // 橫放
+const rodMat = new THREE.MeshStandardMaterial({ color: 0x95a5a6, metalness: 0.5 });
+const rod = new THREE.Mesh(rodGeo, rodMat);
+torsionBalance.add(rod);
+
+// 小質量球 m (綠色)
+const mGeo = new THREE.SphereGeometry(12, 32, 32);
+const mMat = new THREE.MeshStandardMaterial({ color: 0x2ecc71, metalness: 0.3, roughness: 0.2 });
+const m1 = new THREE.Mesh(mGeo, mMat);
+m1.position.set(L_rod, 0, 0);
+m1.castShadow = true;
+const m2 = new THREE.Mesh(mGeo, mMat);
+m2.position.set(-L_rod, 0, 0);
+m2.castShadow = true;
+torsionBalance.add(m1);
+torsionBalance.add(m2);
+
+// 中心鏡子
+const mirrorGeo = new THREE.BoxGeometry(20, 30, 2);
+const mirrorMat = new THREE.MeshStandardMaterial({ color: 0x3498db, metalness: 1.0, roughness: 0.0 });
+const mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
+torsionBalance.add(mirror);
+
+scene.add(torsionBalance);
+
+// 2. 大質量球 M (橘色)
+const MGeo = new THREE.SphereGeometry(30, 32, 32);
+const MMat = new THREE.MeshStandardMaterial({ color: 0xe67e22, metalness: 0.2, roughness: 0.5 });
+const M1 = new THREE.Mesh(MGeo, MMat);
+M1.castShadow = true;
+M1.receiveShadow = true;
+const M2 = new THREE.Mesh(MGeo, MMat);
+M2.castShadow = true;
+M2.receiveShadow = true;
+scene.add(M1);
+scene.add(M2);
+
+// 底座
+const baseGeo = new THREE.CylinderGeometry(80, 100, 10, 32);
+const baseMat = new THREE.MeshStandardMaterial({ color: 0x34495e });
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.position.y = -60;
+base.receiveShadow = true;
+scene.add(base);
+
+const floorGeo = new THREE.PlaneGeometry(3000, 3000); 
+const floorMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -100;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// 3. 雷射發射器與尺
+// 發射器
+const laserBoxGeo = new THREE.BoxGeometry(20, 20, 40);
+const laserBoxMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d });
+const laserDevice = new THREE.Mesh(laserBoxGeo, laserBoxMat);
+laserDevice.position.set(0, 0, laser_z);
+scene.add(laserDevice);
+
+// 產生尺的紋理
+function createRulerTexture() {
+    const cvs = document.createElement('canvas');
+    cvs.width = 2048; cvs.height = 128;
+    const ctx = cvs.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cvs.width, cvs.height);
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 36px Arial';
+    
+    // 繪製刻度
+    for(let i = 0; i <= 200; i++) {
+        let x = i * (cvs.width / 200);
+        let h = (i % 10 === 0) ? 60 : ((i % 5 === 0) ? 35 : 20);
+        ctx.fillRect(x - 2, 0, 4, h);
+        if (i % 10 === 0) {
+            let val = i - 100; // 0 在中心
+            ctx.fillText(val, x, h + 10);
+        }
+    }
+    // 中心紅線
+    ctx.fillStyle = 'red';
+    ctx.fillRect(cvs.width/2 - 3, 0, 6, 128);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return tex;
+}
+
+// 尺 (Ruler 面板)
+const rulerGeo = new THREE.PlaneGeometry(400, 25);
+const rulerMat = new THREE.MeshBasicMaterial({ map: createRulerTexture(), side: THREE.DoubleSide });
+const ruler = new THREE.Mesh(rulerGeo, rulerMat);
+// 放置在雷射器上方
+ruler.position.set(0, 30, laser_z);
+scene.add(ruler);
+
+// 雷射光束 (圓柱體幫助函數)
+function createLaserBeam() {
+    const geo = new THREE.CylinderGeometry(0.8, 0.8, 1, 8);
+    // 旋轉使圓柱體的長度沿著 Z 軸
+    geo.rotateX(Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000, 
+        transparent: true, 
+        opacity: 0.8,
+        blending: THREE.NormalBlending 
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.visible = isLaserOn; // 預設依狀態隱藏
+    return mesh;
+}
+
+const incidentBeam = createLaserBeam();
+const reflectedBeam = createLaserBeam();
+scene.add(incidentBeam);
+scene.add(reflectedBeam);
+
+// 雷射光點 (打在尺上的紅綠亮點)
+const dotGeo = new THREE.SphereGeometry(3, 16, 16);
+const dotMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+const laserDot = new THREE.Mesh(dotGeo, dotMat);
+laserDot.visible = isLaserOn;
+scene.add(laserDot);
+
+// 更新圓柱體位置與長度的工具
+function updateCylinder(cylinder, pointA, pointB) {
+    const dir = new THREE.Vector3().subVectors(pointB, pointA);
+    const dist = dir.length();
+    cylinder.position.copy(pointA).add(dir.clone().multiplyScalar(0.5));
+    // 計算旋轉
+    if(dist > 0.001) {
+        cylinder.scale.set(1, 1, dist);
+        cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), dir.normalize());
+    }
+}
+
+/** * ==========================================
+ * 物理計算與更新
+ * ==========================================
+ */
+function updatePhysics() {
+    // 1. 更新大質量 M 的平滑移動
+    let target_phi = M_angle_offset * M_position_state;
+    current_M_phi += (target_phi - current_M_phi) * 0.05;
+    
+    let pos_M1 = new THREE.Vector3(M_dist * Math.cos(current_M_phi), 0, -M_dist * Math.sin(current_M_phi));
+    let pos_M2 = new THREE.Vector3(-M_dist * Math.cos(current_M_phi), 0, M_dist * Math.sin(current_M_phi));
+    
+    M1.position.copy(pos_M1);
+    M2.position.copy(pos_M2);
+
+    let pos_m1 = new THREE.Vector3(L_rod * Math.cos(theta), 0, -L_rod * Math.sin(theta));
+    let pos_m2 = new THREE.Vector3(-L_rod * Math.cos(theta), 0, L_rod * Math.sin(theta));
+
+    let net_torque_y = 0;
+
+    function addTorque(pos_m, pos_M) {
+        let r_vec = new THREE.Vector3().subVectors(pos_M, pos_m);
+        let r = r_vec.length();
+        let f_mag = (G_sim * mass_M * mass_m) / (r * r);
+        let f_vec = r_vec.normalize().multiplyScalar(f_mag);
+        let t_vec = new THREE.Vector3().crossVectors(pos_m, f_vec);
+        return t_vec.y;
+    }
+
+    net_torque_y += addTorque(pos_m1, pos_M1);
+    net_torque_y += addTorque(pos_m1, pos_M2);
+    net_torque_y += addTorque(pos_m2, pos_M1);
+    net_torque_y += addTorque(pos_m2, pos_M2);
+
+    net_torque_y += -kappa * theta;
+    net_torque_y += -damping * omega;
+
+    let I = 2 * mass_m * L_rod * L_rod;
+    let alpha = net_torque_y / I;
+    
+    let sub_steps = 10;
+    let dt = 2.0; 
+    for(let i=0; i<sub_steps; i++) {
+        omega += alpha * dt;
+        theta += omega * dt;
+    }
+}
+
+/** * ==========================================
+ * 光學系統更新
+ * ==========================================
+ */
+function updateOptics() {
+    const src_pos = new THREE.Vector3(0, 0, laser_z - 20);
+    const mirror_pos = new THREE.Vector3(0, 0, 0); 
+    
+    updateCylinder(incidentBeam, src_pos, mirror_pos);
+
+    const normal = new THREE.Vector3(Math.sin(theta), 0, Math.cos(theta)).normalize();
+    const I = new THREE.Vector3().subVectors(mirror_pos, src_pos).normalize();
+    
+    const dot = I.dot(normal);
+    const R = new THREE.Vector3().copy(normal).multiplyScalar(-2 * dot).add(I).normalize();
+    
+    let hit_pos = new THREE.Vector3();
+    if(Math.abs(R.z) > 0.001) {
+        let t = laser_z / R.z;
+        hit_pos.copy(R).multiplyScalar(t);
+        hit_pos.y = 30;
+    }
+
+    updateCylinder(reflectedBeam, mirror_pos, hit_pos);
+    laserDot.position.copy(hit_pos);
+
+    // 根據是否開啟雷射，更新顯示文字
+    let angleMirrorStr = (theta * 180 / Math.PI).toFixed(2) + "°";
+    let angleLightStr = isLaserOn ? (Math.asin(R.x) * 180 / Math.PI).toFixed(2) + "°" : "---";
+    let dispXStr = isLaserOn ? hit_pos.x.toFixed(1) + " 單位" : "---";
+
+    document.getElementById('data-display').innerHTML = `
+        鏡子轉角: ${angleMirrorStr}<br>
+        光線轉角: ${angleLightStr}<br>
+        尺上讀數: <span style="${isLaserOn ? 'color: #e74c3c;' : ''}">${dispXStr}</span>
+    `;
+}
+
+/** * ==========================================
+ * 2D 圖表繪製與主循環
+ * ==========================================
+ */
+const graphCvs = document.getElementById('graph-canvas');
+const gCtx = graphCvs.getContext('2d');
+let frameCounter = 0;
+
+function drawGraph() {
+    if(frameCounter % 3 === 0) {
+        historyTheta.push(theta);
+        historyTheta.shift();
+    }
+    
+    graphCvs.width = graphCvs.clientWidth;
+    graphCvs.height = graphCvs.clientHeight;
+    
+    gCtx.clearRect(0, 0, graphCvs.width, graphCvs.height);
+    
+    gCtx.strokeStyle = '#555';
+    gCtx.lineWidth = 1;
+    let midY = graphCvs.height / 2;
+    gCtx.beginPath(); gCtx.moveTo(0, midY); gCtx.lineTo(graphCvs.width, midY); gCtx.stroke();
+    
+    gCtx.strokeStyle = '#e74c3c';
+    gCtx.lineWidth = 2;
+    gCtx.beginPath();
+    for(let i=0; i<historyTheta.length; i++) {
+        let x = (i / historyTheta.length) * graphCvs.width;
+        let y = midY - (historyTheta[i] * graphCvs.height * 2); 
+        if(i === 0) gCtx.moveTo(x, y);
+        else gCtx.lineTo(x, y);
+    }
+    gCtx.stroke();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    updatePhysics();
+    torsionBalance.rotation.y = theta;
+    updateOptics();
+    drawGraph();
+    controls.update();
+    renderer.render(scene, camera);
+    frameCounter++;
+}
+
+/** * ==========================================
+ * UI 事件綁定與視窗調整
+ * ==========================================
+ */
+document.getElementById('slider-M').addEventListener('input', (e) => {
+    mass_M = parseFloat(e.target.value);
+    document.getElementById('val-M').innerText = mass_M;
+});
+
+document.getElementById('slider-k').addEventListener('input', (e) => {
+    kappa = parseFloat(e.target.value);
+    document.getElementById('val-k').innerText = kappa.toFixed(3);
+});
+
+document.getElementById('btn-toggle-pos').addEventListener('click', () => {
+    M_position_state *= -1;
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+    theta = 0;
+    omega = 0;
+    historyTheta.fill(0);
+});
+
+// 面板收起與展開邏輯
+const panel = document.getElementById('control-panel');
+const floatingUI = document.getElementById('floating-ui');
+
+document.getElementById('btn-hide-panel').addEventListener('click', () => {
+    panel.classList.add('collapsed');
+    floatingUI.classList.add('show');
+});
+
+document.getElementById('btn-show-panel').addEventListener('click', () => {
+    panel.classList.remove('collapsed');
+    floatingUI.classList.remove('show');
+});
+
+// 雷射光開關同步邏輯
+const cbLaserMain = document.getElementById('cb-laser');
+const cbLaserFloat = document.getElementById('cb-laser-float');
+
+function toggleLaser(isOn) {
+    isLaserOn = isOn;
+    cbLaserMain.checked = isOn;
+    cbLaserFloat.checked = isOn;
+    incidentBeam.visible = isLaserOn;
+    reflectedBeam.visible = isLaserOn;
+    laserDot.visible = isLaserOn;
+    pointLight.visible = isLaserOn;
+}
+
+cbLaserMain.addEventListener('change', (e) => toggleLaser(e.target.checked));
+cbLaserFloat.addEventListener('change', (e) => toggleLaser(e.target.checked));
+
+// 全螢幕功能邏輯 (更新為左上角全域按鈕)
+const btnFullscreenGlobal = document.getElementById('btn-fullscreen-global');
+
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`無法開啟全螢幕模式: ${err.message}`);
+        });
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
+
+btnFullscreenGlobal.addEventListener('click', toggleFullScreen);
+
+// 監聽全螢幕狀態改變（更新提示文字即可，保持圖示小巧）
+document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) {
+        btnFullscreenGlobal.title = "退出全螢幕";
+    } else {
+        btnFullscreenGlobal.title = "切換全螢幕";
+    }
+});
+
+// 視窗自適應縮放
+window.addEventListener('resize', () => {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+});
+
+// 開始模擬
+animate();
+</script>
+
+</body>
+</html>
