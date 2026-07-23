@@ -189,6 +189,17 @@ if (!potentialSource.includes("function drawVectorArrow") || !potentialSource.in
 if (/高度 h =.*toFixed|速率 v =.*toFixed/.test(potentialSource)) {
   errors.push("位能: 仍以快速跳動的高度／速率數字作為物體旁主要呈現");
 }
+for (const marker of ["data-occlusion-role=\"chart\"", "height: clamp(220px, 32dvh, 320px)", "chartTopInCanvas", "animationBottom", "function clampVerticalVector", "Math.min(state.groundY - 8"]) {
+  if (!potentialSource.includes(marker)) errors.push(`位能: 缺少動畫／圖表防遮擋設定：${marker}`);
+}
+if (/canvas\.height\s*-\s*340|height:\s*340px/.test(potentialSource)) {
+  errors.push("位能: 仍使用未扣除圖表實際邊界的固定動畫高度");
+}
+
+const magnetChartSource = fs.readFileSync(path.join(root, "冷次定律(磁鐵動).html"), "utf8");
+if (!magnetChartSource.includes("togglePanel('chart-panel', this)")) {
+  errors.push("冷次定律(磁鐵動): 覆蓋式即時圖表缺少收合控制");
+}
 
 const shmSource = fs.readFileSync(path.join(root, "SHM.html"), "utf8");
 for (const marker of ["function drawCanvasTag", "彈簧原長 L₀", "SHM_CANVAS_COLORS", "Microsoft JhengHei", "Noto Sans TC"]) {

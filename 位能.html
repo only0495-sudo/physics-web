@@ -268,7 +268,7 @@
             transform: translateX(-50%);
             width: 96vw;
             max-width: 1200px;
-            height: 340px; 
+            height: clamp(220px, 32dvh, 320px);
             background: var(--primary-bg);
             border-radius: 12px;
             border: 1px solid var(--panel-border);
@@ -278,6 +278,12 @@
             box-sizing: border-box;
             transition: max-width 0.4s cubic-bezier(0.19, 1, 0.22, 1), height 0.4s ease;
             box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+        }
+
+        #simulation-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
         }
 
         /* 當切換到長條圖時微調版面 */
@@ -414,7 +420,7 @@
 
     <div id="slow-mo-indicator">慢動作模式開啟中</div>
 
-    <div id="chart-container">
+    <div id="chart-container" data-occlusion-role="chart">
         <canvas id="energyChart" class="hidden"></canvas>
         <canvas id="energyXChart" class="hidden"></canvas>
         <canvas id="energyBarChart"></canvas>
@@ -428,7 +434,9 @@
             maxPoints: 600,     
             massSize: 65,
             springCoils: 22,
-            pxPerMeter: 100 
+            pxPerMeter: 100,
+            chartSafeGap: 42,
+            stageTopPadding: 24
         };
 
         let frameCount = 0;
@@ -453,12 +461,16 @@
             restX: 0,           
             wallX: 0,
             groundY: 0,
+            animationBottom: 0,
             initialSystemEnergy: 0 
         };
 
         const canvas = document.createElement('canvas');
+        canvas.id = 'simulation-canvas';
+        canvas.setAttribute('aria-label', '位能動畫區');
         document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
+        const chartContainer = document.getElementById('chart-container');
 
         // 白底主題圖表配色
         const chartTextColor = '#444';
@@ -657,7 +669,15 @@
             canvas.height = window.innerHeight;
             state.restX = canvas.width / 2;
             state.wallX = state.restX - 350;
-            state.groundY = canvas.height - 340;
+
+            const canvasRect = canvas.getBoundingClientRect();
+            const chartRect = chartContainer.getBoundingClientRect();
+            const canvasScaleY = canvas.height / Math.max(1, canvasRect.height);
+            const chartTopInCanvas = (chartRect.top - canvasRect.top) * canvasScaleY;
+            state.animationBottom = Math.max(170, Math.min(canvas.height - 40, chartTopInCanvas));
+            state.groundY = Math.max(135, state.animationBottom - CONFIG.chartSafeGap);
+            const maxStateY = Math.max(0, state.groundY - CONFIG.massSize/2 - CONFIG.stageTopPadding);
+            state.y = Math.max(0, Math.min(maxStateY, state.y));
             
             if (frameCount === 0) resetSimulation();
         }
@@ -752,6 +772,13 @@
             ctx.restore();
         }
 
+        function clampVerticalVector(startY, deltaY) {
+            const safeTop = CONFIG.stageTopPadding;
+            const safeBottom = Math.min(state.groundY - 8, state.animationBottom - 12);
+            const endY = Math.max(safeTop, Math.min(safeBottom, startY + deltaY));
+            return endY - startY;
+        }
+
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const mSize = CONFIG.massSize;
@@ -784,11 +811,12 @@
                 drawVectorArrow(ballX - mSize * 0.85, state.groundY, 0, -state.y, '#7c3aed', '高度 h', 2);
                 if (Math.abs(state.vY) > 1) {
                     const velocityLength = Math.min(130, Math.max(34, Math.abs(state.vY) * 0.18));
-                    drawVectorArrow(ballX + mSize * 0.7, ballY, 0, -Math.sign(state.vY) * velocityLength, '#059669', '速度 v');
+                    const velocityDelta = clampVerticalVector(ballY, -Math.sign(state.vY) * velocityLength);
+                    drawVectorArrow(ballX + mSize * 0.7, ballY, 0, velocityDelta, '#059669', '速度 v');
                 }
 
             } else {
-                const availableHeight = canvas.height - 340;
+                const availableHeight = state.animationBottom;
                 const groundY = Math.max(120, availableHeight / 2);
                 const mX = state.restX + state.x;
 
@@ -1069,7 +1097,7 @@
                 const ballY = state.groundY - state.y - CONFIG.massSize/2;
                 if (Math.hypot(pos.x - ballX, pos.y - ballY) < CONFIG.massSize) state.isDragging = true;
             } else {
-                const availableHeight = canvas.height - 340;
+                const availableHeight = state.animationBottom;
                 const groundY = Math.max(120, availableHeight / 2);
                 const mX = state.restX + state.x;
                 if (Math.hypot(pos.x - mX, pos.y - groundY) < CONFIG.massSize) state.isDragging = true;
@@ -1081,7 +1109,8 @@
             const pos = getMousePos(e);
             if (state.mode === 'gravity') {
                 let newY = state.groundY - pos.y - CONFIG.massSize/2;
-                state.y = Math.max(0, newY); 
+                const maxY = Math.max(0, state.groundY - CONFIG.massSize/2 - CONFIG.stageTopPadding);
+                state.y = Math.max(0, Math.min(maxY, newY)); 
             } else {
                 const minX = state.wallX + CONFIG.massSize/2 + 25;
                 const maxX = canvas.width - CONFIG.massSize/2 - 25;
