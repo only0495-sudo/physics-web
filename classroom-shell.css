@@ -20,6 +20,52 @@ html[data-physics-device] body {
   min-height: 100dvh;
 }
 
+.pc-orientation-guard {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  color: #17243f;
+  background: linear-gradient(145deg, #eef4ff, #fffaf0);
+}
+
+.pc-orientation-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(430px, 92vw);
+  padding: 28px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #dce2ea;
+  border-radius: 24px;
+  box-shadow: var(--pc-shadow);
+}
+
+.pc-orientation-card strong {
+  font-size: 25px;
+}
+
+.pc-orientation-card span:last-child {
+  color: #647089;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.pc-orientation-symbol {
+  color: var(--pc-blue);
+  font-size: 54px;
+  line-height: 1;
+}
+
+html[data-physics-orientation="portrait"][data-physics-device="phone"] .pc-orientation-guard,
+html[data-physics-orientation="portrait"][data-physics-device="tablet"] .pc-orientation-guard {
+  display: grid;
+}
+
 .pc-shell,
 .pc-shell * {
   box-sizing: border-box;
@@ -1069,6 +1115,18 @@ html[data-physics-device="tablet"] canvas {
   touch-action: none;
 }
 
+/* Landscape phones and smaller tablets use a wide logical viewport supplied
+   before page layout. The entire desktop-style experiment is then scaled by
+   the browser, so canvases, labels, panels and controls retain their geometry. */
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"] {
+  min-width: var(--pc-layout-width);
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"] body {
+  min-width: var(--pc-layout-width);
+  overflow-x: hidden;
+}
+
 /* Older simulations use many fixed side panels. These bounds keep their
    controls reachable without changing the underlying physics code. */
 html[data-physics-device="phone"] :is(
@@ -1151,6 +1209,127 @@ html[data-physics-device="phone"][data-physics-page="光譜實驗室"] .sidebar 
 
 html[data-physics-device="phone"][data-physics-page="波前與雙狹縫3D"] .ui-panel {
   width: min(270px, 43vw) !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"] :is(
+  #ui-panel,
+  #control-panel,
+  #controls-panel,
+  #info-panel,
+  #right-panel,
+  .ui-panel,
+  .control-panel,
+  .controls-panel,
+  .controls-area,
+  .guide-sidebar,
+  .sidebar
+) {
+  max-width: calc(100vw - 24px) !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"] :is(
+  #ui-panel,
+  #control-panel,
+  #controls-panel,
+  #info-panel,
+  .ui-panel,
+  .control-panel,
+  .controls-panel
+) {
+  max-height: calc(100dvh - 16px) !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="摩擦"] body {
+  flex-direction: row !important;
+  overflow: hidden !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="摩擦"] body > .flex-1 {
+  flex: 1 1 auto !important;
+  min-width: 0;
+  min-height: 0 !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="摩擦"] body > .w-96 {
+  width: 24rem !important;
+  min-height: 0 !important;
+  max-height: 100dvh !important;
+  overflow-y: auto;
+  border-top: 0 !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="摩擦"] #graph-content canvas {
+  max-width: none;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="黑體輻射"] #right-panel {
+  width: 300px !important;
+  height: 100dvh !important;
+  padding-bottom: 20px !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="黑體輻射"] #graph-container {
+  right: 300px !important;
+  bottom: 0 !important;
+  height: auto !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="光譜實驗室"] .sidebar {
+  width: 250px !important;
+  max-width: 250px !important;
+}
+
+html[data-physics-layout="fitted"][data-physics-orientation="landscape"][data-physics-page="波前與雙狹縫3D"] .ui-panel {
+  width: min(320px, 28vw) !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"] .pc-dock {
+  left: auto;
+  right: 8px;
+  bottom: 8px;
+  transform: none;
+  flex-direction: column;
+  width: 58px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  border-radius: 17px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"] :is(
+  .pc-brand,
+  .pc-dock-label,
+  .pc-dock-minimize
+) {
+  display: none;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"] .pc-dock-action {
+  flex: 0 0 46px;
+  width: 46px;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"] .pc-drawer {
+  top: 7px;
+  right: 72px;
+  bottom: 7px;
+  left: auto;
+  width: min(440px, calc(100vw - 86px));
+  max-height: none;
+  transform: translateX(calc(100% + 110px));
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"] .pc-drawer.pc-open {
+  transform: translateX(0);
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"] .pc-focus-card {
+  right: 72px;
+  bottom: 7px;
+  left: auto;
+  width: min(460px, calc(100vw - 86px));
 }
 
 @media (max-width: 760px) {

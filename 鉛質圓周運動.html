@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>鉛直圓周運動 - 跨裝置物理教學版</title>
     <style>
         :root {
@@ -715,7 +716,7 @@
             const canvas = document.getElementById('webgl-canvas');
             renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1);
             renderer.shadowMap.enabled = true;
             renderer.setClearColor(0xf8fafc);
 

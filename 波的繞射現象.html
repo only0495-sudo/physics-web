@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <!-- 確保手機與平板上的縮放被鎖定，並完美貼合螢幕 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>專業物理模擬器 - 波的繞射與惠更斯原理</title>
     
     <!-- 引入 MathJax 用於渲染物理公式 -->
@@ -329,8 +330,8 @@
     function resizeCanvas() {
         logicalW = window.innerWidth;
         logicalH = window.innerHeight;
-        // 取得設備像素比，平板通常為 2 或更高
-        const dpr = window.devicePixelRatio || 1;
+        // 橫向手機限制為 1x、平板最多 1.5x，避免高 DPI 動畫消耗過多效能。
+        const dpr = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1;
         
         // 設定 Canvas 實體像素（放大以保持清晰）
         canvas.width = logicalW * dpr;
@@ -341,7 +342,7 @@
         canvas.style.height = logicalH + 'px';
         
         // 縮放繪圖環境，讓後續的繪圖 API (如 ctx.arc) 參數對應回邏輯像素
-        ctx.scale(dpr, dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();

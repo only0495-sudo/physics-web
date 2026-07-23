@@ -31,8 +31,14 @@ for (const name of htmlFiles) {
   if (/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/i.test(html)) errors.push(`${name}: 仍鎖定縮放`);
 
   if (!appPages.has(name)) {
-    for (const asset of ["classroom-shell.css", "classroom-data.js", "classroom-shell.js"]) {
+    for (const asset of ["classroom-device.js", "classroom-shell.css", "classroom-data.js", "classroom-shell.js"]) {
       if (!html.includes(asset)) errors.push(`${name}: 缺少 ${asset}`);
+    }
+    const viewportIndex = html.search(/<meta\s+name=["']viewport["']/i);
+    const deviceIndex = html.indexOf("classroom-device.js");
+    const shellIndex = html.indexOf("classroom-shell.js");
+    if (!(viewportIndex >= 0 && deviceIndex > viewportIndex && shellIndex > deviceIndex)) {
+      errors.push(`${name}: 載具辨識程式必須在 viewport 後、教學外殼前載入`);
     }
   }
 
@@ -86,8 +92,86 @@ if (fs.existsSync(renewRoot)) {
 }
 
 const shellSource = fs.readFileSync(path.join(root, "classroom-shell.js"), "utf8");
-for (const marker of ["pc-clarity-mode", "pc-focus-card", "dataset.physicsDevice", "Alt+C", "Alt+K"]) {
+for (const marker of ["pc-clarity-mode", "pc-focus-card", "dataset.physicsDevice", "PhysicsDeviceLayout", "pc-orientation-guard", "Alt+C", "Alt+K"]) {
   if (!shellSource.includes(marker)) errors.push(`課堂顯示層缺少功能標記：${marker}`);
+}
+
+const deviceSource = fs.readFileSync(path.join(root, "classroom-device.js"), "utf8");
+for (const marker of ["PHONE_LAYOUT_WIDTH = 1320", "TABLET_LAYOUT_WIDTH = 1180", "physicsLayout", "physicsOrientation", "renderPixelRatio", "user-scalable=yes"]) {
+  if (!deviceSource.includes(marker)) errors.push(`載具縮放層缺少功能標記：${marker}`);
+}
+
+const shellCssSource = fs.readFileSync(path.join(root, "classroom-shell.css"), "utf8");
+for (const marker of ["data-physics-layout=\"fitted\"", "data-physics-orientation=\"landscape\"", "pc-orientation-guard", "data-physics-page=\"摩擦\"", "data-physics-page=\"黑體輻射\""]) {
+  if (!shellCssSource.includes(marker)) errors.push(`橫向介面樣式缺少功能標記：${marker}`);
+}
+
+function evaluateDeviceLayout({ width, height, ua, platform = "", touchPoints = 0, coarse = false, mobile = false }) {
+  const meta = {
+    content: "width=device-width, initial-scale=1.0, viewport-fit=cover",
+    getAttribute(name) { return name === "content" ? this.content : ""; },
+    setAttribute(name, value) { if (name === "content") this.content = value; }
+  };
+  const rootElement = {
+    dataset: {},
+    style: { values: {}, setProperty(name, value) { this.values[name] = value; } }
+  };
+  const landscape = width >= height;
+  const mediaQuery = (query) => ({
+    matches: query.includes("orientation") ? landscape : (query.includes("pointer") ? coarse : false),
+    addEventListener() {},
+    addListener() {}
+  });
+  const windowMock = {
+    innerWidth: width,
+    innerHeight: height,
+    devicePixelRatio: 3,
+    screen: { width, height },
+    matchMedia: mediaQuery,
+    setTimeout() {},
+    addEventListener() {},
+    dispatchEvent() {}
+  };
+  const context = {
+    window: windowMock,
+    document: { documentElement: rootElement, querySelector: () => meta },
+    navigator: { userAgent: ua, platform, maxTouchPoints: touchPoints, userAgentData: { mobile } },
+    CustomEvent: function CustomEvent(type, options) { this.type = type; this.detail = options?.detail; }
+  };
+  vm.createContext(context);
+  new vm.Script(deviceSource, { filename: "classroom-device.js" }).runInContext(context);
+  return { profile: windowMock.PhysicsDeviceLayout.profile, dataset: rootElement.dataset, viewport: meta.content };
+}
+
+const deviceCases = [
+  {
+    label: "橫向手機",
+    result: evaluateDeviceLayout({ width: 844, height: 390, ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile", platform: "iPhone", touchPoints: 5, coarse: true, mobile: true }),
+    expected: { type: "phone", orientation: "landscape", fitted: true, width: "width=1320", pixelRatio: 1 }
+  },
+  {
+    label: "橫向平板",
+    result: evaluateDeviceLayout({ width: 1024, height: 768, ua: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)", platform: "iPad", touchPoints: 5, coarse: true }),
+    expected: { type: "tablet", orientation: "landscape", fitted: true, width: "width=1180", pixelRatio: 1.5 }
+  },
+  {
+    label: "電腦",
+    result: evaluateDeviceLayout({ width: 1440, height: 900, ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", platform: "Win32" }),
+    expected: { type: "desktop", orientation: "landscape", fitted: false, width: "width=device-width", pixelRatio: 2 }
+  },
+  {
+    label: "直向手機",
+    result: evaluateDeviceLayout({ width: 390, height: 844, ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile", platform: "iPhone", touchPoints: 5, coarse: true, mobile: true }),
+    expected: { type: "phone", orientation: "portrait", fitted: false, width: "width=device-width", pixelRatio: 1 }
+  }
+];
+
+for (const test of deviceCases) {
+  const { profile } = test.result;
+  const expected = test.expected;
+  if (profile.type !== expected.type || profile.orientation !== expected.orientation || profile.fitted !== expected.fitted || profile.renderPixelRatio !== expected.pixelRatio || !test.result.viewport.includes(expected.width)) {
+    errors.push(`${test.label}: 載具辨識或橫向縮放結果不正確`);
+  }
 }
 
 const magnetLenzSource = fs.readFileSync(path.join(root, "冷次定律(磁鐵動).html"), "utf8");
@@ -179,5 +263,5 @@ if (errors.length) {
   console.error(`檢查失敗（${errors.length}）：\n${errors.join("\n")}`);
   process.exitCode = 1;
 } else {
-  console.log(`R 版檢查通過：${simulations.length} 個模擬皆已個別修改、${activities.length} 份專屬量測指南、${paths.length} 條課程路徑、${arrowAudits.length} 組自訂箭頭回歸檢查、${appPages.size} 個系統頁面；UTF-8 文字、Canvas 色值、本機連結與 JavaScript 語法皆正常。`);
+  console.log(`physics-web 檢查通過：${simulations.length} 個模擬、${deviceCases.length} 種載具／方向情境、${activities.length} 份專屬量測指南、${paths.length} 條課程路徑、${arrowAudits.length} 組自訂箭頭回歸檢查、${appPages.size} 個系統頁面；UTF-8 文字、Canvas 色值、本機連結與 JavaScript 語法皆正常。`);
 }

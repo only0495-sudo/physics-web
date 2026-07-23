@@ -48,6 +48,14 @@
   let toastTimer = null;
 
   function detectDevice() {
+    const bootProfile = window.PhysicsDeviceLayout?.profile;
+    if (bootProfile?.type) {
+      document.documentElement.dataset.physicsDevice = bootProfile.type;
+      document.documentElement.dataset.physicsOrientation = bootProfile.orientation;
+      document.documentElement.dataset.physicsLayout = bootProfile.fitted ? "fitted" : "native";
+      return bootProfile.type;
+    }
+
     const width = window.innerWidth;
     const shortest = Math.min(window.innerWidth, window.innerHeight);
     const coarse = window.matchMedia?.("(pointer: coarse)").matches || false;
@@ -67,10 +75,10 @@
 
   function deviceCopy(type) {
     if (type === "phone") {
-      return { label: "手機介面", symbol: "▯", tip: `${activity.gesture} 建議橫放手機以取得更大的模擬區。` };
+      return { label: "手機橫向介面", symbol: "▯", tip: `${activity.gesture} 畫面已依橫向手機等比例縮小，可直接拖曳與操作。` };
     }
     if (type === "tablet") {
-      return { label: "平板介面", symbol: "▭", tip: `${activity.gesture} 控制元件已放大，可直接觸控操作。` };
+      return { label: "平板橫向介面", symbol: "▭", tip: `${activity.gesture} 畫面已依橫向平板比例配置，可直接觸控操作。` };
     }
     return { label: "電腦介面", symbol: "▰", tip: `${activity.gesture} 可用 Alt+G 開啟教學、Alt+P 切換展示。` };
   }
@@ -146,6 +154,13 @@
     shell.className = "pc-shell";
     shell.dataset.role = role;
     shell.innerHTML = `
+      <div class="pc-orientation-guard" role="status" aria-live="polite">
+        <div class="pc-orientation-card">
+          <span class="pc-orientation-symbol" aria-hidden="true">↻</span>
+          <strong>請將裝置轉為橫向</strong>
+          <span>本模擬以橫向手機／平板設計，旋轉後會自動顯示完整實驗畫面。</span>
+        </div>
+      </div>
       <nav class="pc-dock" aria-label="物理教學工具列">
         <div class="pc-brand" aria-label="裝置已辨識為${device.label}">
           <span class="pc-brand-mark" aria-hidden="true">φ</span>

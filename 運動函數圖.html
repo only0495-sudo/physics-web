@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>1D 運動學模擬器</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -182,7 +183,7 @@
             
             [canvasCar, canvasXT, canvasVT, canvasAT].forEach((canvas, index) => {
                 const rect = containers[index].getBoundingClientRect();
-                const dpr = window.devicePixelRatio || 1;
+                const dpr = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1;
                 canvas.width = rect.width * dpr;
                 canvas.height = rect.height * dpr;
                 

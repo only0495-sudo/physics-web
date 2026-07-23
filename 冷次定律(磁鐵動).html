@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>3D 冷次定律模擬器 (完整穿透版)</title>
     <style>
         :root {
@@ -444,7 +445,7 @@ function init() {
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1);
     container.appendChild(renderer.domElement);
 
     orbitControls = new THREE.OrbitControls(camera, renderer.domElement);

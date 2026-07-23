@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>正向力與視重 2D 模擬器 | 專業教學儀表板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -233,8 +234,9 @@
 
         function resizeCanvas() {
             cw = window.innerWidth; ch = window.innerHeight;
-            canvas.width = cw * window.devicePixelRatio; canvas.height = ch * window.devicePixelRatio;
-            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            const dpr = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1;
+            canvas.width = cw * dpr; canvas.height = ch * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>雙視角都卜勒效應 2D 模擬器</title>
     
     <!-- 引入 p5.js (2D 渲染與迴圈控制) -->
@@ -773,6 +774,7 @@
         }
 
         function setup() {
+            pixelDensity(window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1);
             let canvas = createCanvas(windowWidth, windowHeight);
             canvas.parent('canvas-container');
             sourceY = height / 2;

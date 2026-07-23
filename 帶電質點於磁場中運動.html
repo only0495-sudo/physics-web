@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <script src="classroom-device.js"></script>
     <title>帶電質點在磁場中的運動 (螺旋線運動)</title>
     <!-- 引入 Tailwind CSS 用於 UI 排版 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -364,6 +365,7 @@
 
     // 初始設置
     function setup() {
+        pixelDensity(window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1);
         const container = document.getElementById('canvas-container');
         canvasWidth = container.clientWidth;
         canvasHeight = container.clientHeight;
