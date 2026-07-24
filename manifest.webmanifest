@@ -1,0 +1,12 @@
+{
+  "name": "瑋澤的物理模擬器",
+  "short_name": "物理模擬器",
+  "lang": "zh-TW",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#f4f7fb",
+  "theme_color": "#123d92",
+  "description": "適合高中物理課堂展示與學生操作的互動模擬器。"
+}

@@ -47,6 +47,157 @@
   let lastFocus = null;
   let toastTimer = null;
 
+  function installMobileWebAppMetadata() {
+    const ensureMeta = (name, content) => {
+      if (document.head.querySelector(`meta[name="${name}"]`)) return;
+      const meta = document.createElement("meta");
+      meta.name = name;
+      meta.content = content;
+      document.head.appendChild(meta);
+    };
+    ensureMeta("apple-mobile-web-app-capable", "yes");
+    ensureMeta("mobile-web-app-capable", "yes");
+    ensureMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
+    if (!document.head.querySelector('link[rel="manifest"]')) {
+      const manifest = document.createElement("link");
+      manifest.rel = "manifest";
+      manifest.href = "manifest.webmanifest";
+      document.head.appendChild(manifest);
+    }
+  }
+
+  function fullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function isEmbeddedPage() {
+    try { return window.self !== window.top; } catch (_) { return true; }
+  }
+
+  function isAppleMobile() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
+  }
+
+  function isStandaloneWebApp() {
+    return window.matchMedia?.("(display-mode: standalone)").matches
+      || window.navigator.standalone === true;
+  }
+
+  function showFullscreenHelp() {
+    let panel = document.querySelector(".pc-fullscreen-help");
+    if (!panel) {
+      panel = document.createElement("section");
+      panel.className = "pc-fullscreen-help";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "true");
+      panel.setAttribute("aria-labelledby", "pc-fullscreen-help-title");
+      panel.innerHTML = `
+        <div class="pc-fullscreen-help-card">
+          <button class="pc-fullscreen-help-close" type="button" aria-label="關閉">×</button>
+          <strong id="pc-fullscreen-help-title">手機全畫面使用方式</strong>
+          <p class="pc-fullscreen-help-message"></p>
+          <div class="pc-fullscreen-help-actions"></div>
+        </div>`;
+      document.body.appendChild(panel);
+      panel.querySelector(".pc-fullscreen-help-close").addEventListener("click", () => panel.classList.remove("pc-open"));
+      panel.addEventListener("click", (event) => {
+        if (event.target === panel) panel.classList.remove("pc-open");
+      });
+    }
+
+    const message = panel.querySelector(".pc-fullscreen-help-message");
+    const actions = panel.querySelector(".pc-fullscreen-help-actions");
+    actions.replaceChildren();
+    if (isEmbeddedPage()) {
+      message.textContent = "目前頁面嵌在 Google Sites 中，外層網站沒有開放全螢幕權限。請先獨立開啟模擬器。";
+      const open = document.createElement("a");
+      open.href = location.href;
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.textContent = "獨立開啟模擬器";
+      actions.appendChild(open);
+    } else if (isAppleMobile() && !isStandaloneWebApp()) {
+      message.textContent = "iPhone 瀏覽器不能由一般網頁按鈕隱藏網址列。已切換為沉浸顯示；若要真正全畫面，請按 Safari「分享」→「加入主畫面」，再從主畫面開啟。";
+    } else {
+      message.textContent = "瀏覽器未開放原生全螢幕，已改用沉浸顯示，模擬器會填滿目前可用的畫面。";
+    }
+    const keep = document.createElement("button");
+    keep.type = "button";
+    keep.textContent = "繼續使用沉浸顯示";
+    keep.addEventListener("click", () => panel.classList.remove("pc-open"));
+    actions.appendChild(keep);
+    panel.classList.add("pc-open");
+    panel.querySelector(".pc-fullscreen-help-close").focus();
+  }
+
+  function syncFullscreenButtons(active) {
+    document.querySelectorAll('[id*="fullscreen" i], #btnFullscreen, [data-fullscreen]').forEach((button) => {
+      button.setAttribute("aria-pressed", String(active));
+      button.title = active ? "退出全螢幕" : "進入全螢幕";
+    });
+  }
+
+  async function setImmersiveFullscreen(active, target = document.documentElement) {
+    const root = document.documentElement;
+    if (!active) {
+      if (fullscreenElement()) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) {
+          try { await exit.call(document); } catch (_) { /* fall through to CSS cleanup */ }
+        }
+      }
+      root.classList.remove("pc-immersive-mode");
+      document.body?.classList.remove("pc-immersive-mode");
+      syncFullscreenButtons(false);
+      window.dispatchEvent(new Event("resize"));
+      return { active: false, mode: "normal" };
+    }
+
+    const standardRequest = target?.requestFullscreen;
+    const request = standardRequest || target?.webkitRequestFullscreen;
+    const policyAllows = document.fullscreenEnabled !== false;
+    if (request && policyAllows) {
+      try {
+        if (standardRequest) await request.call(target, { navigationUI: "hide" });
+        else await request.call(target);
+        root.classList.add("pc-immersive-mode");
+        document.body?.classList.add("pc-immersive-mode");
+        syncFullscreenButtons(true);
+        window.dispatchEvent(new Event("resize"));
+        return { active: true, mode: "native" };
+      } catch (_) { /* use the mobile-safe fallback below */ }
+    }
+
+    root.classList.add("pc-immersive-mode");
+    document.body?.classList.add("pc-immersive-mode");
+    syncFullscreenButtons(true);
+    window.dispatchEvent(new Event("resize"));
+    showFullscreenHelp();
+    return { active: true, mode: isEmbeddedPage() ? "embedded" : "immersive" };
+  }
+
+  function toggleImmersiveFullscreen(target = document.documentElement) {
+    const active = Boolean(fullscreenElement() || document.documentElement.classList.contains("pc-immersive-mode"));
+    return setImmersiveFullscreen(!active, target);
+  }
+
+  installMobileWebAppMetadata();
+  window.PhysicsFullscreen = {
+    enter: (target) => setImmersiveFullscreen(true, target),
+    exit: () => setImmersiveFullscreen(false),
+    toggle: (target) => toggleImmersiveFullscreen(target),
+    isActive: () => Boolean(fullscreenElement() || document.documentElement.classList.contains("pc-immersive-mode"))
+  };
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest?.('[id*="fullscreen" i], #btnFullscreen, [data-fullscreen]');
+    if (!trigger || trigger.closest(".pc-fullscreen-help")) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    toggleImmersiveFullscreen(document.documentElement);
+  }, true);
+
   function detectDevice() {
     const bootProfile = window.PhysicsDeviceLayout?.profile;
     if (bootProfile?.type) {
@@ -404,15 +555,11 @@
       if (lastFocus instanceof HTMLElement) lastFocus.focus();
     }
 
-    function togglePresentation() {
+    async function togglePresentation() {
       const active = !document.documentElement.classList.contains("pc-presentation-mode");
       document.documentElement.classList.toggle("pc-presentation-mode", active);
       presentButton.setAttribute("aria-pressed", String(active));
-      if (active && !document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
-      } else if (!active && document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
+      await setImmersiveFullscreen(active);
       showToast(active ? "已開啟課堂展示模式" : "已離開課堂展示模式");
     }
 
@@ -687,9 +834,14 @@
     });
 
     document.addEventListener("fullscreenchange", () => {
-      if (!document.fullscreenElement && document.documentElement.classList.contains("pc-presentation-mode")) {
-        document.documentElement.classList.remove("pc-presentation-mode");
-        presentButton.setAttribute("aria-pressed", "false");
+      if (!fullscreenElement()) {
+        document.documentElement.classList.remove("pc-immersive-mode");
+        document.body.classList.remove("pc-immersive-mode");
+        syncFullscreenButtons(false);
+        if (document.documentElement.classList.contains("pc-presentation-mode")) {
+          document.documentElement.classList.remove("pc-presentation-mode");
+          presentButton.setAttribute("aria-pressed", "false");
+        }
       }
     });
 

@@ -482,6 +482,35 @@ for (const lessonPath of paths) {
   }
 }
 
+const fullscreenShell = strictUtf8.decode(fs.readFileSync(path.join(root, "classroom-shell.js")));
+const fullscreenCss = strictUtf8.decode(fs.readFileSync(path.join(root, "classroom-shell.css")));
+const fullscreenManifestPath = path.join(root, "manifest.webmanifest");
+for (const marker of [
+  "window.PhysicsFullscreen",
+  "webkitRequestFullscreen",
+  "pc-immersive-mode",
+  "showFullscreenHelp",
+  "獨立開啟模擬器",
+  "加入主畫面"
+]) {
+  if (!fullscreenShell.includes(marker)) errors.push(`手機全螢幕共用控制缺少標記：${marker}`);
+}
+if (!fullscreenCss.includes(".pc-fullscreen-help") || !fullscreenCss.includes("100dvh")) {
+  errors.push("手機全螢幕缺少沉浸模式或說明面板樣式");
+}
+if (!fs.existsSync(fullscreenManifestPath)) {
+  errors.push("缺少可加入手機主畫面的 manifest.webmanifest");
+} else {
+  try {
+    const manifest = JSON.parse(strictUtf8.decode(fs.readFileSync(fullscreenManifestPath)));
+    if (manifest.display !== "standalone" || manifest.orientation !== "landscape") {
+      errors.push("manifest.webmanifest 未設定橫向 standalone 模式");
+    }
+  } catch {
+    errors.push("manifest.webmanifest 不是有效的 JSON");
+  }
+}
+
 const jsFiles = fs.readdirSync(root).filter((name) => name.endsWith(".js"));
 for (const name of jsFiles) {
   let source = "";
