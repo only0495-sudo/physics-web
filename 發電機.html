@@ -112,6 +112,7 @@
             flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; gap: 20px; pointer-events: none;
         }
         #oscilloscope { width: 380px; height: 250px; background: #ffffff; pointer-events: auto; }
+        #chartCanvas { width: 100%; height: 190px; display: block; }
         
         #fullscreen-btn {
             position: absolute; top: 24px; right: 24px; pointer-events: auto; background: white; color: #0f172a;
@@ -224,7 +225,7 @@
 
         <div class="main-content">
             <button id="fullscreen-btn">⛶ 全螢幕</button>
-            <div id="oscilloscope" class="glass-panel">
+            <div id="oscilloscope" class="glass-panel" data-occlusion-role="chart" data-occlusion-display="block">
                 <div class="panel-header" onclick="togglePanel('oscilloscope')">
                     <h1>電流 - 時間關係圖</h1>
                     <span class="toggle-icon">▼</span>
@@ -576,8 +577,11 @@
         function drawChart() {
             const container = UI.chartCanvas.parentElement;
             if(!container) return;
-            const w = UI.chartCanvas.width = container.clientWidth;
-            const h = UI.chartCanvas.height = 190;
+            const w = Math.round(UI.chartCanvas.clientWidth);
+            const h = Math.round(UI.chartCanvas.clientHeight);
+            if (w < 2 || h < 2) return;
+            if (UI.chartCanvas.width !== w) UI.chartCanvas.width = w;
+            if (UI.chartCanvas.height !== h) UI.chartCanvas.height = h;
             ctxChart.clearRect(0, 0, w, h);
             ctxChart.strokeStyle = '#e2e8f0'; for(let i=0; i<w; i+=20) { ctxChart.beginPath(); ctxChart.moveTo(i,0); ctxChart.lineTo(i,h); ctxChart.stroke(); }
             ctxChart.strokeStyle = '#64748b'; ctxChart.lineWidth = 2;
@@ -620,10 +624,10 @@
             bulbPointLight.intensity = power * 6;
 
             const sign = Math.sign(state.currentValue);
-            const vecLen = Math.max(0.01, power * 8);
+            const vecLen = power * 8;
             const hL = vecLen * 0.3; const hW = vecLen * 0.2;
             
-            if (absV > 0.1) {
+            if (absV > 0.0001) {
                 coilVectorsGroup.visible = true;
                 
                 // 1. 更新懸浮於導線上方的直線電流箭頭 (維持在世界座標 +Y 處，不隨線圈埋入)
@@ -645,13 +649,14 @@
                 floatArrowBack.setLength(vecLen * 0.8, hL * 0.8, hW * 0.8);
 
                 // 2. 更新中心圓環箭頭 (隨電流強度縮放，且物理無縫連接)
-                const loopScale = 0.1 + power * 1.1;
+                const loopScale = power * 1.2;
                 currentLoopCW.visible = (sign > 0);
                 currentLoopCCW.visible = (sign < 0);
                 currentLoopCW.scale.setScalar(loopScale);
                 currentLoopCCW.scale.setScalar(loopScale);
                 
                 iLabelSprite.visible = true;
+                iLabelSprite.material.opacity = Math.min(1, power * 4);
                 iLabelSprite.position.set(0, -0.5, 3.5 * loopScale + 1.5); 
 
                 // 3. 更新感應磁場 B 箭頭 (遵循右手安培定則，逆時針CCW電流產生+Y向磁場)
@@ -659,6 +664,7 @@
                 inducedBArrow.setLength(vecLen * 1.5, hL * 1.5, hW * 1.5);
                 
                 const bOffset = sign > 0 ? 1 : -1;
+                bLabelSprite.material.opacity = Math.min(1, power * 4);
                 bLabelSprite.position.set(0, bOffset * (vecLen * 1.5 + 2), 0);
 
                 if (state.showExternal) {

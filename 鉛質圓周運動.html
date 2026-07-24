@@ -544,16 +544,27 @@
 
                 if (currentMode === 1 && releaseHeightArrow) {
                     const arrowX = targetX - 1.2;
+                    const heightLength = targetY - 0.5;
                     releaseHeightArrow.position.set(arrowX, 0.5, 0);
-                    releaseHeightArrow.setLength(Math.max(0.1, targetY - 0.5), 0.6, 0.4);
+                    releaseHeightArrow.visible = heightLength > 0.0001;
+                    if (releaseHeightArrow.visible) {
+                        const headLength = Math.min(0.6, heightLength * 0.4);
+                        releaseHeightArrow.setLength(heightLength, headLength, headLength * 0.62);
+                    }
                     releaseHeightLabel.innerText = `H = ${xStr} R`;
+                    releaseHeightLabel.style.opacity = Math.min(1, heightLength / 0.8).toFixed(3);
                     window.releaseLabelPos = new THREE.Vector3(arrowX - 0.5, (targetY + 0.5) / 2, 0);
                 }
 
                 if ((currentMode === 2 || currentMode === 3) && velocityArrow) {
                     const v = Math.sqrt(parseFloat(xStr) * config.gravity * R);
+                    const vectorLength = v * 0.3;
                     velocityArrow.position.set(targetX + config.ballRadius + 0.1, targetY, 0);
-                    velocityArrow.setLength(Math.max(0.1, v * 0.3), 0.6, 0.4);
+                    velocityArrow.visible = vectorLength > 0.0001;
+                    if (velocityArrow.visible) {
+                        const headLength = Math.min(0.6, vectorLength * 0.4);
+                        velocityArrow.setLength(vectorLength, headLength, headLength * 0.62);
+                    }
                 }
             }
         }

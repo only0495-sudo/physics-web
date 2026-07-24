@@ -884,7 +884,7 @@
     // 全域輔助函式
     function drawArrow(x1, y1, x2, y2, color, label) {
       const arrowLength = dist(x1, y1, x2, y2);
-      if (arrowLength < 2) return; // 長度太短不畫
+      if (arrowLength < 0.05) return;
       const headLength = min(15, arrowLength * 0.45);
       const angle = atan2(y2 - y1, x2 - x1);
       const baseX = x2 - cos(angle) * headLength;
@@ -892,7 +892,7 @@
 
       push();
       stroke(color);
-      strokeWeight(3);
+      strokeWeight(max(0.35, min(3, arrowLength * 0.18)));
       fill(color);
       line(x1, y1, baseX, baseY);
       
@@ -904,6 +904,7 @@
       
       // 標籤
       rotate(-angle); 
+      drawingContext.globalAlpha = min(1, arrowLength / 24);
       stroke(255);
       strokeWeight(5);
       fill(color);
@@ -923,14 +924,14 @@
     // 專供畫布緩衝區 (PG) 使用的箭頭繪製函式
     function drawArrowPG(pg, x1, y1, x2, y2, color, label) {
       const arrowLength = dist(x1, y1, x2, y2);
-      if (arrowLength < 2) return;
+      if (arrowLength < 0.05) return;
       const headLength = min(12, arrowLength * 0.45);
       const angle = atan2(y2 - y1, x2 - x1);
       const baseX = x2 - cos(angle) * headLength;
       const baseY = y2 - sin(angle) * headLength;
       pg.push();
       pg.stroke(color);
-      pg.strokeWeight(4);
+      pg.strokeWeight(max(0.35, min(4, arrowLength * 0.18)));
       pg.fill(color);
       pg.line(x1, y1, baseX, baseY);
       
@@ -940,6 +941,7 @@
       pg.triangle(0, 0, -headLength, headLength * 0.54, -headLength, -headLength * 0.54);
       
       pg.rotate(-angle);
+      pg.drawingContext.globalAlpha = min(1, arrowLength / 24);
       pg.noStroke();
       pg.stroke(255);
       pg.strokeWeight(5);

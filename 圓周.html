@@ -301,10 +301,15 @@
         label.scale.set(8*scale, 4*scale, 1);
         scene.add(arrow); scene.add(label);
         return {arrow, label, update: (pos, dir, len) => {
-            if(len<0.1){ arrow.visible=false; label.visible=false; return;}
+            if(len < 0.0001 || dir.lengthSq() < 0.000001){
+                arrow.visible=false; label.visible=false; return;
+            }
             arrow.visible=true; label.visible=true;
-            arrow.position.copy(pos); arrow.setDirection(dir); arrow.setLength(len, Math.min(3.2*scale, Math.max(1.2*scale, len*0.24)), Math.min(2.0*scale, Math.max(0.8*scale, len*0.15)));
+            const headLength = Math.min(3.2 * scale, len * 0.36);
+            const headWidth = Math.min(2.0 * scale, headLength * 0.62);
+            arrow.position.copy(pos); arrow.setDirection(dir); arrow.setLength(len, headLength, headWidth);
             label.position.copy(pos).add(dir.clone().multiplyScalar(len + 3*scale));
+            label.material.opacity = Math.min(1, len / (4 * scale));
         }};
     }
     const arrowN = createArrow(0x0066ff, "N");
@@ -339,7 +344,7 @@
             let vY = -dy * canvasScale; 
             
             const len = Math.sqrt(vX*vX + vY*vY);
-            if(len < 5) return;
+            if(len < 0.05) return;
 
             if (len > maxVectorLen) {
                 const ratio = maxVectorLen / len;
@@ -348,12 +353,14 @@
 
             const ex = cx + vX, ey = cy + vY;
             const drawLen = Math.hypot(vX, vY);
+            ctx.save();
             const ux = vX / drawLen, uy = vY / drawLen;
             const headLen = Math.min(12, drawLen * 0.45);
             const headHalfWidth = headLen * 0.58;
+            const shaftWidth = Math.max(0.35, Math.min(3, drawLen * 0.18));
             const baseX = ex - ux * headLen, baseY = ey - uy * headLen;
             ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(baseX, baseY);
-            ctx.strokeStyle = color; ctx.lineWidth = 3;
+            ctx.strokeStyle = color; ctx.lineWidth = shaftWidth;
             if(isDashed) ctx.setLineDash([3,3]); else ctx.setLineDash([]);
             ctx.stroke();
             
@@ -364,9 +371,11 @@
             ctx.closePath();
             ctx.fillStyle = color; ctx.fill();
             
+            ctx.globalAlpha = Math.min(1, drawLen / 20);
             ctx.fillStyle = color; ctx.font = "bold 18px Arial"; ctx.lineWidth = 5; ctx.strokeStyle = 'white';
             ctx.strokeText(label, ex + (vX>0?5:-42), ey + (vY>0?22:-12));
             ctx.fillText(label, ex + (vX>0?5:-42), ey + (vY>0?22:-12));
+            ctx.restore();
         }
 
         const scale = 0.5; 

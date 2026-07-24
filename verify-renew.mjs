@@ -56,7 +56,10 @@ for (const name of htmlFiles) {
     if (/\bsrc\s*=/i.test(attributes) || /type=["'](?:application\/json|importmap)["']/i.test(attributes) || !source) return;
     if (/type=["']module["']/i.test(attributes)) source = source.replace(/^\s*import\s+.*?;\s*$/gm, "");
     try { new vm.Script(source, { filename: `${name}:script-${index + 1}` }); }
-    catch (error) { errors.push(`${name}: JavaScript 語法錯誤：${error.message}`); }
+    catch (error) {
+      const location = String(error.stack || "").split("\n").slice(0, 4).join(" | ");
+      errors.push(`${name}: JavaScript 語法錯誤：${error.message}${location ? `（${location}）` : ""}`);
+    }
   });
 }
 
@@ -92,21 +95,21 @@ if (fs.existsSync(renewRoot)) {
 }
 
 const shellSource = fs.readFileSync(path.join(root, "classroom-shell.js"), "utf8");
-for (const marker of ["pc-clarity-mode", "pc-focus-card", "dataset.physicsDevice", "PhysicsDeviceLayout", "pc-orientation-guard", "Alt+C", "Alt+K"]) {
+for (const marker of ["pc-clarity-mode", "pc-focus-card", "dataset.physicsDevice", "PhysicsDeviceLayout", "pc-orientation-guard", "pc-mobile-view-switch", "pc-mobile-aux-hidden", "Alt+C", "Alt+K"]) {
   if (!shellSource.includes(marker)) errors.push(`課堂顯示層缺少功能標記：${marker}`);
 }
 
 const deviceSource = fs.readFileSync(path.join(root, "classroom-device.js"), "utf8");
-for (const marker of ["PHONE_LAYOUT_WIDTH = 1320", "TABLET_LAYOUT_WIDTH = 1180", "physicsLayout", "physicsOrientation", "renderPixelRatio", "user-scalable=yes"]) {
+for (const marker of ["PHONE_LAYOUT_WIDTH = 1320", "TABLET_LAYOUT_WIDTH = 1180", "COMPACT_LAYOUT_HEIGHT = 680", "physicsLayout", "physicsOrientation", "physicsViewport", "physicsEmbedded", "visualViewport", "renderPixelRatio", "user-scalable=yes"]) {
   if (!deviceSource.includes(marker)) errors.push(`載具縮放層缺少功能標記：${marker}`);
 }
 
 const shellCssSource = fs.readFileSync(path.join(root, "classroom-shell.css"), "utf8");
-for (const marker of ["data-physics-layout=\"fitted\"", "data-physics-orientation=\"landscape\"", "pc-orientation-guard", "data-physics-page=\"摩擦\"", "data-physics-page=\"黑體輻射\""]) {
+for (const marker of ["data-physics-layout=\"fitted\"", "data-physics-orientation=\"landscape\"", "data-physics-viewport=\"compact\"", "pc-mobile-view-switch", "pc-mobile-aux-visible", "pc-orientation-guard", "data-physics-page=\"摩擦\"", "data-physics-page=\"黑體輻射\""]) {
   if (!shellCssSource.includes(marker)) errors.push(`橫向介面樣式缺少功能標記：${marker}`);
 }
 
-function evaluateDeviceLayout({ width, height, ua, platform = "", touchPoints = 0, coarse = false, mobile = false }) {
+function evaluateDeviceLayout({ width, height, screenWidth = width, screenHeight = height, ua, platform = "", touchPoints = 0, coarse = false, mobile = false, embedded = false }) {
   const meta = {
     content: "width=device-width, initial-scale=1.0, viewport-fit=cover",
     getAttribute(name) { return name === "content" ? this.content : ""; },
@@ -126,12 +129,16 @@ function evaluateDeviceLayout({ width, height, ua, platform = "", touchPoints = 
     innerWidth: width,
     innerHeight: height,
     devicePixelRatio: 3,
-    screen: { width, height },
+    screen: { width: screenWidth, height: screenHeight },
     matchMedia: mediaQuery,
     setTimeout() {},
+    clearTimeout() {},
     addEventListener() {},
-    dispatchEvent() {}
+    dispatchEvent() {},
+    visualViewport: { addEventListener() {} }
   };
+  windowMock.self = {};
+  windowMock.top = embedded ? {} : windowMock.self;
   const context = {
     window: windowMock,
     document: { documentElement: rootElement, querySelector: () => meta },
@@ -147,29 +154,34 @@ const deviceCases = [
   {
     label: "橫向手機",
     result: evaluateDeviceLayout({ width: 844, height: 390, ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile", platform: "iPhone", touchPoints: 5, coarse: true, mobile: true }),
-    expected: { type: "phone", orientation: "landscape", fitted: true, width: "width=1320", pixelRatio: 1 }
+    expected: { type: "phone", orientation: "landscape", fitted: true, compact: true, embedded: false, width: "width=1320", pixelRatio: 1 }
+  },
+  {
+    label: "Google Sites 內嵌橫向手機",
+    result: evaluateDeviceLayout({ width: 560, height: 220, screenWidth: 844, screenHeight: 390, ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile", platform: "iPhone", touchPoints: 5, coarse: true, mobile: true, embedded: true }),
+    expected: { type: "phone", orientation: "landscape", fitted: true, compact: true, embedded: true, width: "width=1320", pixelRatio: 1 }
   },
   {
     label: "橫向平板",
     result: evaluateDeviceLayout({ width: 1024, height: 768, ua: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)", platform: "iPad", touchPoints: 5, coarse: true }),
-    expected: { type: "tablet", orientation: "landscape", fitted: true, width: "width=1180", pixelRatio: 1.5 }
+    expected: { type: "tablet", orientation: "landscape", fitted: true, compact: false, embedded: false, width: "width=1180", pixelRatio: 1.5 }
   },
   {
     label: "電腦",
     result: evaluateDeviceLayout({ width: 1440, height: 900, ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", platform: "Win32" }),
-    expected: { type: "desktop", orientation: "landscape", fitted: false, width: "width=device-width", pixelRatio: 2 }
+    expected: { type: "desktop", orientation: "landscape", fitted: false, compact: false, embedded: false, width: "width=device-width", pixelRatio: 2 }
   },
   {
     label: "直向手機",
     result: evaluateDeviceLayout({ width: 390, height: 844, ua: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile", platform: "iPhone", touchPoints: 5, coarse: true, mobile: true }),
-    expected: { type: "phone", orientation: "portrait", fitted: false, width: "width=device-width", pixelRatio: 1 }
+    expected: { type: "phone", orientation: "portrait", fitted: false, compact: false, embedded: false, width: "width=device-width", pixelRatio: 1 }
   }
 ];
 
 for (const test of deviceCases) {
   const { profile } = test.result;
   const expected = test.expected;
-  if (profile.type !== expected.type || profile.orientation !== expected.orientation || profile.fitted !== expected.fitted || profile.renderPixelRatio !== expected.pixelRatio || !test.result.viewport.includes(expected.width)) {
+  if (profile.type !== expected.type || profile.orientation !== expected.orientation || profile.fitted !== expected.fitted || profile.compact !== expected.compact || profile.embedded !== expected.embedded || profile.renderPixelRatio !== expected.pixelRatio || !test.result.viewport.includes(expected.width)) {
     errors.push(`${test.label}: 載具辨識或橫向縮放結果不正確`);
   }
 }
@@ -199,6 +211,46 @@ if (/canvas\.height\s*-\s*340|height:\s*340px/.test(potentialSource)) {
 const magnetChartSource = fs.readFileSync(path.join(root, "冷次定律(磁鐵動).html"), "utf8");
 if (!magnetChartSource.includes("togglePanel('chart-panel', this)")) {
   errors.push("冷次定律(磁鐵動): 覆蓋式即時圖表缺少收合控制");
+}
+
+const layeredLayoutAudits = [
+  { file: "位能.html", markers: ["data-occlusion-role=\"chart\"", "chartTopInCanvas", "clampVerticalVector"] },
+  { file: "冷次定律(磁鐵動).html", markers: ["togglePanel('chart-panel', this)"] },
+  { file: "光電效應.html", markers: [".graph-container {", "display: none; /* 預設隱藏，由切換按鈕控制 */"] },
+  { file: "碰撞.html", markers: ["#canvas-container {", "flex: 0 0 45vh", "#charts-container {"] },
+  { file: "黑體輻射.html", markers: ["#graph-container {", "right: 360px; /* 留出右側面板空間 */"] },
+  { file: "卡文迪西實驗裝置.html", markers: ["#graph-container {", "position: relative;"] }
+];
+for (const audit of layeredLayoutAudits) {
+  const source = fs.readFileSync(path.join(root, audit.file), "utf8");
+  for (const marker of audit.markers) {
+    if (!source.includes(marker)) errors.push(`${audit.file}: 圖表／動畫分層檢查缺少標記：${marker}`);
+  }
+}
+
+const compactOverlayAudits = [
+  { file: "位能.html", marker: 'id="chart-container" data-occlusion-role="chart"', display: 'data-occlusion-display="block"' },
+  { file: "冷次定律(磁鐵動).html", marker: 'id="chart-panel" data-occlusion-role="chart"', display: 'data-occlusion-display="block"' },
+  { file: "卡文迪西實驗裝置.html", marker: 'id="graph-container" data-occlusion-role="chart"', display: 'data-occlusion-display="block"' },
+  { file: "碰撞.html", marker: 'id="charts-container" data-occlusion-role="chart"', display: 'data-occlusion-display="flex"' },
+  { file: "發電機.html", marker: 'id="oscilloscope" class="glass-panel" data-occlusion-role="chart"', display: 'data-occlusion-display="block"' },
+  { file: "運動函數圖.html", marker: 'id="motion-graphs"', display: 'data-occlusion-display="grid"' },
+  { file: "摩擦.html", marker: 'id="friction-chart-panel"', display: 'data-occlusion-display="block"' }
+];
+for (const audit of compactOverlayAudits) {
+  const source = fs.readFileSync(path.join(root, audit.file), "utf8");
+  if (!source.includes(audit.marker) || !source.includes(audit.display)) {
+    errors.push(`${audit.file}: 短高度手機缺少動畫／圖表分離設定`);
+  }
+}
+
+for (const marker of [
+  "const isCompactPhoneLayout",
+  "indexAxis: isCompactPhoneLayout() ? 'y' : 'x'",
+  "state.animationBottom = Math.max(170, canvas.height - 18)",
+  "if (!isCompactPhoneLayout())"
+]) {
+  if (!potentialSource.includes(marker)) errors.push(`位能: 手機緊湊版面缺少標記：${marker}`);
 }
 
 const shmSource = fs.readFileSync(path.join(root, "SHM.html"), "utf8");
@@ -240,6 +292,185 @@ for (const audit of arrowAudits) {
   }
 }
 
+// 動態向量回歸檢查：量值接近零時，箭長、箭頭、線寬與文字必須連續縮放，
+// 不可用固定最短箭長撐住畫面，再於門檻處整支消失。
+const smoothVectorAudits = [
+  {
+    file: "位能.html",
+    required: ["if (magnitude < 0.05)", "const visualScale = Math.min(1, magnitude / 30)", "Math.min(130, Math.abs(state.vY) * 0.18)", "ctx.globalAlpha = Math.min(1, magnitude / 22)"],
+    forbidden: ["Math.max(34, Math.abs(state.vY)", "Math.abs(state.vY) > 1", "Math.max(12, magnitude * 0.2)"]
+  },
+  {
+    file: "運動函數圖.html",
+    required: ["Math.min(190, Math.abs(v) * 4)", "const headSize = Math.min(17, absoluteLength * 0.45)", "ctx.globalAlpha = Math.min(1, absoluteLength / 40)"],
+    forbidden: ["Math.abs(v) < 0.5", "Math.max(28, Math.abs(v) * 4)", "Math.max(10, Math.abs(arrowLength)"]
+  },
+  {
+    file: "碰撞.html",
+    required: ["Math.min(160, Math.abs(v) * 16)", "const headLen = Math.min(14, arrowLen * 0.45)", "ctx.globalAlpha = Math.min(1, arrowLen / 32)"],
+    forbidden: ["Math.max(Math.abs(v) * 16, 20)", "Math.abs(v) < 0.05", "Math.abs(disp_vcm) > 0.05"]
+  },
+  {
+    file: "摩擦.html",
+    required: ["Math.min(180, physics.velocity * 20)", "const shapeScale = Math.min(1, arrowLen / 36.4)", "ctx.globalAlpha = Math.min(1, arrowLen / 55)"],
+    forbidden: ["Math.max(80, physics.velocity * 20)", "if (physics.velocity > 0.05)"]
+  },
+  {
+    file: "SHM.html",
+    required: ["if (len < 0.05)", "const preferredWidth =", "ctx.globalAlpha = Math.min(1, len / 20)"],
+    forbidden: ["if (len < 1)", "lineWidth = Math.max(5, lineWidth)"]
+  },
+  {
+    file: "都卜勒效應.html",
+    required: ["if (Math.abs(velocity) < 0.005)", "const absoluteLength = Math.abs(length)", "drawingContext.globalAlpha = Math.min(1, absoluteLength / 28)"],
+    forbidden: ["if (Math.abs(velocity) < 0.5)"]
+  },
+  {
+    file: "圓周.html",
+    required: ["const headLength = Math.min(3.2 * scale, len * 0.36)", "label.material.opacity = Math.min(1, len / (4 * scale))", "if(len < 0.05)"],
+    forbidden: ["if(len<0.1)", "Math.max(1.2*scale, len*0.24)"]
+  },
+  {
+    file: "等速圓周運動-錐動擺.html",
+    required: ["updateArrow('Fc', bobPos, dirFc, lenFc)", "const headLength = Math.min(2.8, len * 0.38)", "lbl.element.style.opacity"],
+    forbidden: ["arrFc.setLength(Math.max(1, lenFc))", "arr.setLength(Math.max(1, len))"]
+  },
+  {
+    file: "正向力與視重.html",
+    required: ["const actualWidth = Math.max(0.35, Math.min(width, length * 0.18))", "ctx.globalAlpha = Math.min(1, length / 20)"],
+    forbidden: ["Math.abs(stateElevator.a) > 0.05) drawArrow"]
+  },
+  {
+    file: "曲率半徑.html",
+    required: ["const visualScale = Math.min(1, length / 30)", "ctx.globalAlpha = Math.min(1, length / 24)"],
+    forbidden: ["if (length < 2) return"]
+  },
+  {
+    file: "腳踏車的摩擦力.html",
+    required: ["if (arrowLength < 0.05)", "drawingContext.globalAlpha = min(1, arrowLength / 24)", "pg.drawingContext.globalAlpha = min(1, arrowLength / 24)"],
+    forbidden: ["if (arrowLength < 2) return"]
+  },
+  {
+    file: "發電機.html",
+    required: ["const vecLen = power * 8", "const loopScale = power * 1.2", "iLabelSprite.material.opacity"],
+    forbidden: ["Math.max(0.01, power * 8)", "if (absV > 0.1)", "0.1 + power * 1.1"]
+  },
+  {
+    file: "電動機.html",
+    required: ["const currentLength = 5 * Math.min(1, Math.abs(I) / 5)", "const forceLength = Math.min(5, Math.abs(I*B)*0.25)", "const forceHead = Math.min(1.5, forceLength * 0.35)"],
+    forbidden: ["Math.max(2.4, Math.min(5, Math.abs(I*B)*0.25))"]
+  },
+  {
+    file: "冷次定律(磁鐵動).html",
+    required: ["vLabel.material.opacity = Math.min(1, Math.abs(displayV) / 0.5)", "const arrowScale = intensity * 1.3", "inducedBArrow.scale.setScalar(arrowScale)"],
+    forbidden: ["inducedBArrow.scale.set(0.5 + intensity*0.8"]
+  },
+  {
+    file: "鉛質圓周運動.html",
+    required: ["const heightLength = targetY - 0.5", "const vectorLength = v * 0.3", "const headLength = Math.min(0.6, vectorLength * 0.4)"],
+    forbidden: ["velocityArrow.setLength(Math.max(0.1, v * 0.3)", "releaseHeightArrow.setLength(Math.max(0.1"]
+  }
+];
+
+for (const audit of smoothVectorAudits) {
+  const source = fs.readFileSync(path.join(root, audit.file), "utf8");
+  for (const marker of audit.required || []) {
+    if (!source.includes(marker)) errors.push(`${audit.file}: 動態向量缺少連續縮放標記：${marker}`);
+  }
+  for (const marker of audit.forbidden || []) {
+    if (source.includes(marker)) errors.push(`${audit.file}: 仍有固定最短箭長或門檻跳變：${marker}`);
+  }
+}
+
+// 沙漏模式回歸檢查：三個階段都必須先預測才啟動，右側同步繪製 N-t 圖，
+// 且讀數依序呈現
+// 開始時 N<W、穩定流動 N≈W、尾端短暫 N>W、靜止後 N=W。
+const hourglassSource = fs.readFileSync(path.join(root, "正向力與視重.html"), "utf8");
+const hourglassMarkers = [
+  'id="btn-mode-hourglass"',
+  'id="hourglass-prediction"',
+  'data-hourglass-answer="heavier"',
+  'data-hourglass-answer="lighter"',
+  'data-hourglass-answer="same"',
+  "id: 'starting'",
+  "id: 'steady'",
+  "id: 'ending'",
+  "starting: 'lighter'",
+  "steady: 'same'",
+  "ending: 'heavier'",
+  "function hourglassQuizComplete",
+  "stateHourglass.questionIndex < hourglassQuestions.length - 1",
+  "window.submitHourglassPrediction",
+  "function getHourglassMetrics",
+  "stateHourglass.running = true",
+  'id="overlay-hourglass-graph"',
+  'id="canvas-hourglass-nt"',
+  "function drawHourglassGraph",
+  "stateHourglass.history.push",
+  "glassMass: 100 / GRAVITY - 4",
+  "openingDelay: 0.65",
+  "playbackRate: 0.72",
+  "const earliestReleaseTime = Math.max(0, metrics.flowTime - HOURGLASS.fallTime)",
+  "const latestReleaseTime = Math.min(metrics.flowTime, HOURGLASS.flowDuration)",
+  "const fallProgress = Math.pow(clamp01(age / HOURGLASS.fallTime), 2)",
+  'class="hourglass-explain-table"',
+  'data-hourglass-stage="starting"',
+  'data-hourglass-stage="steady"',
+  'data-hourglass-stage="ending"',
+  "function updateHourglassTableHighlight",
+  "讀數＝沙漏向下壓秤面的力",
+  "正在空中下落的砂還沒壓到沙漏底部"
+];
+for (const marker of hourglassMarkers) {
+  if (!hourglassSource.includes(marker)) errors.push(`正向力與視重.html: 沙漏模式缺少必要流程：${marker}`);
+}
+
+if (hourglassSource.includes("const progress = (i / 22")) {
+  errors.push("正向力與視重.html: 沙漏仍以整條循環砂流繪製，缺少由上往下移動的落砂前緣");
+}
+for (const advancedTerm of ["把整個沙漏視為系統", "動量傳遞", "N - W = M a₍CM₎"]) {
+  if (hourglassSource.includes(advancedTerm)) {
+    errors.push(`正向力與視重.html: 沙漏解釋仍含不適合高一初學者的說法：${advancedTerm}`);
+  }
+}
+
+const hourglassTest = { g: 9.8, glass: 100 / 9.8 - 4, sand: 4, opening: 0.65, duration: 5.4, fall: 0.72, ramp: 0.22 };
+const hourglassBaseline = (hourglassTest.glass + hourglassTest.sand) * hourglassTest.g;
+if (Math.abs(hourglassBaseline - 100) > 1e-9) errors.push("沙漏物理：靜止時總重量不是 100 N");
+const testSmoothstep = (value) => {
+  const t = Math.max(0, Math.min(1, value));
+  return t * t * (3 - 2 * t);
+};
+const testHourglassReading = (time) => {
+  const flowTime = Math.max(0, time - hourglassTest.opening);
+  const q = hourglassTest.sand / hourglassTest.duration;
+  const released = q * Math.min(flowTime, hourglassTest.duration);
+  const landed = q * Math.max(0, Math.min(flowTime - hourglassTest.fall, hourglassTest.duration));
+  const upper = hourglassTest.sand - released;
+  const lower = landed;
+  const landingEndTime = hourglassTest.duration + hourglassTest.fall;
+  const landingStart = testSmoothstep((flowTime - hourglassTest.fall) / hourglassTest.ramp);
+  const landingEnd = 1 - testSmoothstep((flowTime - (landingEndTime - hourglassTest.ramp)) / hourglassTest.ramp);
+  const impact = q * hourglassTest.g * hourglassTest.fall * Math.max(0, Math.min(landingStart, landingEnd));
+  return (hourglassTest.glass + upper + lower) * hourglassTest.g + impact;
+};
+const hourglassReadings = {
+  ready: testHourglassReading(0.3),
+  start: testHourglassReading(hourglassTest.opening + 0.36),
+  steady: testHourglassReading(hourglassTest.opening + 2),
+  ending: testHourglassReading(hourglassTest.opening + 5.65),
+  complete: testHourglassReading(hourglassTest.opening + 6.12)
+};
+if (Math.abs(hourglassReadings.ready - hourglassBaseline) > 0.05) errors.push("沙漏物理：開閥前的讀數不是原重量");
+if (!(hourglassReadings.start < hourglassBaseline - 0.5)) errors.push("沙漏物理：剛開始漏砂時讀數沒有變少");
+if (Math.abs(hourglassReadings.steady - hourglassBaseline) > 0.05) errors.push("沙漏物理：穩定流動時讀數沒有回到基準附近");
+if (!(hourglassReadings.ending > hourglassBaseline + 0.5)) errors.push("沙漏物理：尾端落砂時缺少短暫上衝");
+if (Math.abs(hourglassReadings.complete - hourglassBaseline) > 0.05) errors.push("沙漏物理：所有砂靜止後沒有回到原重量");
+const earlyFrontProgress = Math.pow(0.18 / hourglassTest.fall, 2);
+const endingTopGap = Math.pow(0.2 / hourglassTest.fall, 2);
+if (!(earlyFrontProgress > 0 && earlyFrontProgress < 0.2)) errors.push("沙漏動畫：第一批砂粒沒有從頸口逐步向下移動");
+if (!(endingTopGap > 0)) errors.push("沙漏動畫：停止放砂後，砂流上端沒有形成向下移動的空隙");
+
 const paths = context.window.PhysicsClassroom?.paths || [];
 if (!paths.length) errors.push("缺少主題課程路徑");
 if (new Set(paths.map((item) => item.id)).size !== paths.length) errors.push("主題課程路徑有重複 id");
@@ -258,7 +489,10 @@ for (const name of jsFiles) {
   catch { errors.push(`${name}: 不是有效的 UTF-8 檔案`); continue; }
   if (suspiciousMojibake.test(source)) errors.push(`${name}: 含有疑似亂碼或替代字元`);
   try { new vm.Script(source, { filename: name }); }
-  catch (error) { errors.push(`${name}: JavaScript 語法錯誤：${error.message}`); }
+  catch (error) {
+    const location = String(error.stack || "").split("\n").slice(0, 3).join(" | ");
+    errors.push(`${name}: JavaScript 語法錯誤：${error.message}${location ? `（${location}）` : ""}`);
+  }
 }
 
 const cssFiles = fs.readdirSync(root).filter((name) => name.endsWith(".css"));
@@ -274,5 +508,5 @@ if (errors.length) {
   console.error(`檢查失敗（${errors.length}）：\n${errors.join("\n")}`);
   process.exitCode = 1;
 } else {
-  console.log(`physics-web 檢查通過：${simulations.length} 個模擬、${deviceCases.length} 種載具／方向情境、${activities.length} 份專屬量測指南、${paths.length} 條課程路徑、${arrowAudits.length} 組自訂箭頭回歸檢查、${appPages.size} 個系統頁面；UTF-8 文字、Canvas 色值、本機連結與 JavaScript 語法皆正常。`);
+  console.log(`physics-web 檢查通過：${simulations.length} 個模擬、${deviceCases.length} 種載具／方向情境、${layeredLayoutAudits.length} 組圖表／動畫分層檢查、${compactOverlayAudits.length} 組短高度手機圖表切換、1 組沙漏三題預測／落砂前緣／N-t 圖／物理階段檢查、${activities.length} 份專屬量測指南、${paths.length} 條課程路徑、${arrowAudits.length} 組自訂箭頭幾何檢查、${smoothVectorAudits.length} 組動態向量連續性檢查、${appPages.size} 個系統頁面；UTF-8 文字、Canvas 色值、本機連結與 JavaScript 語法皆正常。`);
 }

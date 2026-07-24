@@ -6,6 +6,7 @@
   const landscapeQuery = window.matchMedia("(orientation: landscape)");
   const PHONE_LAYOUT_WIDTH = 1320;
   const TABLET_LAYOUT_WIDTH = 1180;
+  const COMPACT_LAYOUT_HEIGHT = 680;
 
   function screenMetrics() {
     const screenWidth = Number(window.screen?.width) || window.innerWidth || 0;
@@ -52,14 +53,20 @@
     const physicalScale = fitted ? Math.min(1, longSide / designWidth) : 1;
     const pixelRatioCap = type === "phone" ? 1 : (type === "tablet" ? 1.5 : 2);
     const renderPixelRatio = Math.min(window.devicePixelRatio || 1, pixelRatioCap);
+    const layoutHeight = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
+    const compact = orientation === "landscape" && type === "phone" && layoutHeight <= COMPACT_LAYOUT_HEIGHT;
+    const embedded = window.self !== window.top;
     root.dataset.physicsDevice = type;
     root.dataset.physicsOrientation = orientation;
     root.dataset.physicsLayout = fitted ? "fitted" : "native";
+    root.dataset.physicsViewport = compact ? "compact" : "roomy";
+    root.dataset.physicsEmbedded = embedded ? "true" : "false";
     root.dataset.physicsLayoutWidth = fitted ? String(designWidth) : "device";
     root.style.setProperty("--pc-layout-width", fitted ? `${designWidth}px` : "100vw");
     root.style.setProperty("--pc-physical-scale", physicalScale.toFixed(4));
+    root.style.setProperty("--pc-viewport-height", `${layoutHeight}px`);
 
-    api.profile = { type, orientation, fitted, designWidth, physicalScale, renderPixelRatio };
+    api.profile = { type, orientation, fitted, compact, embedded, designWidth, layoutHeight, physicalScale, renderPixelRatio };
     window.dispatchEvent(new CustomEvent("physicsdevicechange", { detail: api.profile }));
     return api.profile;
   }
@@ -79,4 +86,11 @@
   if (landscapeQuery.addEventListener) landscapeQuery.addEventListener("change", handleOrientationChange);
   else landscapeQuery.addListener(handleOrientationChange);
   window.addEventListener("orientationchange", handleOrientationChange, { passive: true });
+  let resizeTimer = 0;
+  const handleViewportResize = () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(applyLayout, 120);
+  };
+  window.addEventListener("resize", handleViewportResize, { passive: true });
+  window.visualViewport?.addEventListener("resize", handleViewportResize, { passive: true });
 })();

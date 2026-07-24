@@ -283,6 +283,8 @@
         #simulation-canvas {
             position: absolute;
             inset: 0;
+            width: 100%;
+            height: 100%;
             z-index: 0;
         }
 
@@ -420,7 +422,7 @@
 
     <div id="slow-mo-indicator">慢動作模式開啟中</div>
 
-    <div id="chart-container" data-occlusion-role="chart">
+    <div id="chart-container" data-occlusion-role="chart" data-occlusion-display="block">
         <canvas id="energyChart" class="hidden"></canvas>
         <canvas id="energyXChart" class="hidden"></canvas>
         <canvas id="energyBarChart"></canvas>
@@ -471,6 +473,12 @@
         document.body.appendChild(canvas);
         const ctx = canvas.getContext('2d');
         const chartContainer = document.getElementById('chart-container');
+        const isCompactPhoneLayout = () => {
+            const root = document.documentElement;
+            return root.dataset.physicsDevice === 'phone'
+                && root.dataset.physicsOrientation === 'landscape'
+                && root.dataset.physicsViewport === 'compact';
+        };
 
         // 白底主題圖表配色
         const chartTextColor = '#444';
@@ -481,6 +489,17 @@
         const colorQ = '#d63031';
         const colorE = '#e17055';
         const colorTotal = '#2d3436';
+        const createEnergyScale = (showTitle = true) => ({
+            title: { display: showTitle, text: '能量 (Joule)', color: chartTextColor, font: { size: 14, weight: 'bold' } },
+            grid: { color: chartGridColor },
+            ticks: { color: chartTextColor, font: { size: 12 } },
+            suggestedMax: 100,
+            min: 0
+        });
+        const createEnergyCategoryScale = () => ({
+            grid: { display: false },
+            ticks: { color: chartTextColor, font: { size: 14, weight: 'bold' }, autoSkip: false }
+        });
 
         // 初始化 E-t 圖表
         const chartCtx = document.getElementById('energyChart').getContext('2d');
@@ -552,7 +571,10 @@
                 }]
             },
             options: {
-                responsive: true, maintainAspectRatio: false, animation: false,
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                indexAxis: isCompactPhoneLayout() ? 'y' : 'x',
                 plugins: { 
                     legend: { display: false },
                     tooltip: {
@@ -563,18 +585,35 @@
                         }
                     }
                 },
-                scales: {
-                    y: {
-                        title: { display: true, text: '能量 (Joule)', color: chartTextColor, font: { size: 14, weight: 'bold' } },
-                        grid: { color: chartGridColor }, ticks: { color: chartTextColor, font: { size: 12 } }, suggestedMax: 100, min: 0
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: chartTextColor, font: { size: 14, weight: 'bold' } }
-                    }
-                }
+                scales: isCompactPhoneLayout()
+                    ? { x: createEnergyScale(false), y: createEnergyCategoryScale() }
+                    : { x: createEnergyCategoryScale(), y: createEnergyScale(true) }
             }
         });
+
+        function updateBarChartDeviceLayout() {
+            const compact = isCompactPhoneLayout();
+            chartBar.options.indexAxis = compact ? 'y' : 'x';
+            chartBar.options.scales = compact
+                ? { x: createEnergyScale(false), y: createEnergyCategoryScale() }
+                : { x: createEnergyCategoryScale(), y: createEnergyScale(true) };
+            chartBar.resize();
+            chartBar.update('none');
+        }
+
+        function prepareCompactPhoneLayout() {
+            if (!isCompactPhoneLayout()) return;
+            const infoPanel = document.getElementById('info-panel');
+            const controlPanel = document.getElementById('control-panel');
+            infoPanel.classList.add('collapsed');
+            controlPanel.classList.add('collapsed');
+            document.getElementById('info-toggle-btn').innerText = '展開';
+            document.getElementById('ctrl-toggle-btn').innerText = '展開';
+            if (!document.documentElement.dataset.physicsView) {
+                chartContainer.classList.add('pc-mobile-aux-panel', 'pc-mobile-aux-hidden');
+            }
+            updateBarChartDeviceLayout();
+        }
 
         function updateChartVisibility() {
             const canvasTime = document.getElementById('energyChart');
@@ -670,11 +709,16 @@
             state.restX = canvas.width / 2;
             state.wallX = state.restX - 350;
 
-            const canvasRect = canvas.getBoundingClientRect();
-            const chartRect = chartContainer.getBoundingClientRect();
-            const canvasScaleY = canvas.height / Math.max(1, canvasRect.height);
-            const chartTopInCanvas = (chartRect.top - canvasRect.top) * canvasScaleY;
-            state.animationBottom = Math.max(170, Math.min(canvas.height - 40, chartTopInCanvas));
+            const chartIsHidden = isCompactPhoneLayout() && chartContainer.classList.contains('pc-mobile-aux-hidden');
+            if (chartIsHidden) {
+                state.animationBottom = Math.max(170, canvas.height - 18);
+            } else {
+                const canvasRect = canvas.getBoundingClientRect();
+                const chartRect = chartContainer.getBoundingClientRect();
+                const canvasScaleY = canvas.height / Math.max(1, canvasRect.height);
+                const chartTopInCanvas = (chartRect.top - canvasRect.top) * canvasScaleY;
+                state.animationBottom = Math.max(170, Math.min(canvas.height - 40, chartTopInCanvas));
+            }
             state.groundY = Math.max(135, state.animationBottom - CONFIG.chartSafeGap);
             const maxStateY = Math.max(0, state.groundY - CONFIG.massSize/2 - CONFIG.stageTopPadding);
             state.y = Math.max(0, Math.min(maxStateY, state.y));
@@ -742,31 +786,36 @@
 
         function drawVectorArrow(startX, startY, deltaX, deltaY, color, label, labelOffset = 0) {
             const magnitude = Math.hypot(deltaX, deltaY);
-            if (magnitude < 5) return;
+            if (magnitude < 0.05) return;
             ctx.save();
             const endX = startX + deltaX, endY = startY + deltaY;
             const ux = deltaX / magnitude, uy = deltaY / magnitude;
-            const headLength = Math.min(18, Math.max(12, magnitude * 0.2));
+            const visualScale = Math.min(1, magnitude / 30);
+            const headLength = Math.min(18, magnitude * 0.45);
             const headWidth = headLength * 0.62;
             const baseX = endX - ux * headLength, baseY = endY - uy * headLength;
+            const shaftWidth = Math.max(0.35, 5 * visualScale);
+            const outlineWidth = shaftWidth + Math.max(0.3, 4 * visualScale);
 
             ctx.lineCap = 'round'; ctx.lineJoin = 'miter';
             ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(baseX, baseY);
-            ctx.strokeStyle = 'rgba(255,255,255,0.96)'; ctx.lineWidth = 9; ctx.stroke();
-            ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.stroke();
+            ctx.strokeStyle = 'rgba(255,255,255,0.96)'; ctx.lineWidth = outlineWidth; ctx.stroke();
+            ctx.strokeStyle = color; ctx.lineWidth = shaftWidth; ctx.stroke();
 
             ctx.beginPath();
             ctx.moveTo(endX, endY);
             ctx.lineTo(baseX - uy * headWidth, baseY + ux * headWidth);
             ctx.lineTo(baseX + uy * headWidth, baseY - ux * headWidth);
             ctx.closePath();
-            ctx.fillStyle = 'white'; ctx.strokeStyle = 'white'; ctx.lineWidth = 7; ctx.stroke();
+            ctx.fillStyle = 'white'; ctx.strokeStyle = 'white';
+            ctx.lineWidth = Math.max(0.3, 7 * visualScale); ctx.stroke();
             ctx.fillStyle = color; ctx.fill();
 
             const midX = startX + deltaX * 0.5 - uy * (18 + labelOffset);
             const midY = startY + deltaY * 0.5 + ux * (18 + labelOffset);
             ctx.font = 'bold 20px "Microsoft JhengHei", sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.globalAlpha = Math.min(1, magnitude / 22);
             ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,0.98)'; ctx.strokeText(label, midX, midY);
             ctx.fillStyle = color; ctx.fillText(label, midX, midY);
             ctx.restore();
@@ -809,8 +858,8 @@
                 ctx.stroke();
                 // 高度以地面為參考點；速度向量直接顯示運動方向，不用追逐快速跳動的數字。
                 drawVectorArrow(ballX - mSize * 0.85, state.groundY, 0, -state.y, '#7c3aed', '高度 h', 2);
-                if (Math.abs(state.vY) > 1) {
-                    const velocityLength = Math.min(130, Math.max(34, Math.abs(state.vY) * 0.18));
+                if (Math.abs(state.vY) > 0.001) {
+                    const velocityLength = Math.min(130, Math.abs(state.vY) * 0.18);
                     const velocityDelta = clampVerticalVector(ballY, -Math.sign(state.vY) * velocityLength);
                     drawVectorArrow(ballX + mSize * 0.7, ballY, 0, velocityDelta, '#059669', '速度 v');
                 }
@@ -861,8 +910,8 @@
                 ctx.strokeRect(mX - mSize/2, groundY - mSize/2, mSize, mSize);
                 // 位移箭頭從平衡位置指向物體；速度箭頭附著於物體並保留正負方向。
                 drawVectorArrow(state.restX, groundY - mSize * 0.9, state.x, 0, '#7c3aed', '位移 x', 0);
-                if (Math.abs(state.vX) > 1) {
-                    const velocityLength = Math.min(130, Math.max(34, Math.abs(state.vX) * 0.18));
+                if (Math.abs(state.vX) > 0.001) {
+                    const velocityLength = Math.min(130, Math.abs(state.vX) * 0.18);
                     drawVectorArrow(mX, groundY + mSize * 0.85, Math.sign(state.vX) * velocityLength, 0, '#059669', '速度 v', 0);
                 }
             }
@@ -1125,10 +1174,12 @@
                 updateInitialEnergy();
                 
                 // 恢復物理模擬時，自動展開 UI 面板
-                document.getElementById('info-panel').classList.remove('collapsed');
-                document.getElementById('info-toggle-btn').innerText = '收起';
-                document.getElementById('control-panel').classList.remove('collapsed');
-                document.getElementById('ctrl-toggle-btn').innerText = '收起';
+                if (!isCompactPhoneLayout()) {
+                    document.getElementById('info-panel').classList.remove('collapsed');
+                    document.getElementById('info-toggle-btn').innerText = '收起';
+                    document.getElementById('control-panel').classList.remove('collapsed');
+                    document.getElementById('ctrl-toggle-btn').innerText = '收起';
+                }
             } 
         });
 
@@ -1145,6 +1196,12 @@
             this.innerText = isCollapsed ? '展開' : '收起';
         };
 
+        prepareCompactPhoneLayout();
+        window.addEventListener('physicsdevicechange', () => {
+            prepareCompactPhoneLayout();
+            updateBarChartDeviceLayout();
+            resize();
+        });
         updateChartVisibility();
         resize();
         function loop() {

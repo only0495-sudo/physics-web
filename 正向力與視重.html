@@ -67,6 +67,212 @@
         aside {
             max-height: calc(100vh - 120px);
         }
+
+        #hourglass-prediction {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483646;
+            display: grid;
+            place-items: center;
+            padding: clamp(18px, 4vw, 64px);
+            color: #f8fafc;
+            background:
+                radial-gradient(circle at 50% 18%, rgba(59, 130, 246, 0.3), transparent 36%),
+                linear-gradient(145deg, #07152f 0%, #102c55 55%, #071426 100%);
+            pointer-events: auto;
+        }
+
+        #hourglass-prediction.hidden-mode {
+            display: none !important;
+        }
+
+        .hourglass-prediction-card {
+            width: min(1080px, 94vw);
+            display: grid;
+            justify-items: center;
+            gap: clamp(14px, 2.7vh, 28px);
+            text-align: center;
+        }
+
+        .hourglass-prediction-kicker {
+            color: #93c5fd;
+            font-size: clamp(13px, 1.4vw, 20px);
+            font-weight: 900;
+            letter-spacing: 0.28em;
+        }
+
+        .hourglass-prediction-progress {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #dbeafe;
+            font-size: clamp(13px, 1.35vw, 18px);
+            font-weight: 900;
+        }
+
+        .hourglass-progress-dots {
+            display: flex;
+            gap: 7px;
+        }
+
+        .hourglass-progress-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.25);
+        }
+
+        .hourglass-progress-dot.is-active {
+            width: 28px;
+            background: #60a5fa;
+        }
+
+        .hourglass-prediction-card h2 {
+            max-width: 1000px;
+            margin: 0;
+            font-size: clamp(30px, 5.4vw, 72px);
+            font-weight: 900;
+            line-height: 1.22;
+            letter-spacing: -0.035em;
+        }
+
+        .hourglass-prediction-card p {
+            margin: 0;
+            color: #cbd5e1;
+            font-size: clamp(14px, 1.7vw, 23px);
+            font-weight: 700;
+        }
+
+        .hourglass-prediction-options {
+            width: min(920px, 100%);
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: clamp(10px, 1.8vw, 22px);
+        }
+
+        .hourglass-prediction-option {
+            min-height: clamp(76px, 14vh, 138px);
+            padding: 14px;
+            border: 2px solid rgba(255,255,255,0.28);
+            border-radius: 22px;
+            color: #f8fafc;
+            background: rgba(255,255,255,0.08);
+            font: 900 clamp(22px, 3vw, 38px)/1.1 'Noto Sans TC', sans-serif;
+            cursor: pointer;
+            transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+        }
+
+        .hourglass-prediction-option:hover,
+        .hourglass-prediction-option:focus-visible {
+            border-color: #93c5fd;
+            background: rgba(59,130,246,0.24);
+            transform: translateY(-4px);
+            outline: none;
+        }
+
+        .hourglass-prediction-option:active {
+            transform: translateY(0);
+        }
+
+        #overlay-hourglass-graph {
+            width: min(380px, 34vw);
+        }
+
+        #canvas-hourglass-nt {
+            display: block;
+            width: 100%;
+            height: 210px;
+        }
+
+        html[data-normal-force-mode="hourglass"] #right-info-area {
+            padding-bottom: 0 !important;
+        }
+
+        .hourglass-explain-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            font-size: 11px;
+            line-height: 1.45;
+        }
+
+        .hourglass-explain-table th,
+        .hourglass-explain-table td {
+            padding: 7px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+            text-align: left;
+        }
+
+        .hourglass-explain-table thead th {
+            color: #475569;
+            background: #f1f5f9;
+            font-weight: 900;
+        }
+
+        .hourglass-explain-table tbody th {
+            width: 58px;
+            color: #1e3a8a;
+            background: #f8fafc;
+            font-weight: 900;
+        }
+
+        .hourglass-explain-table .reading-cell {
+            width: 54px;
+            color: #0f172a;
+            font-weight: 900;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .hourglass-explain-table tr.is-current > * {
+            background: #dbeafe;
+            box-shadow: inset 4px 0 0 #2563eb;
+        }
+
+        @media (orientation: landscape) and (max-height: 680px) {
+            .hourglass-prediction-card {
+                gap: 12px;
+            }
+
+            .hourglass-prediction-card h2 {
+                font-size: clamp(28px, 4.4vw, 54px);
+            }
+
+            .hourglass-prediction-options {
+                gap: 10px;
+            }
+
+            .hourglass-prediction-option {
+                min-height: 76px;
+                border-radius: 16px;
+            }
+
+            #overlay-hourglass-graph {
+                width: min(350px, 32vw);
+                padding: 8px !important;
+            }
+
+            #canvas-hourglass-nt {
+                height: 160px;
+            }
+
+            html[data-normal-force-mode="hourglass"] #overlay-right-top {
+                padding: 10px !important;
+                border-radius: 12px !important;
+            }
+
+            html[data-normal-force-mode="hourglass"] #ui-top-val-n {
+                font-size: 38px !important;
+                line-height: 1 !important;
+            }
+
+            html[data-physics-device="phone"][data-physics-viewport="compact"] #right-info-area {
+                padding-right: 62px;
+            }
+        }
     </style>
   <link rel="stylesheet" href="classroom-shell.css">
   <script src="classroom-data.js" defer></script>
@@ -90,6 +296,7 @@
             <div class="flex bg-slate-100 p-1 rounded-lg mt-2 md:mt-0 border border-slate-200">
                 <button id="btn-mode-block" class="px-5 py-2 rounded-md font-bold text-sm transition-all bg-blue-600 text-white shadow-md" onclick="switchMode('block')">📦 方塊實驗</button>
                 <button id="btn-mode-elevator" class="px-5 py-2 rounded-md font-bold text-sm transition-all text-slate-500 hover:text-slate-800" onclick="switchMode('elevator')">🛗 電梯實驗</button>
+                <button id="btn-mode-hourglass" class="px-5 py-2 rounded-md font-bold text-sm transition-all text-slate-500 hover:text-slate-800" onclick="switchMode('hourglass')">⌛ 沙漏的重量</button>
             </div>
         </header>
 
@@ -100,8 +307,8 @@
             <aside class="w-full md:w-80 flex flex-col gap-3 h-full overflow-y-auto no-scrollbar pointer-events-none">
                 
                 <div class="glass-panel p-4 rounded-xl border-l-4 border-l-blue-500 shrink-0">
-                    <h3 class="text-xs text-slate-500 font-bold mb-0.5">物理核心概念</h3>
-                    <div class="text-base font-mono font-bold text-blue-600">| 壓迫總力 | = | 正向力 N |</div>
+                    <h3 id="ui-core-title" class="text-xs text-slate-500 font-bold mb-0.5">物理核心概念</h3>
+                    <div id="ui-core-formula" class="text-base font-mono font-bold text-blue-600">| 壓迫總力 | = | 正向力 N |</div>
                 </div>
 
                 <!-- 模式一控制面板 -->
@@ -181,31 +388,95 @@
                     <button class="w-full py-2 text-xs text-slate-400 hover:text-blue-600 font-bold underline transition-colors" onclick="resetCamera()">重置視角中心</button>
                 </div>
 
+                <!-- 模式三：沙漏的重量 -->
+                <div id="panel-hourglass" class="glass-panel p-4 rounded-xl flex flex-col gap-3 fade-transition hidden-mode absolute top-0 w-full md:relative">
+                    <h2 class="text-base font-bold border-b border-slate-200 pb-2 text-slate-800 flex justify-between items-center">
+                        <span>沙漏磅秤實驗</span>
+                        <span id="ui-hourglass-phase-badge" class="text-[10px] font-normal text-slate-600 bg-slate-100 px-2 py-1 rounded">等待預測</span>
+                    </h2>
+
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <div class="text-[11px] text-slate-500 font-bold mb-1">你的預測</div>
+                        <div id="ui-hourglass-prediction" class="text-sm leading-relaxed text-blue-700 font-black">尚未作答</div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <div id="ui-hourglass-status" class="text-base font-black text-slate-800 text-center">選完答案後自動開始</div>
+                        <div id="ui-hourglass-explanation" class="mt-1 text-xs leading-relaxed text-slate-600 font-bold text-center">先判斷讀數，再用動畫驗證。</div>
+                    </div>
+
+                    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <div class="px-3 py-2 bg-slate-800 text-white text-xs font-black">為什麼重量會改變？看砂粒有沒有壓到沙漏底部</div>
+                        <table class="hourglass-explain-table" aria-label="沙漏三階段磅秤讀數說明">
+                            <thead>
+                                <tr>
+                                    <th scope="col">過程</th>
+                                    <th scope="col">砂粒正在做什麼？為什麼？</th>
+                                    <th scope="col" class="reading-cell">讀數</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr data-hourglass-stage="starting">
+                                    <th scope="row">剛開始</th>
+                                    <td>砂粒已離開上方、正在空中下落，還沒撞到底部；這批砂暫時沒有向下壓磅秤。</td>
+                                    <td class="reading-cell">變少</td>
+                                </tr>
+                                <tr data-hourglass-stage="steady">
+                                    <th scope="row">中途</th>
+                                    <td>有砂離開上方，也有砂同時撞到底部；少掉的下壓與撞擊增加大致互相抵銷。</td>
+                                    <td class="reading-cell">約不變</td>
+                                </tr>
+                                <tr data-hourglass-stage="ending">
+                                    <th scope="row">快結束</th>
+                                    <td>上方不再放出新砂，但空中最後一批砂仍撞到底部，讓沙漏短暫更用力壓磅秤。</td>
+                                    <td class="reading-cell">變多</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="px-3 py-2 text-[10px] leading-relaxed font-bold text-slate-600 bg-emerald-50">全部砂粒停下後，每一粒砂都再次由沙漏承接，讀數就回到原重量。</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btn-hourglass-pause" class="py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg active:scale-95 opacity-50" onclick="toggleHourglassPause()" disabled>暫停</button>
+                        <button id="btn-hourglass-replay" class="py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg active:scale-95 opacity-50" onclick="restartHourglass()" disabled>重新播放</button>
+                    </div>
+
+                    <button class="w-full py-2 text-xs text-slate-500 hover:text-blue-700 font-bold underline" onclick="retryHourglassPrediction()">重新作答</button>
+                </div>
+
             </aside>
 
             <!-- 右側資訊區 -->
-            <div class="flex-grow flex flex-col justify-between items-end pointer-events-none h-full pb-28 md:pb-24">
+            <div id="right-info-area" class="flex-grow flex flex-col justify-between items-end pointer-events-none h-full pb-28 md:pb-24">
                 <div id="overlay-right-top" class="glass-panel p-5 rounded-2xl border-t-4 border-t-blue-500 pointer-events-auto shadow-xl flex flex-col items-end">
-                    <div class="text-xs text-slate-600 font-bold mb-1 flex items-center gap-2">
+                    <div id="ui-top-label" class="text-xs text-slate-600 font-bold mb-1 flex items-center gap-2">
                         <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>
-                        即時正向力 / 視重 (N)
+                        <span id="ui-top-label-text">即時正向力 / 視重 (N)</span>
                     </div>
                     <div class="flex items-baseline gap-2">
                         <span id="ui-top-val-n" class="text-5xl md:text-6xl font-black font-mono tracking-tighter text-blue-600 drop-shadow-sm">196</span>
                         <span class="text-xl font-bold text-slate-500">N</span>
                     </div>
-                    <div class="text-[10px] text-slate-500 mt-2 font-mono font-bold">基準重量 W = <span id="ui-top-val-w">196</span> N</div>
+                    <div id="ui-top-baseline-label" class="text-[10px] text-slate-500 mt-2 font-mono font-bold"><span id="ui-top-baseline-text">基準重量 W =</span> <span id="ui-top-val-w">196</span> N</div>
                 </div>
 
                 <div id="overlay-graphs" class="flex flex-col items-end gap-3 pointer-events-auto hidden-mode pr-2">
                     <div class="glass-panel p-2 rounded-xl"><canvas id="canvas-vt" width="280" height="120" class="rounded-lg"></canvas></div>
                     <div class="glass-panel p-2 rounded-xl"><canvas id="canvas-nt" width="280" height="120" class="rounded-lg"></canvas></div>
                 </div>
+
+                <div id="overlay-hourglass-graph" class="glass-panel p-3 rounded-xl pointer-events-auto hidden-mode">
+                    <div class="flex items-center justify-between gap-3 mb-1 px-1">
+                        <div class="text-sm font-black text-slate-800">磅秤讀數 N－時間 t</div>
+                        <div class="text-[10px] font-bold text-slate-500">虛線＝靜止重量</div>
+                    </div>
+                    <canvas id="canvas-hourglass-nt" width="360" height="210" class="rounded-lg" role="img" aria-label="沙漏磅秤讀數對時間圖"></canvas>
+                </div>
             </div>
         </main>
 
         <!-- 工具列 -->
-        <div class="fixed bottom-8 right-8 flex items-center gap-5 glass-panel px-6 py-4 rounded-full z-[200] shadow-2xl border border-slate-200">
+        <div id="viewport-toolbar" class="fixed bottom-8 right-8 flex items-center gap-5 glass-panel px-6 py-4 rounded-full z-[200] shadow-2xl border border-slate-200">
             <div class="flex items-center gap-3">
                 <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
                 <input type="range" id="ui-zoom" min="0.5" max="3.0" value="1.0" step="0.1" class="w-32 md:w-40">
@@ -218,6 +489,23 @@
         </div>
     </div>
 
+    <section id="hourglass-prediction" class="hidden-mode" role="dialog" aria-modal="true" aria-labelledby="hourglass-question">
+        <div class="hourglass-prediction-card">
+            <div class="hourglass-prediction-kicker">先預測 · 再觀察</div>
+            <div class="hourglass-prediction-progress" aria-live="polite">
+                <span id="hourglass-question-progress">第 1 題／共 3 題</span>
+                <span id="hourglass-progress-dots" class="hourglass-progress-dots" aria-hidden="true"></span>
+            </div>
+            <h2 id="hourglass-question">沙漏開始漏砂的那一刻，磅秤讀數會如何改變？</h2>
+            <p id="hourglass-question-context">三題全部作答後，模擬才會開始。</p>
+            <div class="hourglass-prediction-options" aria-label="預測磅秤讀數">
+                <button class="hourglass-prediction-option" type="button" data-hourglass-answer="heavier" onclick="submitHourglassPrediction('heavier')">比靜止時變多</button>
+                <button class="hourglass-prediction-option" type="button" data-hourglass-answer="lighter" onclick="submitHourglassPrediction('lighter')">比靜止時變少</button>
+                <button class="hourglass-prediction-option" type="button" data-hourglass-answer="same" onclick="submitHourglassPrediction('same')">和靜止時相同</button>
+            </div>
+        </div>
+    </section>
+
     <script>
         const GRAVITY = 9.8;
         let currentMode = 'block';
@@ -227,6 +515,26 @@
 
         const stateBlock = { mass: 20, forceEnabled: false, forceMag: 0, forceAngle: 90, W: 196, Fy: 0, N: 196, y: 0, vy: 0 };
         const stateElevator = { mass: 600/GRAVITY, displacement: 0, a: 0, v: 0, N: 600, journeyActive: false, isPaused: false, timer: 0, phase: 'idle', location: 'bottom', direction: 'up', history: [] };
+        const HOURGLASS = {
+            glassMass: 100 / GRAVITY - 4,
+            sandMass: 4,
+            openingDelay: 0.65,
+            flowDuration: 5.4,
+            fallTime: 0.72,
+            impactRamp: 0.22,
+            grainInterval: 0.04,
+            playbackRate: 0.72
+        };
+        const stateHourglass = {
+            predictions: {},
+            questionIndex: 0,
+            running: false,
+            isPaused: false,
+            timer: 0,
+            displayN: (HOURGLASS.glassMass + HOURGLASS.sandMass) * GRAVITY,
+            phase: 'prediction',
+            history: []
+        };
 
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
@@ -266,6 +574,203 @@
             else document.exitFullscreen();
         }
 
+        const hourglassPredictionLabels = {
+            heavier: '變多',
+            lighter: '變少',
+            same: '不變'
+        };
+        const hourglassQuestions = [
+            {
+                id: 'starting',
+                question: '閥門剛打開、砂粒開始落下時，磅秤讀數會如何改變？',
+                context: '此時砂粒已離開上半部，但還沒有撞到下半部。'
+            },
+            {
+                id: 'steady',
+                question: '漏砂進入穩定階段後，磅秤讀數會如何改變？',
+                context: '上方持續放出砂粒，下方也持續接住落下的砂粒。'
+            },
+            {
+                id: 'ending',
+                question: '上層砂快流完、最後砂粒仍在落底時，磅秤讀數會如何改變？',
+                context: '此時不再放出新的砂粒，但空中的砂仍會撞擊下半部。'
+            }
+        ];
+        const hourglassCorrectAnswers = {
+            starting: 'lighter',
+            steady: 'same',
+            ending: 'heavier'
+        };
+
+        function hourglassQuizComplete() {
+            return hourglassQuestions.every((question) => Boolean(stateHourglass.predictions[question.id]));
+        }
+
+        function hourglassPredictionSummary() {
+            if (!hourglassQuizComplete()) return '尚未完成三題';
+            return [
+                `開始：${hourglassPredictionLabels[stateHourglass.predictions.starting]}`,
+                `中途：${hourglassPredictionLabels[stateHourglass.predictions.steady]}`,
+                `快結束：${hourglassPredictionLabels[stateHourglass.predictions.ending]}`
+            ].join('｜');
+        }
+
+        function renderHourglassQuestion() {
+            const question = hourglassQuestions[stateHourglass.questionIndex];
+            const questionEl = document.getElementById('hourglass-question');
+            const contextEl = document.getElementById('hourglass-question-context');
+            const progressEl = document.getElementById('hourglass-question-progress');
+            const dotsEl = document.getElementById('hourglass-progress-dots');
+            if (questionEl) questionEl.innerText = question.question;
+            if (contextEl) contextEl.innerText = `${question.context}　三題全部作答後才會開始模擬。`;
+            if (progressEl) progressEl.innerText = `第 ${stateHourglass.questionIndex + 1} 題／共 ${hourglassQuestions.length} 題`;
+            if (dotsEl) {
+                dotsEl.innerHTML = hourglassQuestions.map((_, index) =>
+                    `<span class="hourglass-progress-dot${index === stateHourglass.questionIndex ? ' is-active' : ''}"></span>`
+                ).join('');
+            }
+            window.setTimeout(() => {
+                const firstChoice = document.querySelector('#hourglass-prediction [data-hourglass-answer]');
+                if (firstChoice) firstChoice.focus();
+            }, 0);
+        }
+
+        function clamp01(value) {
+            return Math.max(0, Math.min(1, value));
+        }
+
+        function smoothstep(value) {
+            const t = clamp01(value);
+            return t * t * (3 - 2 * t);
+        }
+
+        function getHourglassMetrics(time) {
+            const t = Math.max(0, time);
+            const flowTime = Math.max(0, t - HOURGLASS.openingDelay);
+            const flowRate = HOURGLASS.sandMass / HOURGLASS.flowDuration;
+            const released = flowRate * Math.min(flowTime, HOURGLASS.flowDuration);
+            const landed = flowRate * Math.max(0, Math.min(flowTime - HOURGLASS.fallTime, HOURGLASS.flowDuration));
+            const falling = Math.max(0, released - landed);
+            const upper = Math.max(0, HOURGLASS.sandMass - released);
+            const lower = Math.min(HOURGLASS.sandMass, landed);
+            const totalWeight = (HOURGLASS.glassMass + HOURGLASS.sandMass) * GRAVITY;
+
+            const landingStart = smoothstep((flowTime - HOURGLASS.fallTime) / HOURGLASS.impactRamp);
+            const flowEndTime = HOURGLASS.flowDuration + HOURGLASS.fallTime;
+            const landingEnd = 1 - smoothstep((flowTime - (flowEndTime - HOURGLASS.impactRamp)) / HOURGLASS.impactRamp);
+            const landingFraction = Math.max(0, Math.min(landingStart, landingEnd));
+            const impactForce = flowRate * GRAVITY * HOURGLASS.fallTime * landingFraction;
+            const supportedWeight = (HOURGLASS.glassMass + upper + lower) * GRAVITY;
+            const targetN = supportedWeight + impactForce;
+
+            let phase = t < HOURGLASS.openingDelay ? 'ready' : 'starting';
+            if (flowTime >= HOURGLASS.fallTime + HOURGLASS.impactRamp && flowTime < HOURGLASS.flowDuration) phase = 'steady';
+            else if (flowTime >= HOURGLASS.flowDuration && flowTime < flowEndTime) phase = 'ending';
+            else if (flowTime >= flowEndTime) phase = 'complete';
+
+            return {
+                time: t,
+                flowTime,
+                upper,
+                lower,
+                falling,
+                totalWeight,
+                targetN,
+                phase,
+                completeTime: HOURGLASS.openingDelay + flowEndTime
+            };
+        }
+
+        function resetHourglassRun() {
+            stateHourglass.running = false;
+            stateHourglass.isPaused = false;
+            stateHourglass.timer = 0;
+            stateHourglass.phase = 'starting';
+            stateHourglass.displayN = (HOURGLASS.glassMass + HOURGLASS.sandMass) * GRAVITY;
+            stateHourglass.history = [{ t: 0, N: stateHourglass.displayN }];
+            const pauseBtn = document.getElementById('btn-hourglass-pause');
+            const replayBtn = document.getElementById('btn-hourglass-replay');
+            if (pauseBtn) {
+                pauseBtn.disabled = true;
+                pauseBtn.classList.add('opacity-50');
+                pauseBtn.innerText = '暫停';
+            }
+            if (replayBtn) {
+                replayBtn.disabled = !hourglassQuizComplete();
+                replayBtn.classList.toggle('opacity-50', !hourglassQuizComplete());
+            }
+        }
+
+        function hideHourglassPrediction() {
+            const overlay = document.getElementById('hourglass-prediction');
+            if (overlay) overlay.classList.add('hidden-mode');
+        }
+
+        function showHourglassPrediction() {
+            stateHourglass.predictions = {};
+            stateHourglass.questionIndex = 0;
+            resetHourglassRun();
+            const overlay = document.getElementById('hourglass-prediction');
+            const predictionText = document.getElementById('ui-hourglass-prediction');
+            if (predictionText) predictionText.innerText = '尚未完成三題';
+            if (overlay) {
+                overlay.classList.remove('hidden-mode');
+            }
+            renderHourglassQuestion();
+            updateHourglassUI(getHourglassMetrics(0));
+            drawHourglassGraph();
+        }
+
+        window.submitHourglassPrediction = function(answer) {
+            if (!hourglassPredictionLabels[answer]) return;
+            const question = hourglassQuestions[stateHourglass.questionIndex];
+            stateHourglass.predictions[question.id] = answer;
+            if (stateHourglass.questionIndex < hourglassQuestions.length - 1) {
+                stateHourglass.questionIndex += 1;
+                renderHourglassQuestion();
+                return;
+            }
+
+            resetHourglassRun();
+            stateHourglass.running = true;
+            hideHourglassPrediction();
+            const predictionText = document.getElementById('ui-hourglass-prediction');
+            if (predictionText) predictionText.innerText = hourglassPredictionSummary();
+            const pauseBtn = document.getElementById('btn-hourglass-pause');
+            const replayBtn = document.getElementById('btn-hourglass-replay');
+            if (pauseBtn) {
+                pauseBtn.disabled = false;
+                pauseBtn.classList.remove('opacity-50');
+            }
+            if (replayBtn) {
+                replayBtn.disabled = false;
+                replayBtn.classList.remove('opacity-50');
+            }
+        };
+
+        window.toggleHourglassPause = function() {
+            if (!stateHourglass.running) return;
+            stateHourglass.isPaused = !stateHourglass.isPaused;
+            const button = document.getElementById('btn-hourglass-pause');
+            if (button) button.innerText = stateHourglass.isPaused ? '繼續' : '暫停';
+        };
+
+        window.restartHourglass = function() {
+            if (!hourglassQuizComplete()) return;
+            resetHourglassRun();
+            stateHourglass.running = true;
+            const pauseBtn = document.getElementById('btn-hourglass-pause');
+            if (pauseBtn) {
+                pauseBtn.disabled = false;
+                pauseBtn.classList.remove('opacity-50');
+            }
+        };
+
+        window.retryHourglassPrediction = function() {
+            if (currentMode !== 'hourglass') switchMode('hourglass');
+            else showHourglassPrediction();
+        };
+
         function setAngle(angle) { 
             const angleInput = document.getElementById('ui-block-angle');
             if (angleInput) { angleInput.value = angle; updateBlockPhysics(); }
@@ -274,15 +779,17 @@
         function drawArrow(ctx, fromX, fromY, toX, toY, color, text = '', width = 4) {
             const dx = toX - fromX, dy = toY - fromY;
             const length = Math.hypot(dx, dy);
-            if (length < 2) return;
+            if (length < 0.05) return;
+            ctx.save();
             const angle = Math.atan2(dy, dx);
             const ux = dx / length, uy = dy / length;
             const headlen = Math.min(width * 2.5, length * 0.45);
             const headHalfWidth = headlen * 0.58;
+            const actualWidth = Math.max(0.35, Math.min(width, length * 0.18));
             const lineEndX = toX - ux * headlen;
             const lineEndY = toY - uy * headlen;
 
-            ctx.lineWidth = width;
+            ctx.lineWidth = actualWidth;
             ctx.strokeStyle = color;
             ctx.fillStyle = color;
             ctx.lineCap = 'butt'; 
@@ -300,10 +807,12 @@
                 const tx = toX + offsetTip * Math.cos(angle), ty = toY + offsetTip * Math.sin(angle);
                 ctx.font = 'bold ' + fontSize + 'px sans-serif';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.globalAlpha = Math.min(1, length / 20);
                 ctx.strokeStyle = '#fff'; ctx.lineWidth = fontSize * 0.15;
                 ctx.strokeText(text, tx, ty);
                 ctx.fillStyle = '#1e293b'; ctx.fillText(text, tx, ty);
             }
+            ctx.restore();
         }
 
         function updateBlockPhysics() {
@@ -340,10 +849,58 @@
         function updateTopOverlay(n, w) {
             const nVal = document.getElementById('ui-top-val-n'), wVal = document.getElementById('ui-top-val-w');
             if(!nVal || !wVal) return;
-            nVal.innerText = Math.round(n); wVal.innerText = Math.round(w);
+            const precision = currentMode === 'hourglass' ? 1 : 0;
+            nVal.innerText = Number(n).toFixed(precision);
+            wVal.innerText = Number(w).toFixed(precision);
             if (n > w + 1) nVal.className = "text-5xl md:text-6xl font-black font-mono text-red-500 drop-shadow-sm";
             else if (n < w - 1) nVal.className = "text-5xl md:text-6xl font-black font-mono text-blue-600 drop-shadow-sm";
             else nVal.className = "text-5xl md:text-6xl font-black font-mono text-emerald-500 drop-shadow-sm";
+        }
+
+        function updateHourglassTableHighlight(phase) {
+            document.querySelectorAll('[data-hourglass-stage]').forEach((row) => {
+                row.classList.toggle('is-current', row.dataset.hourglassStage === phase);
+            });
+        }
+
+        function updateHourglassUI(metrics) {
+            updateTopOverlay(stateHourglass.displayN, metrics.totalWeight);
+            updateHourglassTableHighlight(metrics.phase);
+            const badge = document.getElementById('ui-hourglass-phase-badge');
+            const status = document.getElementById('ui-hourglass-status');
+            const explanation = document.getElementById('ui-hourglass-explanation');
+            if (!badge || !status || !explanation) return;
+
+            if (!hourglassQuizComplete()) {
+                badge.innerText = '等待預測';
+                status.innerText = '完成三題後自動開始';
+                explanation.innerText = '依序預測開始、中途與快結束時的讀數。';
+                return;
+            }
+
+            if (metrics.phase === 'ready') {
+                badge.innerText = '準備開閥';
+                status.innerText = '沙漏仍由磅秤完整支撐';
+                explanation.innerText = '先看清楚原始讀數；閥門開啟後，第一批砂粒才會由頸口往下落。';
+            } else if (metrics.phase === 'starting') {
+                badge.innerText = '① 剛開始漏砂';
+                status.innerText = '磅秤讀數先變少';
+                explanation.innerText = '正在空中下落的砂還沒壓到沙漏底部，所以磅秤暫時少承受這一部分。';
+            } else if (metrics.phase === 'steady') {
+                badge.innerText = '② 穩定流動';
+                status.innerText = '讀數回到接近原重量';
+                explanation.innerText = '砂粒離開上方會讓讀數減少；砂粒撞到底部又會讓讀數增加，兩者大致抵銷。';
+            } else if (metrics.phase === 'ending') {
+                badge.innerText = '③ 最後砂粒落底';
+                status.innerText = '讀數可能短暫變多';
+                explanation.innerText = '已經沒有新砂離開上方，但最後一批砂仍撞到底部，因此讀數會短暫增加。';
+            } else {
+                const correctCount = hourglassQuestions.reduce((count, question) =>
+                    count + (stateHourglass.predictions[question.id] === hourglassCorrectAnswers[question.id] ? 1 : 0), 0);
+                badge.innerText = '實驗完成';
+                status.innerText = `三題答對 ${correctCount} 題：少 → 不變 → 多`;
+                explanation.innerText = '最後所有砂粒都靜止在下半部，整個沙漏總質量沒變，所以讀數回到原重量。';
+            }
         }
 
         function updateElevatorUI() {
@@ -366,15 +923,57 @@
 
         window.switchMode = function(mode) {
             currentMode = mode; resetCamera();
-            const btnB = document.getElementById('btn-mode-block'), btnE = document.getElementById('btn-mode-elevator');
-            const panB = document.getElementById('panel-block'), panE = document.getElementById('panel-elevator');
+            document.documentElement.dataset.normalForceMode = mode;
+            const btnB = document.getElementById('btn-mode-block');
+            const btnE = document.getElementById('btn-mode-elevator');
+            const btnH = document.getElementById('btn-mode-hourglass');
+            const panB = document.getElementById('panel-block');
+            const panE = document.getElementById('panel-elevator');
+            const panH = document.getElementById('panel-hourglass');
             const overlayG = document.getElementById('overlay-graphs');
+            const overlayHG = document.getElementById('overlay-hourglass-graph');
+            const coreTitle = document.getElementById('ui-core-title');
+            const coreFormula = document.getElementById('ui-core-formula');
+            const topLabel = document.getElementById('ui-top-label-text');
+            const baselineLabel = document.getElementById('ui-top-baseline-text');
+            const viewportToolbar = document.getElementById('viewport-toolbar');
+            const inactiveClass = "px-5 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
+            const activeClass = "px-5 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md";
             if(btnB) btnB.className = (mode === 'block') ? "px-5 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md" : "px-5 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
-            if(btnE) btnE.className = (mode === 'elevator') ? "px-5 py-2 rounded-md font-bold text-sm bg-blue-600 text-white shadow-md" : "px-5 py-2 rounded-md font-bold text-sm text-slate-500 hover:bg-white";
+            if(btnE) btnE.className = (mode === 'elevator') ? activeClass : inactiveClass;
+            if(btnH) btnH.className = (mode === 'hourglass') ? activeClass : inactiveClass;
             if(panB) panB.classList.toggle('hidden-mode', mode !== 'block');
             if(panE) panE.classList.toggle('hidden-mode', mode !== 'elevator');
+            if(panH) panH.classList.toggle('hidden-mode', mode !== 'hourglass');
             if(overlayG) overlayG.classList.toggle('hidden-mode', mode !== 'elevator');
-            if (mode === 'block') updateBlockPhysics(); else { updateElevatorUI(); drawGraphs(); }
+            if(overlayHG) overlayHG.classList.toggle('hidden-mode', mode !== 'hourglass');
+            if(viewportToolbar) viewportToolbar.classList.toggle('hidden-mode', mode === 'hourglass');
+
+            if (mode !== 'hourglass') {
+                hideHourglassPrediction();
+                stateHourglass.running = false;
+            }
+
+            if (mode === 'block') {
+                if (coreTitle) coreTitle.innerText = '物理核心概念';
+                if (coreFormula) coreFormula.innerText = '| 壓迫總力 | = | 正向力 N |';
+                if (topLabel) topLabel.innerText = '即時正向力 / 視重 (N)';
+                if (baselineLabel) baselineLabel.innerText = '基準重量 W =';
+                updateBlockPhysics();
+            } else if (mode === 'elevator') {
+                if (coreTitle) coreTitle.innerText = '視重取決於加速度';
+                if (coreFormula) coreFormula.innerText = 'N - W = ma';
+                if (topLabel) topLabel.innerText = '即時正向力 / 視重 (N)';
+                if (baselineLabel) baselineLabel.innerText = '基準重量 W =';
+                updateElevatorUI();
+                drawGraphs();
+            } else {
+                if (coreTitle) coreTitle.innerText = '磅秤到底量到什麼？';
+                if (coreFormula) coreFormula.innerText = '讀數＝沙漏向下壓秤面的力';
+                if (topLabel) topLabel.innerText = '磅秤即時讀數 (N)';
+                if (baselineLabel) baselineLabel.innerText = '靜止時總重量 W₀ =';
+                showHourglassPrediction();
+            }
         };
 
         window.startJourney = function() {
@@ -414,19 +1013,265 @@
         }
         function drawGraphs() { renderCustomGraph('canvas-vt', '速度 v-t', 6, -6, 'v', 0, '#10b981'); renderCustomGraph('canvas-nt', '正向力 N-t', 900, 300, 'N', 600, '#3b82f6'); }
 
+        function drawHourglassGraph() {
+            const graphCanvas = document.getElementById('canvas-hourglass-nt');
+            if (!graphCanvas || graphCanvas.offsetParent === null) return;
+            const displayWidth = Math.round(graphCanvas.clientWidth);
+            const displayHeight = Math.round(graphCanvas.clientHeight);
+            if (displayWidth < 2 || displayHeight < 2) return;
+
+            const dpr = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || 1;
+            const backingWidth = Math.round(displayWidth * dpr);
+            const backingHeight = Math.round(displayHeight * dpr);
+            if (graphCanvas.width !== backingWidth) graphCanvas.width = backingWidth;
+            if (graphCanvas.height !== backingHeight) graphCanvas.height = backingHeight;
+            const graphCtx = graphCanvas.getContext('2d');
+            graphCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const w = displayWidth, h = displayHeight;
+            const margin = { top: 22, right: 18, bottom: 34, left: 48 };
+            const plotW = Math.max(10, w - margin.left - margin.right);
+            const plotH = Math.max(10, h - margin.top - margin.bottom);
+            const baseline = (HOURGLASS.glassMass + HOURGLASS.sandMass) * GRAVITY;
+            const yMin = baseline - 7;
+            const yMax = baseline + 7;
+            const xMax = HOURGLASS.openingDelay + HOURGLASS.flowDuration + HOURGLASS.fallTime;
+            const toX = (time) => margin.left + clamp01(time / xMax) * plotW;
+            const toY = (value) => margin.top + (1 - clamp01((value - yMin) / (yMax - yMin))) * plotH;
+
+            graphCtx.clearRect(0, 0, w, h);
+            graphCtx.fillStyle = '#ffffff';
+            graphCtx.fillRect(0, 0, w, h);
+
+            const startEnd = HOURGLASS.openingDelay + HOURGLASS.fallTime + HOURGLASS.impactRamp;
+            const steadyEnd = HOURGLASS.openingDelay + HOURGLASS.flowDuration;
+            graphCtx.fillStyle = 'rgba(59, 130, 246, 0.09)';
+            graphCtx.fillRect(toX(0), margin.top, toX(startEnd) - toX(0), plotH);
+            graphCtx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+            graphCtx.fillRect(toX(startEnd), margin.top, toX(steadyEnd) - toX(startEnd), plotH);
+            graphCtx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+            graphCtx.fillRect(toX(steadyEnd), margin.top, toX(xMax) - toX(steadyEnd), plotH);
+
+            graphCtx.font = 'bold 11px "Noto Sans TC", sans-serif';
+            graphCtx.textAlign = 'center';
+            graphCtx.textBaseline = 'top';
+            graphCtx.fillStyle = '#475569';
+            graphCtx.fillText('開始', (toX(0) + toX(startEnd)) / 2, 4);
+            graphCtx.fillText('穩定', (toX(startEnd) + toX(steadyEnd)) / 2, 4);
+            graphCtx.fillText('收尾', (toX(steadyEnd) + toX(xMax)) / 2, 4);
+
+            graphCtx.strokeStyle = '#e2e8f0';
+            graphCtx.lineWidth = 1;
+            graphCtx.fillStyle = '#64748b';
+            graphCtx.font = 'bold 10px ui-monospace, monospace';
+            graphCtx.textBaseline = 'middle';
+            graphCtx.textAlign = 'right';
+            [yMin, baseline, yMax].forEach((value) => {
+                const y = toY(value);
+                graphCtx.beginPath();
+                graphCtx.moveTo(margin.left, y);
+                graphCtx.lineTo(w - margin.right, y);
+                graphCtx.stroke();
+                graphCtx.fillText(value.toFixed(1), margin.left - 6, y);
+            });
+
+            graphCtx.textAlign = 'center';
+            graphCtx.textBaseline = 'top';
+            for (let second = 0; second <= Math.floor(xMax); second += 2) {
+                const x = toX(second);
+                graphCtx.fillText(String(second), x, h - margin.bottom + 7);
+            }
+            graphCtx.textAlign = 'right';
+            graphCtx.fillText('t (s)', w - margin.right, h - 13);
+            graphCtx.textAlign = 'left';
+            graphCtx.fillText('N (N)', 5, 7);
+
+            const baseY = toY(baseline);
+            graphCtx.save();
+            graphCtx.setLineDash([6, 4]);
+            graphCtx.strokeStyle = '#64748b';
+            graphCtx.lineWidth = 1.5;
+            graphCtx.beginPath();
+            graphCtx.moveTo(margin.left, baseY);
+            graphCtx.lineTo(w - margin.right, baseY);
+            graphCtx.stroke();
+            graphCtx.restore();
+
+            if (stateHourglass.history.length > 1) {
+                graphCtx.strokeStyle = '#2563eb';
+                graphCtx.lineWidth = 3;
+                graphCtx.lineJoin = 'round';
+                graphCtx.lineCap = 'round';
+                graphCtx.beginPath();
+                stateHourglass.history.forEach((point, index) => {
+                    const x = toX(point.t);
+                    const y = toY(point.N);
+                    if (index === 0) graphCtx.moveTo(x, y);
+                    else graphCtx.lineTo(x, y);
+                });
+                graphCtx.stroke();
+            }
+
+            const currentPoint = stateHourglass.history[stateHourglass.history.length - 1];
+            if (currentPoint) {
+                const pointX = toX(currentPoint.t);
+                const pointY = toY(currentPoint.N);
+                graphCtx.fillStyle = '#dc2626';
+                graphCtx.beginPath();
+                graphCtx.arc(pointX, pointY, 4.5, 0, Math.PI * 2);
+                graphCtx.fill();
+                graphCtx.fillStyle = '#0f172a';
+                graphCtx.font = 'bold 11px ui-monospace, monospace';
+                graphCtx.textAlign = pointX > w - 90 ? 'right' : 'left';
+                graphCtx.textBaseline = pointY < margin.top + 18 ? 'top' : 'bottom';
+                graphCtx.fillText(`${currentPoint.N.toFixed(1)} N`, pointX + (pointX > w - 90 ? -7 : 7), pointY - 7);
+            }
+        }
+
+        function drawHourglassScene(metrics) {
+            const upperRatio = HOURGLASS.sandMass > 0 ? metrics.upper / HOURGLASS.sandMass : 0;
+            const lowerRatio = HOURGLASS.sandMass > 0 ? metrics.lower / HOURGLASS.sandMass : 0;
+            const upperSandTop = -22 - upperRatio * 104;
+            const lowerSandTop = 124 - lowerRatio * 104;
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 23px "Noto Sans TC", sans-serif';
+            const phaseTitle = metrics.phase === 'ready' ? '閥門即將開啟'
+                : metrics.phase === 'starting' ? '第一批砂粒由上往下落'
+                : metrics.phase === 'steady' ? '穩定漏砂'
+                : metrics.phase === 'ending' ? '最後砂粒正在落底'
+                : '所有砂粒已靜止';
+            ctx.fillText(phaseTitle, 0, -182);
+
+            // 磅秤平台與機身
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            ctx.roundRect(-132, 148, 264, 22, 9);
+            ctx.fill();
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.roundRect(-116, 168, 232, 82, 15);
+            ctx.fill();
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.roundRect(-72, 187, 144, 43, 8);
+            ctx.fill();
+            ctx.fillStyle = '#86efac';
+            ctx.font = '900 25px ui-monospace, monospace';
+            ctx.fillText(`${stateHourglass.displayN.toFixed(1)} N`, 0, 216);
+
+            // 沙漏外框
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-102, -150); ctx.lineTo(102, -150);
+            ctx.moveTo(-102, 138); ctx.lineTo(102, 138);
+            ctx.moveTo(-88, -145); ctx.lineTo(-88, 133);
+            ctx.moveTo(88, -145); ctx.lineTo(88, 133);
+            ctx.stroke();
+
+            // 上半部砂
+            if (upperRatio > 0.001) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(-82, -136);
+                ctx.lineTo(82, -136);
+                ctx.lineTo(18, -18);
+                ctx.lineTo(-18, -18);
+                ctx.closePath();
+                ctx.clip();
+                ctx.fillStyle = '#eab308';
+                ctx.fillRect(-90, upperSandTop, 180, -18 - upperSandTop);
+                ctx.restore();
+            }
+
+            // 下半部砂
+            if (lowerRatio > 0.001) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(-18, 2);
+                ctx.lineTo(18, 2);
+                ctx.lineTo(82, 126);
+                ctx.lineTo(-82, 126);
+                ctx.closePath();
+                ctx.clip();
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(-90, lowerSandTop, 180, 130 - lowerSandTop);
+                ctx.restore();
+            }
+
+            // 玻璃輪廓
+            ctx.strokeStyle = '#60a5fa';
+            ctx.lineWidth = 5;
+            ctx.fillStyle = 'rgba(219, 234, 254, 0.18)';
+            ctx.beginPath();
+            ctx.moveTo(-82, -136);
+            ctx.bezierCurveTo(-75, -92, -30, -48, -14, -14);
+            ctx.bezierCurveTo(-28, 32, -72, 72, -82, 126);
+            ctx.lineTo(82, 126);
+            ctx.bezierCurveTo(72, 72, 28, 32, 14, -14);
+            ctx.bezierCurveTo(30, -48, 75, -92, 82, -136);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 空中砂粒依各自的釋放時間計算位置：
+            // 開始時會先看到落砂前緣由頸口向下移動；停止放砂後，上端空隙也會向下擴大。
+            if (metrics.falling > 0.001) {
+                ctx.fillStyle = '#ca8a04';
+                const earliestReleaseTime = Math.max(0, metrics.flowTime - HOURGLASS.fallTime);
+                const latestReleaseTime = Math.min(metrics.flowTime, HOURGLASS.flowDuration);
+                const firstReleaseTime = Math.ceil(earliestReleaseTime / HOURGLASS.grainInterval) * HOURGLASS.grainInterval;
+                for (
+                    let releaseTime = firstReleaseTime;
+                    releaseTime <= latestReleaseTime + 0.0001;
+                    releaseTime += HOURGLASS.grainInterval
+                ) {
+                    const age = Math.max(0, metrics.flowTime - releaseTime);
+                    const fallProgress = Math.pow(clamp01(age / HOURGLASS.fallTime), 2);
+                    const grainY = -12 + fallProgress * Math.max(12, lowerSandTop + 8);
+                    const grainIndex = Math.round(releaseTime / HOURGLASS.grainInterval);
+                    const grainX = Math.sin(grainIndex * 2.37 + age * 4.2) * 3.2;
+                    ctx.beginPath();
+                    ctx.arc(grainX, grainY, 2.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // 將沙漏受到的兩個外力直接畫在兩側
+            const arrowScale = 1.04;
+            drawArrow(ctx, -154, 5, -154, 5 + metrics.totalWeight * arrowScale, '#64748b', 'W₀', 7);
+            drawArrow(ctx, 154, 132, 154, 132 - stateHourglass.displayN * arrowScale, '#2563eb', 'N', 7);
+
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 14px "Noto Sans TC", sans-serif';
+            ctx.fillText(`上層砂 ${metrics.upper.toFixed(1)} kg`, -150, 270);
+            ctx.fillText(`空中砂 ${metrics.falling.toFixed(2)} kg`, 0, 270);
+            ctx.fillText(`下層砂 ${metrics.lower.toFixed(1)} kg`, 150, 270);
+            ctx.restore();
+        }
+
         function animate(timestamp) {
             if (!lastTime) lastTime = timestamp;
             const dt = Math.min((timestamp - lastTime) / 1000, 0.1); lastTime = timestamp;
             ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, cw, ch);
             ctx.save();
-            let worldCenterX = cw / 2 + (cw > 768 ? (currentMode === 'block' ? 150 : 100) : 0), worldCenterY = ch / 2, focusX = 0, focusY = 0;
+            const desktopShift = currentMode === 'block' ? 150 : currentMode === 'hourglass' ? 40 : 100;
+            let worldCenterX = cw / 2 + (cw > 768 ? desktopShift : 0), worldCenterY = ch / 2, focusX = 0, focusY = 0;
+            let hourglassMetrics = null;
             if (currentMode === 'block') {
                 const floorY = 150; focusX = 0; focusY = floorY - 50 - stateBlock.y * 10; 
                 let netF = stateBlock.Fy - stateBlock.W;
                 if (stateBlock.y === 0 && netF <= 0) stateBlock.vy = 0;
                 else { stateBlock.vy += (netF / stateBlock.mass) * dt * 5; stateBlock.y = Math.max(0, stateBlock.y + stateBlock.vy * dt * 5); }
                 updateBlockPhysics();
-            } else {
+            } else if (currentMode === 'elevator') {
                 focusX = 0; focusY = 80;
                 if (stateElevator.journeyActive && !stateElevator.isPaused) {
                     stateElevator.timer += dt; 
@@ -453,9 +1298,50 @@
                     }
                     updateElevatorUI(); drawGraphs();
                 }
+            } else {
+                focusX = 0;
+                focusY = 0;
+                if (stateHourglass.running && !stateHourglass.isPaused) {
+                    stateHourglass.timer += dt * HOURGLASS.playbackRate;
+                }
+                hourglassMetrics = getHourglassMetrics(stateHourglass.timer);
+                stateHourglass.phase = hourglassMetrics.phase;
+
+                if (!stateHourglass.isPaused) {
+                    const response = 1 - Math.exp(-dt * 9);
+                    stateHourglass.displayN += (hourglassMetrics.targetN - stateHourglass.displayN) * response;
+                    const lastPoint = stateHourglass.history[stateHourglass.history.length - 1];
+                    if (!lastPoint || stateHourglass.timer - lastPoint.t >= 0.025) {
+                        stateHourglass.history.push({ t: stateHourglass.timer, N: stateHourglass.displayN });
+                    } else {
+                        lastPoint.N = stateHourglass.displayN;
+                    }
+                }
+
+                if (stateHourglass.running && stateHourglass.timer >= hourglassMetrics.completeTime) {
+                    stateHourglass.timer = hourglassMetrics.completeTime;
+                    stateHourglass.running = false;
+                    stateHourglass.isPaused = false;
+                    hourglassMetrics = getHourglassMetrics(stateHourglass.timer);
+                    const finalPoint = stateHourglass.history[stateHourglass.history.length - 1];
+                    if (!finalPoint || finalPoint.t < stateHourglass.timer) {
+                        stateHourglass.history.push({ t: stateHourglass.timer, N: stateHourglass.displayN });
+                    }
+                    const pauseBtn = document.getElementById('btn-hourglass-pause');
+                    if (pauseBtn) {
+                        pauseBtn.disabled = true;
+                        pauseBtn.classList.add('opacity-50');
+                        pauseBtn.innerText = '暫停';
+                    }
+                }
+                updateHourglassUI(hourglassMetrics);
+                drawHourglassGraph();
             }
             ctx.translate(worldCenterX, worldCenterY);
-            ctx.scale(globalZoom, globalZoom);
+            const hourglassFit = currentMode === 'hourglass'
+                ? Math.min(1, Math.max(0.62, (ch - 100) / 460))
+                : 1;
+            ctx.scale(globalZoom * hourglassFit, globalZoom * hourglassFit);
             ctx.translate(-focusX + camOffsetX, -focusY + camOffsetY);
             if (currentMode === 'block') {
                 const floorY = 150, bw = 100, bh = 100, bx = -bw/2, by = floorY - bh - stateBlock.y * 10;
@@ -469,7 +1355,7 @@
                     const rad = stateBlock.forceAngle * Math.PI / 180;
                     drawArrow(ctx, 0, by + 50, stateBlock.forceMag*scale*Math.cos(rad), by + 50 - stateBlock.forceMag*scale*Math.sin(rad), '#f97316', 'F', 8);
                 }
-            } else {
+            } else if (currentMode === 'elevator') {
                 const rScale = (ch * 0.7) / 28.6, shaftW = 140, cabinW = 100, cabinH = 120, groundY = 250;
                 ctx.fillStyle = 'rgba(226, 232, 240, 0.4)'; ctx.fillRect(-shaftW/2, -1500, shaftW, 3000);
                 ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.strokeRect(-shaftW/2, -1500, shaftW, 3000);
@@ -490,12 +1376,14 @@
                 
                 drawArrow(ctx, -55, pY-30, -55, pY-30+600*aS, '#64748b', 'W', 21.6);
                 drawArrow(ctx, 55, pY, 55, pY-stateElevator.N*aS, '#3b82f6', formulaStr, 21.6);
-                if (Math.abs(stateElevator.a) > 0.05) drawArrow(ctx, 110, pY - 30, 110, pY - 30 - stateElevator.a * 30, '#ef4444', 'a', 14.4);
-                else {
+                drawArrow(ctx, 110, pY - 30, 110, pY - 30 - stateElevator.a * 30, '#ef4444', 'a', 14.4);
+                if (Math.abs(stateElevator.a) <= 0.05) {
                     const label = Math.abs(stateElevator.v) > 0.1 ? '等速' : '靜止';
                     ctx.fillStyle = '#ef4444'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'left';
                     ctx.fillText(label, 105, pY - 25);
                 }
+            } else if (hourglassMetrics) {
+                drawHourglassScene(hourglassMetrics);
             }
             ctx.restore(); requestAnimationFrame(animate);
         }

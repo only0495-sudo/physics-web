@@ -322,15 +322,18 @@
             const dx = toX - fromX;
             const dy = toY - fromY;
             const length = Math.hypot(dx, dy);
-            if (length < 2) return;
+            if (length < 0.05) return;
+            ctx.save();
             const ux = dx / length, uy = dy / length;
             const headLength = Math.min(Math.max(16, width * 4), length * 0.45);
             const headHalfWidth = headLength * 0.58;
             const baseX = toX - ux * headLength, baseY = toY - uy * headLength;
+            const visualScale = Math.min(1, length / 30);
+            const actualWidth = Math.max(0.35, Math.min(width, length * 0.18));
             
-            ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,.72)'; ctx.lineWidth = width + 4;
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,.72)'; ctx.lineWidth = actualWidth + 4 * visualScale;
             ctx.moveTo(fromX, fromY); ctx.lineTo(baseX, baseY); ctx.stroke();
-            ctx.beginPath(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+            ctx.beginPath(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = actualWidth;
             ctx.moveTo(fromX, fromY); ctx.lineTo(baseX, baseY); ctx.stroke();
             
             ctx.beginPath();
@@ -342,9 +345,11 @@
                 ctx.font = 'bold 20px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
+                ctx.globalAlpha = Math.min(1, length / 24);
                 ctx.fillStyle = color;
                 ctx.fillText(label, fromX + dx * 0.58, fromY + dy * 0.58 - 10);
             }
+            ctx.restore();
         }
 
         function applyTurn(direction) { worldState.turningDirection = direction === 'left' ? -1 : 1; }

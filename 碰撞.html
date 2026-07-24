@@ -263,7 +263,7 @@
         </button>
     </div>
 
-    <div id="charts-container">
+    <div id="charts-container" data-occlusion-role="chart" data-occlusion-display="flex">
         <div class="chart-wrapper" id="wrap-vt">
             <button class="chart-expand-btn" onclick="toggleChartExpand('wrap-vt')">🔍 放大</button>
             <div class="canvas-holder"><canvas id="vt-chart"></canvas></div>
@@ -687,17 +687,23 @@
     }
 
     function drawVelocityVector(x, y, v, radius, color, prefix = 'v') {
-        if(Math.abs(v) < 0.05) return;
+        if(Math.abs(v) < 0.001) return;
         ctx.save(); ctx.translate(x, y - radius - 35); 
-        const arrowLen = Math.max(Math.abs(v) * 16, 20); const dir = v > 0 ? 1 : -1; const headLen = 14;
+        const arrowLen = Math.min(160, Math.abs(v) * 16);
+        const dir = v > 0 ? 1 : -1;
+        const headLen = Math.min(14, arrowLen * 0.45);
+        const headHalfWidth = headLen * 0.58;
+        const shaftWidth = Math.max(0.35, Math.min(4, arrowLen * 0.18));
 
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo((arrowLen - headLen) * dir, 0);
-        ctx.lineWidth = 4; ctx.strokeStyle = color; ctx.stroke();
+        ctx.lineWidth = shaftWidth; ctx.strokeStyle = color; ctx.stroke();
 
         ctx.beginPath(); ctx.moveTo(arrowLen * dir, 0);
-        ctx.lineTo((arrowLen - headLen) * dir, -8); ctx.lineTo((arrowLen - headLen) * dir, 8);
+        ctx.lineTo((arrowLen - headLen) * dir, -headHalfWidth);
+        ctx.lineTo((arrowLen - headLen) * dir, headHalfWidth);
         ctx.closePath(); ctx.fillStyle = color; ctx.fill();
 
+        ctx.globalAlpha = Math.min(1, arrowLen / 32);
         ctx.fillStyle = color; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(`${prefix}=${v.toFixed(1)}`, (arrowLen / 2) * dir, -12);
         ctx.restore();
@@ -774,25 +780,28 @@
             ctx.fillText('CM', 0, 24);
 
             // 畫出質心速度箭頭 (箭尾緊貼準心)
-            if (Math.abs(disp_vcm) > 0.05) {
-                const arrowLen = Math.max(Math.abs(disp_vcm) * 16, 20); 
+            if (Math.abs(disp_vcm) > 0.001) {
+                const arrowLen = Math.min(160, Math.abs(disp_vcm) * 16);
                 const dir = disp_vcm > 0 ? 1 : -1; 
-                const headLen = 14;
+                const headLen = Math.min(14, arrowLen * 0.45);
+                const headHalfWidth = headLen * 0.58;
+                const shaftWidth = Math.max(0.35, Math.min(4, arrowLen * 0.18));
 
                 // 箭身直接從原點 (準心中心) 出發
                 ctx.beginPath(); 
                 ctx.moveTo(0, 0); 
                 ctx.lineTo((arrowLen - headLen) * dir, 0);
-                ctx.lineWidth = 4; ctx.strokeStyle = cmColor; ctx.stroke();
+                ctx.lineWidth = shaftWidth; ctx.strokeStyle = cmColor; ctx.stroke();
 
                 // 箭頭
                 ctx.beginPath(); 
                 ctx.moveTo(arrowLen * dir, 0);
-                ctx.lineTo((arrowLen - headLen) * dir, -8); 
-                ctx.lineTo((arrowLen - headLen) * dir, 8);
+                ctx.lineTo((arrowLen - headLen) * dir, -headHalfWidth);
+                ctx.lineTo((arrowLen - headLen) * dir, headHalfWidth);
                 ctx.closePath(); ctx.fillStyle = cmColor; ctx.fill();
 
                 // 速度數值標籤
+                ctx.globalAlpha = Math.min(1, arrowLen / 32);
                 ctx.fillStyle = cmColor; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
                 ctx.fillText(`Vcm=${disp_vcm.toFixed(1)}`, (arrowLen / 2) * dir, -12);
             }

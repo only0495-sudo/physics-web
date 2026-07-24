@@ -1158,14 +1158,16 @@
         }
 
         function drawVelocityVector(x, y, velocity, colorCode, symbol) {
-            if (Math.abs(velocity) < 0.5) return;
+            if (Math.abs(velocity) < 0.005) return;
             
+            push();
+            const length = velocity * 2.0;
+            const absoluteLength = Math.abs(length);
             drawingContext.shadowBlur = 0;
             stroke(colorCode);
-            strokeWeight(4);
+            strokeWeight(Math.max(0.35, Math.min(4, absoluteLength * 0.18)));
             fill(colorCode);
             
-            const length = velocity * 2.0; 
             const endX = x + length;
             const arrowSize = 16;
             const dir = Math.sign(velocity);
@@ -1183,9 +1185,11 @@
             textAlign(CENTER, BOTTOM);
             textStyle(BOLD);
             textSize(17);
+            drawingContext.globalAlpha = Math.min(1, absoluteLength / 28);
             stroke(255); strokeWeight(5); fill(colorCode);
             text(`${symbol} = ${velocity.toFixed(1)} m/s`, x + length / 2, y - 14);
             noStroke();
+            pop();
         }
 
         function windowResized() {

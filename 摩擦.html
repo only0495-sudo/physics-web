@@ -92,7 +92,7 @@
         </div>
 
         <!-- 右上角：關係圖 -->
-        <div class="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-white/50 z-10 pointer-events-none">
+        <div id="friction-chart-panel" class="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-xl shadow-md border border-white/50 z-10 pointer-events-none" data-occlusion-role="chart" data-occlusion-display="block">
             <div class="flex justify-between items-center p-3 border-b border-slate-200/50 cursor-pointer pointer-events-auto hover:bg-white/50 transition-colors rounded-t-xl" id="toggle-graph-btn">
                 <h2 id="graph-title" class="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
@@ -668,9 +668,10 @@
 
         // 強化的箭頭繪製函數 (解除長度限制、統一粗細、標籤放箭尾)
         function drawArrow(startX, startY, length, angle, color, label, subLabel, globalRad = 0, pulseScale = 1) {
-            if (Math.abs(length) < 0.1) return; // 長度太小則不繪製
+            if (Math.abs(length) < 0.005) return; // 小到不可見時才停止繪製
             
             const arrowLen = Math.abs(length); 
+            const shapeScale = Math.min(1, arrowLen / 36.4);
             const isNegative = length < 0;
             const actualAngle = angle + (isNegative ? Math.PI : 0);
             
@@ -697,7 +698,7 @@
             // 箭身與箭頭分開：箭身在底邊停止，箭頭固定為三個頂點。
             ctx.lineCap = 'butt';
             ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(shaftLength, 0);
-            ctx.strokeStyle = '#000000'; ctx.lineWidth = shaftWidth + 8; ctx.stroke();
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = shaftWidth + 8 * shapeScale; ctx.stroke();
             ctx.strokeStyle = color; ctx.lineWidth = shaftWidth; ctx.stroke();
 
             ctx.beginPath();
@@ -706,7 +707,7 @@
             ctx.lineTo(shaftLength, headWidth / 2);
             ctx.closePath();
             ctx.fillStyle = color; ctx.fill();
-            ctx.lineWidth = 4;
+            ctx.lineWidth = Math.max(0.25, 4 * shapeScale);
             ctx.strokeStyle = '#000000'; ctx.lineJoin = 'miter'; ctx.stroke();
             
             // --- 繪製數值文字 (統一向後放置於箭尾外側) ---
@@ -721,6 +722,7 @@
             // 逆旋轉以抵消箭頭與斜面的旋轉，讓文字永遠正視使用者並保持水平
             ctx.rotate(-actualAngle);
             ctx.rotate(-globalRad);
+            ctx.globalAlpha = Math.min(1, arrowLen / 55);
 
             // 繪製文字背景與框線
             ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
@@ -847,8 +849,8 @@
             }
 
             // 速度屬於運動方向資訊，以向量附著在物體上；不要求學生追逐快速跳動的數字。
-            if (physics.velocity > 0.05) {
-                const velocityArrowLength = Math.min(180, Math.max(80, physics.velocity * 20));
+            if (physics.velocity > 0.001) {
+                const velocityArrowLength = Math.min(180, physics.velocity * 20);
                 drawArrow(0, rectY - 55, velocityArrowLength, 0, '#0f766e', 'v', '運動方向', rad);
             }
             
@@ -903,6 +905,11 @@
         }
 
         function drawGraph() {
+            const displayWidth = Math.round(graphCanvas.clientWidth);
+            const displayHeight = Math.round(graphCanvas.clientHeight);
+            if (graphCanvas.offsetParent === null || displayWidth < 2 || displayHeight < 2) return;
+            if (graphCanvas.width !== displayWidth) graphCanvas.width = displayWidth;
+            if (graphCanvas.height !== displayHeight) graphCanvas.height = displayHeight;
             const w = graphCanvas.width, h = graphCanvas.height;
             const padLeft = 72, padBottom = 38, padRight = 30, padTop = 30;
             const graphW = w - padLeft - padRight, graphH = h - padTop - padBottom;

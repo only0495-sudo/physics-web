@@ -306,10 +306,11 @@
   function drawArrow(ctx, fromX, fromY, vecX, vecY, color, label, lineWidth=3, style='solid') {
     const toX = fromX + vecX; const toY = fromY + vecY;
     const len = Math.sqrt(vecX*vecX + vecY*vecY);
-    if (len < 1) return {x: toX, y: toY};
+    if (len < 0.05) return {x: toX, y: toY};
     
     ctx.save();
-    if (style === 'solid') lineWidth = Math.max(5, lineWidth);
+    const preferredWidth = style === 'solid' ? Math.max(5, lineWidth) : lineWidth;
+    lineWidth = Math.min(preferredWidth, Math.max(0.35, len * 0.18));
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     
@@ -339,6 +340,7 @@
       const labelSide = 17 + lineWidth;
       const textX = fromX + vecX * 0.58 - uy * labelSide;
       const textY = fromY + vecY * 0.58 + ux * labelSide;
+      ctx.globalAlpha = Math.min(1, len / 20);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.strokeText(label, textX, textY);
       ctx.fillStyle = color; ctx.fillText(label, textX, textY);

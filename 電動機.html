@@ -439,15 +439,22 @@
             if (Math.abs(I) <= 0.1 || B <= 0.1) UI.hudConclusion.innerText = '沒有足夠的電流或磁場，因此幾乎沒有力矩';
             else if (state.mode === 'DC') UI.hudConclusion.innerText = '換向器在半圈時反轉電流，使力矩持續推動同一轉向';
             else UI.hudConclusion.innerText = torque >= 0 ? '目前力矩推動線圈旋轉' : '力矩已反向，正在阻礙線圈旋轉';
-            if(Math.abs(I) > 0.1 && B > 0.1) {
+            if(Math.abs(I) > 0.0001 && B > 0.0001) {
                 curArrowR.visible = curArrowL.visible = curArrowB.visible = true;
                 curArrowR.setDirection(new THREE.Vector3(0,0,Math.sign(I))); curArrowL.setDirection(new THREE.Vector3(0,0,Math.sign(-I))); curArrowB.setDirection(new THREE.Vector3(Math.sign(I),0,0));
-                curArrowR.setLength(5, 1.7, 1.1); curArrowL.setLength(5, 1.7, 1.1); curArrowB.setLength(5, 1.7, 1.1);
+                const currentLength = 5 * Math.min(1, Math.abs(I) / 5);
+                const currentHead = Math.min(1.7, currentLength * 0.34);
+                const currentHeadWidth = Math.min(1.1, currentHead * 0.62);
+                curArrowR.setLength(currentLength, currentHead, currentHeadWidth);
+                curArrowL.setLength(currentLength, currentHead, currentHeadWidth);
+                curArrowB.setLength(currentLength, currentHead, currentHeadWidth);
                 forceArrowR.visible = forceArrowL.visible = true;
                 const rX = 4*Math.cos(state.currentAngle), rY = 4*Math.sin(state.currentAngle);
-                const forceLength = Math.max(2.4, Math.min(5, Math.abs(I*B)*0.25));
-                forceArrowR.position.set(rX, rY, 0); forceArrowR.setDirection(new THREE.Vector3(0, Math.sign(I*B), 0)); forceArrowR.setLength(forceLength, 1.5, 1.0);
-                forceArrowL.position.set(-rX, -rY, 0); forceArrowL.setDirection(new THREE.Vector3(0, Math.sign(-I*B), 0)); forceArrowL.setLength(forceLength, 1.5, 1.0);
+                const forceLength = Math.min(5, Math.abs(I*B)*0.25);
+                const forceHead = Math.min(1.5, forceLength * 0.35);
+                const forceHeadWidth = Math.min(1.0, forceHead * 0.62);
+                forceArrowR.position.set(rX, rY, 0); forceArrowR.setDirection(new THREE.Vector3(0, Math.sign(I*B), 0)); forceArrowR.setLength(forceLength, forceHead, forceHeadWidth);
+                forceArrowL.position.set(-rX, -rY, 0); forceArrowL.setDirection(new THREE.Vector3(0, Math.sign(-I*B), 0)); forceArrowL.setLength(forceLength, forceHead, forceHeadWidth);
             } else { curArrowR.visible = curArrowL.visible = curArrowB.visible = forceArrowR.visible = forceArrowL.visible = false; }
         }
 

@@ -88,7 +88,7 @@
         </div>
 
         <!-- 下半部：圖表 -->
-        <div class="grid grid-cols-3 gap-2 md:gap-6">
+        <div id="motion-graphs" class="grid grid-cols-3 gap-2 md:gap-6" data-occlusion-role="chart" data-occlusion-display="grid">
             <!-- X-T Graph -->
             <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="xtCanvas"></canvas>
@@ -255,18 +255,21 @@
 
         // 繪製速度向量箭頭 (加入 startY 參數以適應不同物體高度，並整體放大)
         function drawVelocityVector(ctx, v, startY) {
-            if (Math.abs(v) < 0.5) return;
+            if (Math.abs(v) < 0.005) return;
 
+            ctx.save();
             const direction = Math.sign(v);
-            const arrowLength = direction * Math.min(190, Math.max(28, Math.abs(v) * 4));
-            const headSize = Math.min(17, Math.max(10, Math.abs(arrowLength) * 0.22));
+            const arrowLength = direction * Math.min(190, Math.abs(v) * 4);
+            const absoluteLength = Math.abs(arrowLength);
+            const headSize = Math.min(17, absoluteLength * 0.45);
+            const shaftWidth = Math.max(0.35, Math.min(6, absoluteLength * 0.16));
             
             const shaftEnd = arrowLength - direction * headSize;
 
             // 畫箭頭桿子 (加粗)
             ctx.beginPath();
             ctx.strokeStyle = '#ef4444';
-            ctx.lineWidth = 6;
+            ctx.lineWidth = shaftWidth;
             ctx.moveTo(0, startY);
             ctx.lineTo(shaftEnd, startY);
             ctx.stroke();
@@ -295,6 +298,7 @@
             const velocityTextWidth = ctx.measureText(velocityText).width;
             const velocityTextX = arrowLength / 2;
             const velocityTextY = startY - 24;
+            ctx.globalAlpha = Math.min(1, absoluteLength / 40);
             ctx.fillStyle = 'rgba(255,255,255,.94)';
             ctx.fillRect(velocityTextX - velocityTextWidth / 2 - 7, velocityTextY - 17, velocityTextWidth + 14, 23);
             ctx.strokeStyle = '#ef4444';
@@ -302,6 +306,7 @@
             ctx.strokeRect(velocityTextX - velocityTextWidth / 2 - 7, velocityTextY - 17, velocityTextWidth + 14, 23);
             ctx.fillStyle = '#b91c1c';
             ctx.fillText(velocityText, velocityTextX, velocityTextY);
+            ctx.restore();
         }
 
         // 繪製上半部動畫區域

@@ -1115,6 +1115,185 @@ html[data-physics-device="tablet"] canvas {
   touch-action: none;
 }
 
+.pc-mobile-view-switch {
+  display: none;
+}
+
+.pc-mobile-view-switch[hidden] {
+  display: none !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-mobile-view-switch {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2147483642;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, .72);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .22);
+  backdrop-filter: blur(12px);
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-mobile-view-switch button {
+  min-width: 64px;
+  min-height: 36px !important;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 10px;
+  color: #526078;
+  background: transparent;
+  font: 850 14px/1 "Microsoft JhengHei", sans-serif;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-mobile-view-switch button[aria-pressed="true"] {
+  color: #fff;
+  background: #1459d9;
+  box-shadow: 0 3px 10px rgba(20, 89, 217, .28);
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-mobile-aux-panel.pc-mobile-aux-hidden {
+  display: none !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-mobile-aux-panel.pc-mobile-aux-visible {
+  position: fixed !important;
+  inset: 7px 70px 7px 7px !important;
+  z-index: 2147483628 !important;
+  display: var(--pc-aux-display, block) !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 10px !important;
+  transform: none !important;
+  overflow: auto !important;
+  border: 1px solid rgba(148, 163, 184, .75) !important;
+  border-radius: 15px !important;
+  background: rgba(248, 250, 252, .98) !important;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, .3) !important;
+  box-sizing: border-box !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-mobile-aux-panel.pc-mobile-aux-visible canvas {
+  max-width: none !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] :is(
+  button,
+  input[type="button"],
+  input[type="submit"],
+  select
+) {
+  min-height: 36px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] input[type="range"] {
+  min-height: 26px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] body {
+  height: 100dvh;
+  min-height: 0 !important;
+  padding: 8px !important;
+  overflow: hidden;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] body > .max-w-6xl {
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  gap: 8px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] body > .max-w-6xl > :first-child {
+  flex: 0 0 auto;
+  padding: 8px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] body > .max-w-6xl > :first-child h1 {
+  margin: 0 !important;
+  font-size: 19px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] body > .max-w-6xl > .canvas-container {
+  flex: 1 1 auto;
+  height: auto !important;
+  min-height: 0;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] #motion-graphs.pc-mobile-aux-visible {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="運動函數圖"] #motion-graphs.pc-mobile-aux-visible > .canvas-container {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="碰撞"][data-physics-view="simulation"] #canvas-container {
+  flex: 1 1 auto !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="碰撞"] #charts-container.pc-mobile-aux-visible {
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="碰撞"] #charts-container.pc-mobile-aux-visible .chart-wrapper {
+  flex: 1 0 320px;
+  min-width: 320px;
+  min-height: 0;
+  padding-top: 34px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="摩擦"] #friction-chart-panel.pc-mobile-aux-visible {
+  pointer-events: auto !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="摩擦"] #friction-chart-panel.pc-mobile-aux-visible #graph-content {
+  height: calc(100% - 46px);
+  padding: 6px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="摩擦"] #friction-chart-panel.pc-mobile-aux-visible canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="發電機"] #oscilloscope.pc-mobile-aux-visible .panel-content,
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="冷次定律(磁鐵動)"] #chart-panel.pc-mobile-aux-visible .panel-content {
+  height: calc(100% - 48px) !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column;
+  padding: 6px !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="發電機"] #oscilloscope.pc-mobile-aux-visible canvas,
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="冷次定律(磁鐵動)"] #chart-panel.pc-mobile-aux-visible canvas,
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="卡文迪西實驗裝置"] #graph-container.pc-mobile-aux-visible canvas {
+  flex: 1 1 auto;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"][data-physics-page="冷次定律(磁鐵動)"] #chart-panel.pc-mobile-aux-visible .chart-tabs {
+  flex: 0 0 auto;
+}
+
 /* Landscape phones and smaller tablets use a wide logical viewport supplied
    before page layout. The entire desktop-style experiment is then scaled by
    the browser, so canvases, labels, panels and controls retain their geometry. */
@@ -1293,6 +1472,32 @@ html[data-physics-device="phone"][data-physics-orientation="landscape"] .pc-dock
   max-height: calc(100dvh - 16px);
   overflow-y: auto;
   border-radius: 17px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-dock {
+  right: 6px;
+  bottom: 6px;
+  width: 52px;
+  max-height: calc(100dvh - 12px);
+  padding: 4px;
+  gap: 3px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] .pc-dock-action {
+  flex-basis: 40px;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+html[data-physics-device="phone"][data-physics-orientation="landscape"][data-physics-viewport="compact"] :is(
+  .pc-present-button,
+  .pc-clarity-button,
+  .pc-focus-button,
+  .pc-reset-button,
+  .pc-dock-minimize
+) {
+  display: none;
 }
 
 html[data-physics-device="phone"][data-physics-orientation="landscape"] :is(

@@ -253,7 +253,7 @@
                 光線轉角: ---<br>
                 尺上讀數: ---
             </div>
-            <div id="graph-container">
+            <div id="graph-container" data-occlusion-role="chart" data-occlusion-display="block">
                 <div class="graph-label">角度 θ 震盪圖</div>
                 <canvas id="graph-canvas"></canvas>
             </div>
@@ -599,8 +599,11 @@ function drawGraph() {
         historyTheta.shift();
     }
     
-    graphCvs.width = graphCvs.clientWidth;
-    graphCvs.height = graphCvs.clientHeight;
+    const displayWidth = Math.round(graphCvs.clientWidth);
+    const displayHeight = Math.round(graphCvs.clientHeight);
+    if (displayWidth < 2 || displayHeight < 2) return;
+    if (graphCvs.width !== displayWidth) graphCvs.width = displayWidth;
+    if (graphCvs.height !== displayHeight) graphCvs.height = displayHeight;
     
     gCtx.clearRect(0, 0, graphCvs.width, graphCvs.height);
     

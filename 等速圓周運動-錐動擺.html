@@ -529,15 +529,7 @@
 
             const dirFc = new THREE.Vector3().subVectors(centerPos, bobPos).normalize();
             const lenFc = 8 * Math.tan(theta) * visualScale;
-            const arrFc = arrows['Fc'];
-            const lblFc = labels['Fc'];
-            if(arrFc) {
-                arrFc.position.copy(bobPos);
-                arrFc.setDirection(dirFc);
-                arrFc.setLength(Math.max(1, lenFc));
-                const midPoint = dirFc.clone().multiplyScalar(lenFc / 2).add(bobPos);
-                lblFc.position.copy(midPoint).add(new THREE.Vector3(0, -3, 0));
-            }
+            updateArrow('Fc', bobPos, dirFc, lenFc);
 
             dispTheta.innerText = (theta * 180 / Math.PI).toFixed(1) + "°";
             dispTension.innerText = tensionVal.toFixed(0) + " N";
@@ -568,12 +560,21 @@
         function updateArrow(name, pos, dir, len) {
             const arr = arrows[name];
             const lbl = labels[name];
-            if(arr && name !== 'Fc') { 
-                arr.position.copy(pos);
-                arr.setDirection(dir);
-                arr.setLength(Math.max(1, len));
-                lbl.position.copy(dir.clone().multiplyScalar(len + 2).add(pos));
+            if (!arr || !lbl) return;
+            if (len < 0.0001 || dir.lengthSq() < 0.000001) {
+                arr.visible = false;
+                lbl.visible = false;
+                return;
             }
+            const headLength = Math.min(2.8, len * 0.38);
+            const headWidth = Math.min(1.6, headLength * 0.58);
+            arr.visible = true;
+            lbl.visible = true;
+            arr.position.copy(pos);
+            arr.setDirection(dir);
+            arr.setLength(len, headLength, headWidth);
+            lbl.position.copy(dir.clone().multiplyScalar(len + 2).add(pos));
+            lbl.element.style.opacity = Math.min(1, len / 3).toFixed(3);
         }
 
         // --- FBD 繪圖 ---
@@ -643,14 +644,16 @@
 
         function drawVector(ctx, x, y, dx, dy, color, label) {
             const length = Math.hypot(dx, dy);
-            if (length < 2) return;
+            if (length < 0.05) return;
+            ctx.save();
             const ux = dx / length, uy = dy / length;
             const headLen = Math.min(12, length * 0.45);
             const headHalfWidth = headLen * 0.58;
+            const shaftWidth = Math.max(0.35, Math.min(3, length * 0.18));
             const tipX = x + dx, tipY = y + dy;
             const baseX = tipX - ux * headLen, baseY = tipY - uy * headLen;
             ctx.beginPath();
-            ctx.lineWidth = 3;
+            ctx.lineWidth = shaftWidth;
             ctx.strokeStyle = color;
             ctx.moveTo(x, y);
             ctx.lineTo(baseX, baseY);
@@ -666,6 +669,7 @@
 
             ctx.font = "bold 15px Arial";
             ctx.fillStyle = color;
+            ctx.globalAlpha = Math.min(1, length / 20);
             let textX = x + dx;
             let textY = y + dy;
             
@@ -678,6 +682,7 @@
             }
             
             ctx.fillText(label, textX, textY);
+            ctx.restore();
         }
 
         function togglePause() {

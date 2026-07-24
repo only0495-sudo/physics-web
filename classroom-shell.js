@@ -83,6 +83,66 @@
     return { label: "電腦介面", symbol: "▰", tip: `${activity.gesture} 可用 Alt+G 開啟教學、Alt+P 切換展示。` };
   }
 
+  function installCompactAuxiliaryView(shell) {
+    const root = document.documentElement;
+    const panels = [...document.querySelectorAll('[data-occlusion-role="chart"]')]
+      .filter((panel) => !panel.closest(".pc-shell"));
+    if (!panels.length) return;
+
+    panels.forEach((panel) => {
+      const computedDisplay = getComputedStyle(panel).display;
+      const preferredDisplay = panel.dataset.occlusionDisplay || (computedDisplay === "none" ? "block" : computedDisplay);
+      panel.style.setProperty("--pc-aux-display", preferredDisplay);
+      panel.classList.add("pc-mobile-aux-panel");
+    });
+
+    const switcher = document.createElement("div");
+    switcher.className = "pc-mobile-view-switch";
+    switcher.setAttribute("role", "group");
+    switcher.setAttribute("aria-label", "手機畫面切換");
+    switcher.innerHTML = `
+      <button type="button" data-mobile-view="simulation" aria-pressed="true">動畫</button>
+      <button type="button" data-mobile-view="auxiliary" aria-pressed="false">圖表</button>`;
+    shell.appendChild(switcher);
+
+    const buttons = [...switcher.querySelectorAll("button")];
+    const isCompact = () => root.dataset.physicsDevice === "phone"
+      && root.dataset.physicsOrientation === "landscape"
+      && root.dataset.physicsViewport === "compact";
+
+    const notifyLayout = () => {
+      window.dispatchEvent(new Event("resize"));
+      window.setTimeout(() => window.dispatchEvent(new Event("resize")), 80);
+    };
+
+    const setView = (view, announce = false, notify = true) => {
+      if (!isCompact()) {
+        root.removeAttribute("data-physics-view");
+        panels.forEach((panel) => panel.classList.remove("pc-mobile-aux-hidden", "pc-mobile-aux-visible"));
+        switcher.hidden = true;
+        return;
+      }
+
+      switcher.hidden = false;
+      const showAuxiliary = view === "auxiliary";
+      root.dataset.physicsView = showAuxiliary ? "auxiliary" : "simulation";
+      panels.forEach((panel) => {
+        panel.classList.toggle("pc-mobile-aux-hidden", !showAuxiliary);
+        panel.classList.toggle("pc-mobile-aux-visible", showAuxiliary);
+      });
+      buttons.forEach((button) => {
+        const active = button.dataset.mobileView === root.dataset.physicsView;
+        button.setAttribute("aria-pressed", String(active));
+      });
+      if (notify) notifyLayout();
+      if (announce) showToast(showAuxiliary ? "已切換到圖表；按「動畫」回到模擬" : "已回到動畫；圖表仍會持續記錄");
+    };
+
+    buttons.forEach((button) => button.addEventListener("click", () => setView(button.dataset.mobileView, true)));
+    window.addEventListener("physicsdevicechange", () => setView(root.dataset.physicsView || "simulation", false, false));
+    setView("simulation");
+  }
+
   function getRole() {
     const query = new URLSearchParams(location.search).get("role");
     if (query === "teacher" || query === "student") storage.set("physics-role", query);
@@ -293,6 +353,7 @@
       <div class="pc-toast" role="status" aria-live="polite"></div>`;
     document.body.appendChild(shell);
     bindShell(shell);
+    installCompactAuxiliaryView(shell);
   }
 
   function bindShell(shell) {
