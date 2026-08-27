@@ -58,9 +58,11 @@
                         <option value="1" selected>1×</option>
                     </select>
                 </label>
-                <!-- 新增：全部顯示按鈕 -->
                 <button onclick="showAllGraphs()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold transition-colors whitespace-nowrap">
                     全部顯示
+                </button>
+                <button onclick="hideAllGraphs()" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md font-semibold transition-colors whitespace-nowrap">
+                    全部隱藏
                 </button>
                 <button onclick="togglePlay()" id="btn-play" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-md font-semibold transition-colors w-24">
                     開始
@@ -92,7 +94,7 @@
             <!-- X-T Graph -->
             <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="xtCanvas"></canvas>
-                <!-- 新增：預設遮罩與顯示按鈕 -->
+                <button id="hide-xt" onclick="setGraphVisible('xt', false)" class="hidden absolute top-2 right-2 z-20 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-md text-sm font-semibold shadow-md transition-colors" aria-label="隱藏 x-t 圖">隱藏 x-t 圖</button>
                 <div id="overlay-xt" class="absolute inset-0 bg-slate-50 flex items-center justify-center z-10">
                     <button onclick="setGraphVisible('xt', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold shadow-md transition-colors">顯示 x-t 圖</button>
                 </div>
@@ -101,7 +103,7 @@
             <!-- V-T Graph -->
             <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="vtCanvas"></canvas>
-                <!-- 新增：預設遮罩與顯示按鈕 -->
+                <button id="hide-vt" onclick="setGraphVisible('vt', false)" class="hidden absolute top-2 right-2 z-20 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-md text-sm font-semibold shadow-md transition-colors" aria-label="隱藏 v-t 圖">隱藏 v-t 圖</button>
                 <div id="overlay-vt" class="absolute inset-0 bg-slate-50 flex items-center justify-center z-10">
                     <button onclick="setGraphVisible('vt', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold shadow-md transition-colors">顯示 v-t 圖</button>
                 </div>
@@ -110,7 +112,7 @@
             <!-- A-T Graph -->
             <div class="canvas-container h-64 border border-slate-200">
                 <canvas id="atCanvas"></canvas>
-                <!-- 新增：預設遮罩與顯示按鈕 -->
+                <button id="hide-at" onclick="setGraphVisible('at', false)" class="hidden absolute top-2 right-2 z-20 bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-md text-sm font-semibold shadow-md transition-colors" aria-label="隱藏 a-t 圖">隱藏 a-t 圖</button>
                 <div id="overlay-at" class="absolute inset-0 bg-slate-50 flex items-center justify-center z-10">
                     <button onclick="setGraphVisible('at', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold shadow-md transition-colors">顯示 a-t 圖</button>
                 </div>
@@ -236,20 +238,24 @@
             ctx.restore();
         }
 
-        // --- 新增：控制圖表顯示/隱藏的函數 ---
+        // 控制個別或全部函數圖的顯示狀態
         function setGraphVisible(type, isVisible) {
             const overlay = document.getElementById(`overlay-${type}`);
-            if (isVisible) {
-                overlay.classList.add('hidden');
-            } else {
-                overlay.classList.remove('hidden');
-            }
+            const hideButton = document.getElementById(`hide-${type}`);
+            overlay.classList.toggle('hidden', isVisible);
+            hideButton.classList.toggle('hidden', !isVisible);
         }
 
         function showAllGraphs() {
             setGraphVisible('xt', true);
             setGraphVisible('vt', true);
             setGraphVisible('at', true);
+        }
+
+        function hideAllGraphs() {
+            setGraphVisible('xt', false);
+            setGraphVisible('vt', false);
+            setGraphVisible('at', false);
         }
         // ------------------------------------
 
@@ -651,6 +657,7 @@
         }
 
         function setMode(mode) {
+            const modeChanged = currentMode !== mode;
             currentMode = mode;
             
             document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active-btn'));
@@ -663,6 +670,9 @@
                 formulaDiv.classList.add('hidden');
             }
 
+            if (modeChanged) {
+                hideAllGraphs();
+            }
             reset();
         }
 
