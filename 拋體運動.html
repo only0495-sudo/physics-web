@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="classroom-device.js"></script>
+  <meta name="theme-color" content="#071426">
+  <meta name="description" content="自由落體、鉛直上拋、平拋與斜拋的互動模擬器；四種模式預設飛行五秒，調整參數後依實際落地時間播放。">
+  <title>拋體運動實驗室</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #eef6ff;
+      --muted: #9fb1c6;
+      --panel: rgba(12, 29, 50, 0.88);
+      --panel-strong: #0d2139;
+      --line: rgba(157, 184, 211, 0.2);
+      --cyan: #38d9f2;
+      --blue: #438bff;
+      --orange: #ff9f43;
+      --pink: #ff5c87;
+      --green: #52e1a1;
+      --yellow: #ffd166;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 82% 8%, rgba(42, 116, 189, 0.19), transparent 32rem),
+        radial-gradient(circle at 10% 35%, rgba(24, 197, 186, 0.09), transparent 29rem),
+        #06111f;
+      font-family: Inter, "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+    button, label { touch-action: manipulation; }
+
+    .app {
+      width: min(1540px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 22px 0 44px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 8px;
+      color: var(--cyan);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+    }
+
+    .eyebrow::before {
+      width: 32px;
+      height: 2px;
+      content: "";
+      background: currentColor;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.9rem, 4vw, 3.35rem);
+      line-height: 1;
+      letter-spacing: -0.045em;
+    }
+
+    .hero-copy {
+      max-width: 770px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.65;
+    }
+
+    .condition-pill {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px 12px;
+      align-items: center;
+      min-width: 224px;
+      padding: 13px 16px;
+      border: 1px solid rgba(56, 217, 242, 0.35);
+      border-radius: 15px;
+      background: rgba(8, 26, 45, 0.8);
+      box-shadow: inset 0 0 24px rgba(56, 217, 242, 0.04);
+    }
+
+    .condition-pill b {
+      grid-row: span 2;
+      color: var(--cyan);
+      font-size: 1.5rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .condition-pill strong { font-size: 0.84rem; }
+    .condition-pill small { color: var(--muted); }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(9, 25, 43, 0.82);
+    }
+
+    .mode-tab {
+      min-height: 54px;
+      border: 1px solid transparent;
+      border-radius: 13px;
+      color: #b8c8d9;
+      background: transparent;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .mode-tab:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+    .mode-tab.active {
+      border-color: rgba(56, 217, 242, 0.46);
+      color: #04121e;
+      background: linear-gradient(135deg, #58e5f3, #50a9ff);
+      box-shadow: 0 8px 28px rgba(56, 180, 242, 0.18);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 342px;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .stage-card, .control-card, .info-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(18px);
+    }
+
+    .stage-card {
+      position: relative;
+      min-height: 610px;
+      overflow: hidden;
+    }
+
+    body.stage-is-expanded { overflow: hidden; }
+    body.stage-is-expanded .pc-shell { display: none !important; }
+
+    .stage-card.stage-expanded {
+      position: fixed;
+      z-index: 2147483200;
+      inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+      width: auto;
+      height: auto;
+      min-height: 0;
+      border-color: rgba(56, 217, 242, 0.46);
+      border-radius: 16px;
+      box-shadow: 0 0 0 12px #030b15, 0 28px 90px rgba(0, 0, 0, 0.72);
+    }
+
+    #sim-canvas {
+      display: block;
+      width: 100%;
+      height: 610px;
+      background: linear-gradient(180deg, rgba(5, 22, 38, 0.78), rgba(4, 15, 28, 0.92));
+    }
+
+    .scale-badge {
+      position: absolute;
+      z-index: 2;
+      right: 20px;
+      bottom: 18px;
+      padding: 7px 10px;
+      border: 1px solid rgba(56, 217, 242, 0.22);
+      border-radius: 9px;
+      color: #bdeff7;
+      background: rgba(5, 24, 41, 0.86);
+      font-size: 0.68rem;
+      font-weight: 800;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+
+    .stage-card.stage-expanded #sim-canvas { height: 100%; }
+
+    .stage-transport {
+      position: absolute;
+      z-index: 4;
+      top: 18px;
+      left: 20px;
+      right: 300px;
+      display: grid;
+      grid-template-columns: auto auto auto minmax(120px, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      background: rgba(4, 17, 31, 0.86);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(12px);
+    }
+
+    .stage-transport .transport-button { min-height: 38px; padding: 0 12px; }
+    .stage-transport .transport-button.primary { min-width: 90px; }
+    .stage-transport .timeline-wrap input { margin: 2px 0; }
+    .stage-transport .rate-control { justify-content: flex-end; }
+
+    .readout {
+      position: absolute;
+      z-index: 2;
+      top: 18px;
+      right: 20px;
+      min-width: 128px;
+      padding: 10px 14px;
+      border: 1px solid rgba(56, 217, 242, 0.25);
+      border-radius: 12px;
+      text-align: right;
+      background: rgba(4, 17, 31, 0.84);
+      pointer-events: none;
+    }
+
+    .readout small { display: block; color: var(--muted); font-size: 0.7rem; }
+    .readout strong { color: #fff; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+
+    .stage-actions {
+      position: absolute;
+      z-index: 4;
+      top: 18px;
+      right: 168px;
+      display: flex;
+      gap: 7px;
+    }
+
+    .stage-action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 7px 12px;
+      border: 1px solid rgba(56, 217, 242, 0.3);
+      border-radius: 10px;
+      color: #dffaff;
+      background: rgba(5, 24, 41, 0.9);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      font-size: 0.75rem;
+      font-weight: 850;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+    }
+
+    .stage-action-button:hover { border-color: var(--cyan); background: rgba(13, 52, 75, 0.96); }
+    .stage-action-button:focus-visible { outline: 3px solid rgba(56, 217, 242, 0.35); outline-offset: 2px; }
+    .stage-card.stage-expanded #stage-zoom-button { color: #061522; background: linear-gradient(135deg, #5be8ed, #55a8ff); }
+
+    .legend {
+      position: absolute;
+      z-index: 2;
+      left: 20px;
+      bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px 15px;
+      padding: 9px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: #aabdd0;
+      background: rgba(4, 17, 31, 0.8);
+      font-size: 0.7rem;
+      pointer-events: none;
+    }
+
+    .legend span { display: flex; align-items: center; gap: 6px; }
+    .legend i { width: 17px; height: 3px; border-radius: 3px; background: var(--swatch); }
+
+    .side-stack { display: flex; flex-direction: column; gap: 12px; }
+    .control-card, .info-card { padding: 17px; }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 14px;
+      font-size: 0.92rem;
+    }
+
+    .panel-title small { color: var(--muted); font-size: 0.68rem; font-weight: 600; }
+
+    .parameter {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .parameter:last-child { margin-bottom: 0; }
+    .parameter[hidden] { display: none; }
+
+    .parameter-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: #d8e7f6;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    output { color: var(--cyan); font-variant-numeric: tabular-nums; }
+
+    input[type="range"] {
+      width: 100%;
+      height: 28px;
+      margin: 0;
+      border-radius: 99px;
+      accent-color: var(--cyan);
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    .switch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .vector-switch {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: #b9cadd;
+      background: rgba(255, 255, 255, 0.025);
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .vector-switch:has(input:checked) {
+      border-color: color-mix(in srgb, var(--switch-color) 55%, transparent);
+      color: #fff;
+      background: color-mix(in srgb, var(--switch-color) 10%, transparent);
+    }
+
+    .vector-switch input { width: 16px; height: 16px; margin: 0; accent-color: var(--switch-color); }
+
+    .vector-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    .small-button {
+      flex: 1;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: #c4d5e6;
+      background: rgba(255, 255, 255, 0.045);
+      font-size: 0.72rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .small-button:hover { background: rgba(255, 255, 255, 0.09); }
+
+    .formula {
+      margin: 0;
+      padding: 13px;
+      border-left: 3px solid var(--cyan);
+      border-radius: 4px 11px 11px 4px;
+      color: #dceafb;
+      background: rgba(56, 217, 242, 0.055);
+      font: 600 0.77rem/1.75 "Cambria Math", "Noto Sans TC", serif;
+    }
+
+    .formula b { color: var(--cyan); }
+
+    .model-note {
+      margin: 11px 0 0;
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.55;
+    }
+
+    .transport-button {
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: #e8f5ff;
+      background: #152c46;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .transport-button.primary {
+      min-width: 112px;
+      border-color: #54dded;
+      color: #051522;
+      background: linear-gradient(135deg, #5be8ed, #55a8ff);
+    }
+
+    .transport-button:hover { filter: brightness(1.08); }
+
+    .timeline-wrap { min-width: 0; }
+    .timeline-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #7f96ad;
+      font-size: 0.64rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timeline-wrap input { margin: 4px 0; }
+
+    .rate-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    select {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: #e9f5ff;
+      background: #132b45;
+      padding: 0 8px;
+    }
+
+    .data-strip {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .datum {
+      min-width: 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(10, 29, 50, 0.82);
+    }
+
+    .datum span {
+      display: block;
+      margin-bottom: 4px;
+      overflow: hidden;
+      color: #8fa6bd;
+      font-size: 0.66rem;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .datum strong {
+      display: block;
+      overflow: hidden;
+      color: #eff8ff;
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .teaching-note {
+      display: grid;
+      grid-template-columns: 0.85fr 1fr 1.3fr;
+      gap: 1px;
+      margin-top: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--line);
+    }
+
+    .teaching-note article { padding: 16px 18px; background: rgba(8, 24, 42, 0.96); }
+    .teaching-note strong { display: block; margin-bottom: 5px; color: var(--cyan); font-size: 0.75rem; }
+    .teaching-note p { margin: 0; color: #b3c5d7; font-size: 0.76rem; line-height: 1.55; }
+
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: 1fr; }
+      .side-stack { display: grid; grid-template-columns: 1fr 1fr; }
+      .stage-card { min-height: 530px; }
+      #sim-canvas { height: 530px; }
+      .data-strip { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 900px) {
+      .stage-transport {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        right: 300px;
+      }
+
+      .stage-transport .transport-button { width: 100%; padding: 0 8px; }
+      .stage-transport .transport-button.primary { min-width: 0; }
+      .stage-transport .timeline-wrap { grid-column: 1 / -1; }
+      .stage-transport .rate-control { grid-column: 1 / -1; justify-content: flex-start; }
+    }
+
+    @media (max-width: 720px) {
+      .app { width: min(100% - 20px, 1540px); padding-top: 14px; }
+      .hero { display: block; }
+      .condition-pill { margin-top: 14px; width: fit-content; }
+      .mode-tabs { grid-template-columns: 1fr 1fr; }
+      .workspace, .side-stack { display: block; }
+      .control-card, .info-card { margin-top: 10px; }
+      .stage-card { min-height: 440px; }
+      #sim-canvas { height: 440px; }
+      .stage-transport { top: 14px; left: 14px; right: 158px; gap: 6px; padding: 7px 8px; }
+      .stage-transport .transport-button { min-height: 34px; font-size: 0.7rem; }
+      .stage-transport .rate-control { gap: 6px; font-size: 0.68rem; }
+      .stage-transport .rate-control select { min-height: 32px; }
+      .stage-transport .timeline-labels { font-size: 0.58rem; }
+      .stage-actions { top: 78px; right: 14px; }
+      .stage-action-button { min-height: 34px; padding: 6px 9px; font-size: 0.68rem; }
+      .legend { display: none; }
+      .scale-badge { right: 14px; bottom: 12px; }
+      .data-strip { grid-template-columns: 1fr 1fr; }
+      .teaching-note { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 420px) {
+      .stage-card { min-height: 540px; }
+      #sim-canvas { height: 540px; }
+      .stage-transport { top: 128px; right: 10px; left: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">運動學 · 拋體運動實驗室</p>
+        <h1>拋體運動實驗室</h1>
+        <p class="hero-copy">比較自由落體、鉛直上拋、平拋與斜拋。四種模式的預設飛行時間皆為五秒；調整參數後，完整軌跡、落地時間與時間軸會自動更新。</p>
+      </div>
+      <div class="condition-pill" aria-label="共同模擬條件">
+        <b>5.00 s</b>
+        <strong>各模式預設飛行時間</strong>
+        <small>g = 9.8 m/s² · 不計空氣阻力</small>
+      </div>
+    </header>
+
+    <nav class="mode-tabs" aria-label="選擇拋體運動模式">
+      <button class="mode-tab active" type="button" data-mode="freefall" aria-pressed="true">自由落體</button>
+      <button class="mode-tab" type="button" data-mode="vertical" aria-pressed="false">鉛直上拋</button>
+      <button class="mode-tab" type="button" data-mode="horizontal" aria-pressed="false">平拋</button>
+      <button class="mode-tab" type="button" data-mode="oblique" aria-pressed="false">斜拋</button>
+    </nav>
+
+    <section class="workspace">
+      <div class="stage-card">
+        <div class="stage-transport" aria-label="動畫播放控制">
+          <button class="transport-button primary" id="play-button" type="button">開始</button>
+          <button class="transport-button" id="step-button" type="button">＋1 秒</button>
+          <button class="transport-button" id="reset-button" type="button">重設</button>
+          <div class="timeline-wrap">
+            <input id="timeline" type="range" min="0" max="5" step="0.01" value="0" aria-label="模擬時間">
+            <div class="timeline-labels" id="timeline-labels" aria-hidden="true"><span>0 s</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 s</span></div>
+          </div>
+          <label class="rate-control">播放速度
+            <select id="playback-rate">
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+        <div class="readout" aria-live="polite">
+          <small>模擬時間</small>
+          <strong><span id="time-display">0.00</span> s</strong>
+        </div>
+        <div class="stage-actions" aria-label="動畫展示控制">
+          <button class="stage-action-button" id="stage-zoom-button" type="button" aria-pressed="false">⛶ 放大展示</button>
+        </div>
+        <canvas id="sim-canvas" aria-label="拋體運動動畫畫布"></canvas>
+        <div class="scale-badge" id="scale-display" aria-live="polite">固定比例尺：每格 40 m</div>
+        <div class="legend" aria-hidden="true">
+          <span><i style="--swatch: var(--cyan)"></i>速度 v</span>
+          <span><i style="--swatch: var(--orange)"></i>加速度 a</span>
+          <span><i style="--swatch: var(--pink)"></i>速度分量</span>
+          <span><i style="--swatch: var(--green)"></i>位移 Δr</span>
+        </div>
+      </div>
+
+      <aside class="side-stack">
+        <section class="control-card" aria-labelledby="parameter-title">
+          <h2 class="panel-title" id="parameter-title">條件設定 <small>僅 g 固定 · 時間由條件決定</small></h2>
+          <div class="parameter">
+            <div class="parameter-head"><label for="object-mass">物體質量 m</label><output id="mass-output">2.0 kg</output></div>
+            <input id="object-mass" type="range" min="0.5" max="10" step="0.5" value="2">
+          </div>
+          <div class="parameter">
+            <div class="parameter-head"><label for="initial-height">初始高度 h₀</label><output id="height-output">122.5 m</output></div>
+            <input id="initial-height" type="range" min="0" max="200" step="0.5" value="122.5">
+          </div>
+          <div class="parameter" id="horizontal-parameter" hidden>
+            <div class="parameter-head"><label for="horizontal-speed">水平初速 v₀ₓ</label><output id="horizontal-speed-output">18.0 m/s</output></div>
+            <input id="horizontal-speed" type="range" min="0" max="40" step="0.5" value="18">
+          </div>
+          <div class="parameter" id="vertical-parameter" hidden>
+            <div class="parameter-head"><label for="vertical-speed">鉛直初速 v₀ᵧ</label><output id="vertical-speed-output">24.5 m/s</output></div>
+            <input id="vertical-speed" type="range" min="2" max="40" step="0.5" value="24.5">
+          </div>
+          <div class="parameter" id="launch-speed-parameter" hidden>
+            <div class="parameter-head"><label for="launch-speed">斜拋初速 v₀</label><output id="launch-speed-output">34.65 m/s</output></div>
+            <input id="launch-speed" type="range" min="5" max="50" step="0.01" value="34.65">
+          </div>
+          <div class="parameter" id="angle-parameter" hidden>
+            <div class="parameter-head"><label for="launch-angle">斜拋仰角 θ</label><output id="angle-output">45°</output></div>
+            <input id="launch-angle" type="range" min="10" max="90" step="1" value="45">
+          </div>
+          <div class="parameter">
+            <div class="parameter-head"><span>運動預估</span><output id="fixed-condition">飛行時間 5.00 s</output></div>
+            <div class="model-note" id="condition-detail">重量 W = 19.6 N；忽略空氣阻力時，質量不影響軌跡，球體大小僅作質量示意。時間軸會依實際落地時間更新。</div>
+          </div>
+        </section>
+
+        <section class="control-card" aria-labelledby="vector-title">
+          <h2 class="panel-title" id="vector-title">向量顯示 <small>預設全部關閉</small></h2>
+          <div class="switch-grid">
+            <label class="vector-switch" style="--switch-color: var(--cyan)"><input type="checkbox" data-vector="velocity">速度 v</label>
+            <label class="vector-switch" style="--switch-color: var(--orange)"><input type="checkbox" data-vector="acceleration">加速度 a</label>
+            <label class="vector-switch" style="--switch-color: var(--pink)"><input type="checkbox" data-vector="velocity-x">水平速度 vₓ</label>
+            <label class="vector-switch" style="--switch-color: var(--pink)"><input type="checkbox" data-vector="velocity-y">鉛直速度 vᵧ</label>
+            <label class="vector-switch" style="--switch-color: var(--green)"><input type="checkbox" data-vector="displacement">位移 Δr</label>
+          </div>
+          <div class="vector-actions">
+            <button class="small-button" id="vectors-on" type="button">全部開啟</button>
+            <button class="small-button" id="vectors-off" type="button">全部關閉</button>
+          </div>
+        </section>
+
+        <section class="info-card" aria-labelledby="formula-title">
+          <h2 class="panel-title" id="formula-title">此模式的運動方程</h2>
+          <p class="formula" id="formula-copy"><b>y(t)</b> = 122.5 − 4.9t²<br><b>vᵧ(t)</b> = −9.8t</p>
+          <p class="model-note">SI 單位；水平向右為 +x，鉛直向上為 +y。箭頭長度依數值成比例變化，向量標籤顯示實際大小。</p>
+        </section>
+      </aside>
+    </section>
+
+    <section class="data-strip" aria-label="即時物理量">
+      <div class="datum"><span>物體質量 m</span><strong id="data-mass">2.00 kg</strong></div>
+      <div class="datum"><span>重量 W</span><strong id="data-weight">19.60 N</strong></div>
+      <div class="datum"><span>位置 x</span><strong id="data-x">0.00 m</strong></div>
+      <div class="datum"><span>位置 y</span><strong id="data-y">122.50 m</strong></div>
+      <div class="datum"><span>水平速度 vₓ</span><strong id="data-vx">0.00 m/s</strong></div>
+      <div class="datum"><span>鉛直速度 vᵧ</span><strong id="data-vy">0.00 m/s</strong></div>
+      <div class="datum"><span>速率 |v|</span><strong id="data-speed">0.00 m/s</strong></div>
+    </section>
+
+    <section class="teaching-note" aria-label="操作說明與觀察重點">
+      <article><strong>操作</strong><p>選一種運動，先看完整虛線軌跡，再按「開始」。可拖曳時間軸或逐秒前進。</p></article>
+      <article><strong>觀察</strong><p>比較相鄰殘影的距離；距離愈大，代表該段平均速率愈大。</p></article>
+      <article><strong>想一想</strong><p>把平拋與自由落體設成相同初始高度後，兩者的鉛直位置為何在每個整數秒都相同？</p></article>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const G = 9.8;
+      const DEFAULT_FLIGHT_TIME = 5;
+      const DEFAULT_DROP_HEIGHT = 0.5 * G * DEFAULT_FLIGHT_TIME * DEFAULT_FLIGHT_TIME;
+      const DEFAULT_UPWARD_SPEED = 0.5 * G * DEFAULT_FLIGHT_TIME;
+      const PROJECTILE_RADIUS = 15;
+      const GHOST_RADIUS = 9;
+      const COLORS = {
+        trajectory: "#67d7ea",
+        current: "#f5fbff",
+        ghost: "#7e9db7",
+        velocity: "#38d9f2",
+        acceleration: "#ff9f43",
+        components: "#ff5c87",
+        displacement: "#52e1a1",
+        ground: "#49657c",
+        grid: "rgba(113, 151, 181, 0.24)"
+      };
+
+      const modeSettings = {
+        freefall: { height: DEFAULT_DROP_HEIGHT },
+        vertical: { height: 0, verticalSpeed: DEFAULT_UPWARD_SPEED },
+        horizontal: { height: DEFAULT_DROP_HEIGHT, horizontalSpeed: 18 },
+        oblique: { height: 0, launchSpeed: DEFAULT_UPWARD_SPEED / Math.sin(Math.PI / 4), angle: 45 }
+      };
+
+      const MODE_VIEW_BOUNDS = {
+        freefall: { minX: -120, maxX: 120, minY: -60, maxY: 220, gridStep: 40 },
+        vertical: { minX: -60, maxX: 60, minY: -10, maxY: 150, gridStep: 25 }
+      };
+
+      const canvas = document.getElementById("sim-canvas");
+      const ctx = canvas.getContext("2d");
+      const stageCard = document.querySelector(".stage-card");
+      const stageTransport = document.querySelector(".stage-transport");
+      const stageReadout = document.querySelector(".readout");
+      const stageActions = document.querySelector(".stage-actions");
+      const stageZoomButton = document.getElementById("stage-zoom-button");
+      const modeButtons = [...document.querySelectorAll(".mode-tab")];
+      const vectorInputs = [...document.querySelectorAll("[data-vector]")];
+      const massInput = document.getElementById("object-mass");
+      const heightInput = document.getElementById("initial-height");
+      const massOutput = document.getElementById("mass-output");
+      const heightOutput = document.getElementById("height-output");
+      const horizontalParameter = document.getElementById("horizontal-parameter");
+      const verticalParameter = document.getElementById("vertical-parameter");
+      const launchSpeedParameter = document.getElementById("launch-speed-parameter");
+      const angleParameter = document.getElementById("angle-parameter");
+      const horizontalSpeed = document.getElementById("horizontal-speed");
+      const verticalSpeed = document.getElementById("vertical-speed");
+      const launchSpeed = document.getElementById("launch-speed");
+      const launchAngle = document.getElementById("launch-angle");
+      const horizontalSpeedOutput = document.getElementById("horizontal-speed-output");
+      const verticalSpeedOutput = document.getElementById("vertical-speed-output");
+      const launchSpeedOutput = document.getElementById("launch-speed-output");
+      const angleOutput = document.getElementById("angle-output");
+      const scaleDisplay = document.getElementById("scale-display");
+      const fixedCondition = document.getElementById("fixed-condition");
+      const conditionDetail = document.getElementById("condition-detail");
+      const formulaCopy = document.getElementById("formula-copy");
+      const playButton = document.getElementById("play-button");
+      const stepButton = document.getElementById("step-button");
+      const resetButton = document.getElementById("reset-button");
+      const timeline = document.getElementById("timeline");
+      const timelineLabels = document.getElementById("timeline-labels");
+      const playbackRate = document.getElementById("playback-rate");
+      const timeDisplay = document.getElementById("time-display");
+
+      const dataFields = {
+        mass: document.getElementById("data-mass"),
+        weight: document.getElementById("data-weight"),
+        x: document.getElementById("data-x"),
+        y: document.getElementById("data-y"),
+        vx: document.getElementById("data-vx"),
+        vy: document.getElementById("data-vy"),
+        speed: document.getElementById("data-speed")
+      };
+
+      let mode = "freefall";
+      let objectMass = Number(massInput.value);
+      let time = 0;
+      let running = false;
+      let frameId = null;
+      let lastTimestamp = 0;
+      let canvasSize = { width: 0, height: 0, ratio: 1 };
+      let occupiedLabelRects = [];
+      let vectorArrowQueue = [];
+
+      function initialVelocity() {
+        const settings = modeSettings[mode];
+        if (mode === "vertical") return { vx: 0, vy: settings.verticalSpeed };
+        if (mode === "horizontal") return { vx: settings.horizontalSpeed, vy: 0 };
+        if (mode === "oblique") {
+          const radians = settings.angle * Math.PI / 180;
+          return {
+            vx: settings.launchSpeed * Math.cos(radians),
+            vy: settings.launchSpeed * Math.sin(radians)
+          };
+        }
+        return { vx: 0, vy: 0 };
+      }
+
+      function initialPosition() {
+        return { x: 0, y: modeSettings[mode].height };
+      }
+
+      function landingTime() {
+        const { vy } = initialVelocity();
+        const height = modeSettings[mode].height;
+        return (vy + Math.sqrt(vy * vy + 2 * G * height)) / G;
+      }
+
+      function physicsAt(rawTime) {
+        const duration = landingTime();
+        const t = Math.max(0, Math.min(duration, rawTime));
+        const motionTime = Math.min(t, duration);
+        const initial = initialVelocity();
+        const landed = t >= duration - 1e-8;
+        const x = initial.vx * motionTime;
+        const y = Math.max(0, modeSettings[mode].height + initial.vy * motionTime - 0.5 * G * motionTime * motionTime);
+        const vx = landed ? 0 : initial.vx;
+        const vy = landed ? 0 : initial.vy - G * motionTime;
+        const ay = landed ? 0 : -G;
+        return { t, motionTime, x, y, vx, vy, ax: 0, ay, speed: Math.hypot(vx, vy), landed, landingTime: duration };
+      }
+
+      function formatScaleValue(value) {
+        const absolute = Math.abs(value);
+        if (absolute >= 100 || Number.isInteger(value)) return value.toFixed(0);
+        if (absolute >= 1) return value.toFixed(1).replace(/\.0$/, "");
+        return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+      }
+
+      function niceGridStep(span) {
+        const target = span / 7;
+        return [5, 10, 20, 25, 40, 50, 80, 100].find(step => step >= target) || 120;
+      }
+
+      function envelopeBounds(maxX, maxY) {
+        const paddingX = Math.max(8, maxX * 0.04);
+        const paddingY = Math.max(8, maxY * 0.05);
+        const bounds = {
+          minX: -paddingX,
+          maxX: maxX + paddingX,
+          minY: -paddingY,
+          maxY: maxY + paddingY
+        };
+        bounds.gridStep = niceGridStep(Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY));
+        return bounds;
+      }
+
+      function getWorldBounds() {
+        if (mode === "horizontal") {
+          const height = modeSettings.horizontal.height;
+          const maximumFlightTime = Math.sqrt(2 * height / G);
+          const maximumRange = Number(horizontalSpeed.max) * maximumFlightTime;
+          return envelopeBounds(maximumRange, height);
+        }
+        if (mode === "oblique") {
+          const height = modeSettings.oblique.height;
+          const maximumSpeed = Number(launchSpeed.max);
+          const maximumRange = maximumSpeed / G * Math.sqrt(maximumSpeed * maximumSpeed + 2 * G * height);
+          const maximumHeight = height + maximumSpeed * maximumSpeed / (2 * G);
+          return envelopeBounds(maximumRange, maximumHeight);
+        }
+        return MODE_VIEW_BOUNDS[mode];
+      }
+
+      function getTransform() {
+        const bounds = getWorldBounds();
+        const stageTop = stageCard.getBoundingClientRect().top;
+        const overlayBottom = Math.max(
+          stageTransport.getBoundingClientRect().bottom,
+          stageReadout.getBoundingClientRect().bottom,
+          stageActions.getBoundingClientRect().bottom
+        ) - stageTop;
+        const pad = { left: 64, right: 48, top: Math.max(64, overlayBottom + 12), bottom: 62 };
+        const plotWidth = Math.max(1, canvasSize.width - pad.left - pad.right);
+        const plotHeight = Math.max(1, canvasSize.height - pad.top - pad.bottom);
+        const scale = Math.min(plotWidth / (bounds.maxX - bounds.minX), plotHeight / (bounds.maxY - bounds.minY));
+        const usedWidth = (bounds.maxX - bounds.minX) * scale;
+        const usedHeight = (bounds.maxY - bounds.minY) * scale;
+        const alignToLeft = mode === "horizontal" || mode === "oblique";
+        const horizontalGap = alignToLeft ? 0 : (plotWidth - usedWidth) / 2;
+        const offsetX = pad.left + horizontalGap - bounds.minX * scale;
+        const offsetY = pad.top + (plotHeight - usedHeight) / 2 + bounds.maxY * scale;
+        return {
+          scale,
+          bounds,
+          gridStep: bounds.gridStep,
+          x: worldX => offsetX + worldX * scale,
+          y: worldY => offsetY - worldY * scale
+        };
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.round(rect.width * ratio));
+        canvas.height = Math.max(1, Math.round(rect.height * ratio));
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        canvasSize = { width: rect.width, height: rect.height, ratio };
+        draw();
+      }
+
+      function getLabelRect(text, x, y, options = {}) {
+        const font = options.font || "700 12px Inter, sans-serif";
+        ctx.save(); ctx.font = font;
+        const metrics = ctx.measureText(text);
+        ctx.restore();
+        const width = metrics.width + 14;
+        const height = 24;
+        const left = Math.max(5, Math.min(canvasSize.width - width - 5, x - width / 2));
+        const top = Math.max(5, Math.min(canvasSize.height - height - 5, y - height / 2));
+        return { left, top, right: left + width, bottom: top + height, width, height };
+      }
+
+      function roundedLabel(text, x, y, options = {}) {
+        const font = options.font || "700 12px Inter, sans-serif";
+        const rect = getLabelRect(text, x, y, options);
+        ctx.save();
+        ctx.font = font;
+        ctx.fillStyle = options.background || "rgba(5, 19, 34, 0.9)";
+        ctx.strokeStyle = options.border || "rgba(255,255,255,0.16)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(rect.left, rect.top, rect.width, rect.height, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = options.color || "#eaf6ff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, rect.left + rect.width / 2, rect.top + rect.height / 2 + 0.5);
+        ctx.restore();
+        if (options.track !== false) occupiedLabelRects.push(rect);
+        return rect;
+      }
+
+      function drawArrow(fromX, fromY, vectorX, vectorY, color, label, scaleFactor, kind) {
+        const transform = getTransform();
+        const startX = transform.x(fromX);
+        const startY = transform.y(fromY);
+        const endX = transform.x(fromX + vectorX * scaleFactor);
+        const endY = transform.y(fromY + vectorY * scaleFactor);
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const length = Math.hypot(dx, dy);
+        if (length < 1.5) return;
+        const ux = dx / length;
+        const uy = dy / length;
+        const headLength = Math.min(15, Math.max(9, length * 0.22));
+        const headWidth = headLength * 0.68;
+        const baseX = endX - ux * headLength;
+        const baseY = endY - uy * headLength;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(baseX, baseY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(baseX - uy * headWidth / 2, baseY + ux * headWidth / 2);
+        ctx.lineTo(baseX + uy * headWidth / 2, baseY - ux * headWidth / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        vectorArrowQueue.push({ startX, startY, endX, endY, ux, uy, length, color, label, kind });
+      }
+
+      const VECTOR_LABEL_OFFSETS = {
+        displacement: { x: 88, y: -78 },
+        velocity: { x: -76, y: -38 },
+        acceleration: { x: -76, y: 2 },
+        "velocity-x": { x: 72, y: -38 },
+        "velocity-y": { x: 72, y: 2 }
+      };
+
+      function drawQueuedVectorLabels() {
+        for (const arrow of vectorArrowQueue) {
+          const offset = VECTOR_LABEL_OFFSETS[arrow.kind] || { x: 70, y: 54 };
+          const anchorX = arrow.kind === "displacement" ? arrow.endX : arrow.startX;
+          const anchorY = arrow.kind === "displacement" ? arrow.endY : arrow.startY;
+          const position = { x: anchorX + offset.x, y: anchorY + offset.y };
+          roundedLabel(arrow.label, position.x, position.y, {
+            color: arrow.color,
+            border: `${arrow.color}66`,
+            background: "rgba(5, 18, 32, 0.94)"
+          });
+        }
+      }
+
+      function drawGrid(transform) {
+        const bounds = transform.bounds;
+        const step = transform.gridStep;
+
+        ctx.save();
+        ctx.strokeStyle = COLORS.grid;
+        ctx.fillStyle = "#6f8ba4";
+        ctx.lineWidth = 1;
+        ctx.font = "600 10px Inter, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        for (let y = Math.ceil(Math.max(0, bounds.minY) / step) * step; y <= bounds.maxY + 1e-8; y += step) {
+          const py = transform.y(y);
+          ctx.beginPath();
+          ctx.moveTo(44, py);
+          ctx.lineTo(canvasSize.width - 28, py);
+          ctx.stroke();
+          ctx.fillText(`${formatScaleValue(y)} m`, 40, py);
+        }
+
+        ctx.globalAlpha = 0.55;
+        for (let x = Math.ceil(bounds.minX / step) * step; x <= bounds.maxX + 1e-8; x += step) {
+          const px = transform.x(x);
+          ctx.beginPath();
+          ctx.moveTo(px, 42);
+          ctx.lineTo(px, canvasSize.height - 36);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawGround(transform) {
+        const y = transform.y(0);
+        ctx.save();
+        ctx.strokeStyle = COLORS.ground;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(32, y);
+        ctx.lineTo(canvasSize.width - 25, y);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(73, 101, 124, 0.48)";
+        ctx.lineWidth = 1;
+        for (let x = 36; x < canvasSize.width - 24; x += 16) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + 1);
+          ctx.lineTo(x - 9, y + 10);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "#7892a9";
+        ctx.font = "700 10px Inter, sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText("地面 y = 0", canvasSize.width - 28, y - 9);
+        ctx.restore();
+      }
+
+      function drawPredictedTrajectory(transform) {
+        const duration = landingTime();
+        ctx.save();
+        ctx.strokeStyle = COLORS.trajectory;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 8]);
+        ctx.globalAlpha = 0.62;
+        ctx.beginPath();
+        for (let index = 0; index <= 160; index += 1) {
+          const point = physicsAt(index * duration / 160);
+          const x = transform.x(point.x);
+          const y = transform.y(point.y);
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        const endpoint = physicsAt(duration);
+        const lx = transform.x(endpoint.x);
+        const ly = transform.y(endpoint.y);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 209, 102, 0.75)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.arc(lx, ly, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        roundedLabel(`落地 ${duration.toFixed(2)} s`, lx, ly + 31, { color: "#ffd166", border: "rgba(255,209,102,.4)" });
+      }
+
+      function drawGhosts(transform) {
+        const wholeSeconds = Math.floor(Math.min(time, landingTime()) + 1e-8);
+        for (let second = 0; second <= wholeSeconds; second += 1) {
+          const point = physicsAt(second);
+          const x = transform.x(point.x);
+          const y = transform.y(point.y);
+          ctx.save();
+          ctx.globalAlpha = second === wholeSeconds && Math.abs(time - second) < 0.025 ? 0.82 : 0.44;
+          ctx.fillStyle = COLORS.ghost;
+          ctx.strokeStyle = "rgba(211, 232, 248, 0.86)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x, y, GHOST_RADIUS, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+          roundedLabel(`${second} s`, x + (mode === "freefall" || mode === "vertical" ? 31 : 0), y - 22, {
+            color: "#adc4d8",
+            font: "700 10px Inter, sans-serif",
+            background: "rgba(5,18,32,.76)"
+          });
+        }
+      }
+
+      function drawProjectile(transform, point) {
+        const x = transform.x(point.x);
+        const y = transform.y(point.y);
+        const radius = Math.max(10, Math.min(23, PROJECTILE_RADIUS * Math.cbrt(objectMass / 2)));
+        ctx.save();
+        ctx.shadowColor = COLORS.trajectory;
+        ctx.shadowBlur = 30;
+        ctx.fillStyle = COLORS.current;
+        ctx.strokeStyle = COLORS.trajectory;
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function isVectorVisible(name) {
+        return vectorInputs.find(input => input.dataset.vector === name)?.checked || false;
+      }
+
+      function drawVectors(point) {
+        if (isVectorVisible("displacement")) {
+          const initial = initialPosition();
+          drawArrow(initial.x, initial.y, point.x - initial.x, point.y - initial.y, COLORS.displacement, `Δr ${Math.hypot(point.x - initial.x, point.y - initial.y).toFixed(1)} m`, 1, "displacement");
+        }
+        if (isVectorVisible("velocity")) {
+          drawArrow(point.x, point.y, point.vx, point.vy, COLORS.velocity, `v ${point.speed.toFixed(1)} m/s`, 0.78, "velocity");
+        }
+        if (isVectorVisible("acceleration")) {
+          drawArrow(point.x, point.y, point.ax, point.ay, COLORS.acceleration, `a ${G.toFixed(1)} m/s²`, 2.05, "acceleration");
+        }
+        if (isVectorVisible("velocity-x") && Math.abs(point.vx) > 0.01) {
+          drawArrow(point.x, point.y, point.vx, 0, COLORS.components, `vₓ ${point.vx.toFixed(1)}`, 0.78, "velocity-x");
+        }
+        if (isVectorVisible("velocity-y") && Math.abs(point.vy) > 0.01) {
+          drawArrow(point.x, point.y, 0, point.vy, COLORS.components, `vᵧ ${point.vy.toFixed(1)}`, 0.78, "velocity-y");
+        }
+      }
+
+      function draw() {
+        if (!canvasSize.width || !canvasSize.height) return;
+        ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
+        occupiedLabelRects = [];
+        vectorArrowQueue = [];
+        const transform = getTransform();
+        const scalePrefix = mode === "horizontal" || mode === "oblique" ? "最高初速視野" : "固定比例尺";
+        scaleDisplay.textContent = `${scalePrefix}：每格 ${formatScaleValue(transform.gridStep)} m`;
+        const point = physicsAt(time);
+        drawGrid(transform);
+        drawGround(transform);
+        drawPredictedTrajectory(transform);
+        drawGhosts(transform);
+        drawVectors(point);
+        drawQueuedVectorLabels();
+        drawProjectile(transform, point);
+      }
+
+      function updateReadout() {
+        const duration = landingTime();
+        const point = physicsAt(time);
+        timeDisplay.textContent = time.toFixed(2);
+        timeline.value = time.toFixed(2);
+        dataFields.mass.textContent = `${objectMass.toFixed(2)} kg`;
+        dataFields.weight.textContent = `${(objectMass * G).toFixed(2)} N`;
+        dataFields.x.textContent = `${point.x.toFixed(2)} m`;
+        dataFields.y.textContent = `${point.y.toFixed(2)} m`;
+        dataFields.vx.textContent = `${point.vx.toFixed(2)} m/s`;
+        dataFields.vy.textContent = `${point.vy.toFixed(2)} m/s`;
+        dataFields.speed.textContent = `${point.speed.toFixed(2)} m/s`;
+
+        const playLabel = running ? "暫停" : time >= duration - 1e-8 ? "重新播放" : time > 0 ? "繼續" : "開始";
+        playButton.textContent = playLabel;
+      }
+
+      function render() {
+        updateReadout();
+        draw();
+      }
+
+      function stopAnimation() {
+        running = false;
+        lastTimestamp = 0;
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+
+      function animationLoop(timestamp) {
+        if (!running) return;
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const delta = Math.min((timestamp - lastTimestamp) / 1000, 0.08);
+        lastTimestamp = timestamp;
+        const duration = landingTime();
+        time = Math.min(duration, time + delta * Number(playbackRate.value));
+        if (time >= duration) {
+          stopAnimation();
+          time = duration;
+          render();
+          return;
+        }
+        render();
+        frameId = requestAnimationFrame(animationLoop);
+      }
+
+      function togglePlay() {
+        if (running) {
+          stopAnimation();
+          render();
+          return;
+        }
+        if (time >= landingTime() - 1e-8) time = 0;
+        running = true;
+        lastTimestamp = 0;
+        render();
+        frameId = requestAnimationFrame(animationLoop);
+      }
+
+      function reset() {
+        stopAnimation();
+        time = 0;
+        render();
+      }
+
+      function setStageExpanded(expanded) {
+        stageCard.classList.toggle("stage-expanded", expanded);
+        document.body.classList.toggle("stage-is-expanded", expanded);
+        stageZoomButton.setAttribute("aria-pressed", String(expanded));
+        stageZoomButton.textContent = expanded ? "↙ 縮回畫面" : "⛶ 放大展示";
+        stageZoomButton.setAttribute("aria-label", expanded ? "縮回動畫展示區" : "放大動畫展示區");
+        requestAnimationFrame(() => {
+          resizeCanvas();
+          stageZoomButton.focus({ preventScroll: true });
+        });
+      }
+
+      function updateTimelineScale(duration) {
+        timeline.max = duration.toFixed(2);
+        const labels = Array.from({ length: 6 }, (_, index) => {
+          const value = duration * index / 5;
+          const text = value.toFixed(duration < 2 ? 2 : 1).replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+          const unit = index === 0 || index === 5 ? " s" : "";
+          return `<span>${text}${unit}</span>`;
+        });
+        timelineLabels.innerHTML = labels.join("");
+      }
+
+      function syncModeControls() {
+        const settings = modeSettings[mode];
+        const heightMinimum = mode === "freefall" || mode === "horizontal" ? 10 : 0;
+        const heightMaximum = mode === "vertical" ? 50 : 200;
+        heightInput.min = String(heightMinimum);
+        heightInput.max = String(heightMaximum);
+        if (settings.height < heightMinimum) settings.height = heightMinimum;
+        if (settings.height > heightMaximum) settings.height = heightMaximum;
+        const initial = initialVelocity();
+        const duration = landingTime();
+        time = Math.min(time, duration);
+        updateTimelineScale(duration);
+        heightInput.value = String(settings.height);
+        horizontalParameter.hidden = mode !== "horizontal";
+        verticalParameter.hidden = mode !== "vertical";
+        launchSpeedParameter.hidden = mode !== "oblique";
+        angleParameter.hidden = mode !== "oblique";
+        horizontalSpeed.value = String(modeSettings.horizontal.horizontalSpeed);
+        verticalSpeed.value = String(modeSettings.vertical.verticalSpeed);
+        launchSpeed.value = String(modeSettings.oblique.launchSpeed);
+        launchAngle.value = String(modeSettings.oblique.angle);
+
+        massInput.value = String(objectMass);
+        massOutput.textContent = `${objectMass.toFixed(1)} kg`;
+        heightOutput.textContent = `${settings.height.toFixed(1)} m`;
+        horizontalSpeedOutput.textContent = `${modeSettings.horizontal.horizontalSpeed.toFixed(1)} m/s`;
+        verticalSpeedOutput.textContent = `${modeSettings.vertical.verticalSpeed.toFixed(1)} m/s`;
+        launchSpeedOutput.textContent = `${modeSettings.oblique.launchSpeed.toFixed(2)} m/s`;
+        angleOutput.textContent = `${modeSettings.oblique.angle.toFixed(0)}°`;
+        fixedCondition.textContent = `飛行時間 ${duration.toFixed(2)} s`;
+        conditionDetail.textContent = `重量 W = ${(objectMass * G).toFixed(1)} N；忽略空氣阻力時，質量不影響軌跡，球體大小僅作質量示意。時間軸會依實際落地時間更新。`;
+
+        const h = settings.height.toFixed(1);
+        if (mode === "freefall") {
+          formulaCopy.innerHTML = `<b>y(t)</b> = ${h} − 4.9t²<br><b>vᵧ(t)</b> = −9.8t`;
+        } else if (mode === "vertical") {
+          formulaCopy.innerHTML = `<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 4.9t²<br><b>vᵧ(t)</b> = ${initial.vy.toFixed(1)} − 9.8t`;
+        } else if (mode === "horizontal") {
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} − 4.9t²<br><b>v(t)</b> = ⟨${initial.vx.toFixed(1)}, −9.8t⟩`;
+        } else {
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 4.9t²<br><b>v₀</b> = ${settings.launchSpeed.toFixed(2)} m/s，θ = ${settings.angle.toFixed(0)}°`;
+        }
+      }
+
+      function setMode(nextMode) {
+        if (!modeSettings[nextMode]) return;
+        mode = nextMode;
+        modeButtons.forEach(button => {
+          const active = button.dataset.mode === mode;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+        syncModeControls();
+        reset();
+      }
+
+      modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
+      vectorInputs.forEach(input => input.addEventListener("change", draw));
+
+      function bindRangeControl(input, updateState) {
+        const applyValue = () => {
+          updateState(Number(input.value));
+          syncModeControls();
+          reset();
+        };
+        input.addEventListener("input", applyValue);
+        input.addEventListener("change", applyValue);
+      }
+
+      bindRangeControl(massInput, value => { objectMass = value; });
+      bindRangeControl(heightInput, value => { modeSettings[mode].height = value; });
+      bindRangeControl(horizontalSpeed, value => { modeSettings.horizontal.horizontalSpeed = value; });
+      bindRangeControl(verticalSpeed, value => { modeSettings.vertical.verticalSpeed = value; });
+      bindRangeControl(launchSpeed, value => { modeSettings.oblique.launchSpeed = value; });
+      bindRangeControl(launchAngle, value => { modeSettings.oblique.angle = value; });
+      playButton.addEventListener("click", togglePlay);
+      resetButton.addEventListener("click", reset);
+      stageZoomButton.addEventListener("click", () => setStageExpanded(!stageCard.classList.contains("stage-expanded")));
+      stepButton.addEventListener("click", () => {
+        stopAnimation();
+        time = Math.min(landingTime(), Math.floor(time + 1e-8) + 1);
+        render();
+      });
+      timeline.addEventListener("input", () => {
+        stopAnimation();
+        time = Number(timeline.value);
+        render();
+      });
+      document.getElementById("vectors-on").addEventListener("click", () => {
+        vectorInputs.forEach(input => { input.checked = true; });
+        draw();
+      });
+      document.getElementById("vectors-off").addEventListener("click", () => {
+        vectorInputs.forEach(input => { input.checked = false; });
+        draw();
+      });
+
+      window.addEventListener("resize", resizeCanvas, { passive: true });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && stageCard.classList.contains("stage-expanded")) setStageExpanded(false);
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && running) {
+          stopAnimation();
+          render();
+        }
+      });
+
+      syncModeControls();
+      resizeCanvas();
+      render();
+    })();
+  </script>
+</body>
+</html>

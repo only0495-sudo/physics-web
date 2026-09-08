@@ -3,6 +3,18 @@
 
   const activities = [
     {
+      file: "拋體運動.html",
+      title: "拋體運動實驗室",
+      category: "力學",
+      format: "2D",
+      summary: "以預設五秒飛行、動態落地時間軸、整秒殘影與可切換向量比較四種拋體運動。",
+      goal: ["比較自由落體、鉛直上拋、平拋與斜拋", "由等時間殘影與向量判讀速度和加速度"],
+      task: "先關閉向量，只用每秒殘影預測速度變化；再開啟速度、加速度與分量箭頭驗證。",
+      question: "平拋與自由落體的水平運動不同，為什麼每一秒的鉛直位置仍相同？",
+      demo: ["先比較四種預繪軌跡", "逐秒前進並標記殘影間距", "最後開啟向量比較方向與大小"],
+      gesture: "切換模式後先看預繪軌跡，再用＋1 秒按鈕逐格比較殘影。"
+    },
+    {
       file: "運動函數圖.html",
       title: "運動函數圖",
       category: "力學",
@@ -389,6 +401,7 @@
   ];
 
   const measurements = {
+    "拋體運動.html": { settingLabel: "運動模式、h₀、m、v₀、θ 與觀察時刻", settingPlaceholder: "例：斜拋，h₀=0 m，m=2 kg，v₀=34.65 m/s，θ=45°", resultLabel: "落地時間、位置、速度分量與殘影間距", resultPlaceholder: "例：t落地=5.00 s，vᵧ=… m/s", prompt: "先比較四種模式的預設五秒飛行，再一次只改變高度、質量、初速或角度之一，觀察落地時間、軌跡與整秒殘影如何改變。" },
     "運動函數圖.html": { settingLabel: "運動模式與觀察時刻", settingPlaceholder: "例：等加速，t = 4.0 s", resultLabel: "x、v、a 或圖線特徵", resultPlaceholder: "例：x=32 m，v=16 m/s，a=4 m/s²", prompt: "選定同一觀察時刻，比較不同運動模式的 x、v、a 與圖線斜率。" },
     "卡文迪西實驗裝置.html": { settingLabel: "大球質量 M 與扭線係數 κ", settingPlaceholder: "例：M=100，κ=0.050", resultLabel: "平衡偏轉角或雷射位移", resultPlaceholder: "例：θ=…，光點位移=…", prompt: "固定扭線係數，逐次改變大球質量，比較穩定後的偏轉量。" },
     "SHM.html": { settingLabel: "模式與相位角 θ", settingPlaceholder: "例：水平 SHM，θ=90°", resultLabel: "位移、速度、加速度", resultPlaceholder: "例：x 最大、v=0、a 指向平衡點", prompt: "在 0°、90°、180° 等相位定格，記錄 x、v、a 的大小與方向。" },
