@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <script src="classroom-device.js"></script>
+  <title>相對加速度｜換個觀察者，看見不同的運動</title>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <link rel="stylesheet" href="relative-acceleration.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+  <script src="relative-acceleration-model.js" defer></script>
+  <script src="relative-acceleration.js" defer></script>
+</head>
+<body>
+<main class="ra-app">
+  <header class="ra-header"><div><p class="ra-eyebrow">力學實驗室 ／ 觀察者與參考系</p><h1>相對加速度<span>換個位置，看同一段運動。</span></h1></div><a href="index.html">返回實驗室 ↗</a></header>
+  <nav class="ra-scenes" aria-label="選擇情境">
+    <button type="button" data-scene="1" aria-pressed="true"><span>01</span><div><strong>兩人自由落體</strong><small>一起下落，彼此怎麼動？</small></div></button>
+    <button type="button" data-scene="2" aria-pressed="false"><span>02</span><div><strong>落下與上拋的球</strong><small>方向不同，加速度相同。</small></div></button>
+    <button type="button" data-scene="3" aria-pressed="false"><span>03</span><div><strong>加速電梯與螺絲</strong><small>換個視角，落下有多快？</small></div></button>
+  </nav>
+  <div class="ra-workspace">
+    <section class="ra-stage-card" aria-label="動畫與播放控制">
+      <div class="ra-stage-top"><div><span class="ra-dot"></span><strong id="view-title">地面觀察者</strong></div><span id="phase" role="status">準備開始</span></div>
+      <div class="ra-viewbar"><button type="button" id="expand" aria-pressed="false">放大畫面</button><span>觀察視角</span><div id="views" role="group" aria-label="切換觀察者"></div></div>
+      <div class="ra-transport"><button id="play" type="button" class="ra-primary">開始</button><button id="step" type="button">＋0.1 秒</button><button id="reset" type="button">重設</button><label>播放速度 <select id="speed"><option value="0.25">0.25 倍</option><option value="0.5" selected>0.5 倍</option><option value="1">1 倍</option></select></label><output id="time">0.00 s</output></div>
+      <div class="ra-scrubber"><input id="timeline" type="range" min="0" max="3" step="any" value="0" aria-label="觀察時刻（秒）"><div><span>拖曳時間軸，可在同一瞬間切換視角</span><span id="end-time"></span></div></div>
+      <div class="ra-canvas-wrap"><canvas id="scene-canvas" aria-label="相對運動動畫，詳細數值列於下方表格"></canvas><div class="ra-canvas-note">↑ 鉛直向上為正　<span id="scale-note"></span></div><div id="scene-note" class="ra-scene-note"></div></div>
+    </section>
+    <aside class="ra-panel">
+      <section><p class="ra-eyebrow">先選觀察者，再比較</p><h2>同一條相對運動公式</h2><div class="ra-formula">a<sub>相對</sub> = a<sub>物體</sub> − a<sub>觀察者</sub></div><p class="ra-muted">y′ = y − y<sub>觀察者</sub>　v′ = v − v<sub>觀察者</sub><br>座標軸不旋轉；畫面與數值同步換到所選參考系。</p></section>
+      <section><h2>實驗設定</h2><div id="parameters"></div><p class="ra-muted">調整初始條件會重設時間。忽略空氣阻力，g = 9.8 m/s²。</p></section>
+      <section><h2>畫面標示</h2><div class="ra-toggles"><label><input id="show-v" type="checkbox" checked> 速度箭頭 <i class="ra-v"></i></label><label><input id="show-a" type="checkbox" checked> 加速度箭頭 <i class="ra-a"></i></label><label><input id="show-trails" type="checkbox"> 等時間殘影</label></div><p class="ra-muted">箭頭表示所選視角的 v′、a′；兩種物理量各自使用固定比例尺。殘影每隔 0.2 s，使用同一參考系的歷史位置。</p></section>
+      <section class="ra-insight"><p class="ra-eyebrow">這個視角告訴你</p><h2 id="insight-title"></h2><p id="insight"></p><div id="calculation"></div></section>
+    </aside>
+  </div>
+  <section class="ra-evidence">
+    <div class="ra-data"><div class="ra-section-head"><h2>此刻的相對運動</h2><span id="table-frame"></span></div><div class="ra-table-wrap"><table><thead><tr><th>物體</th><th>位置 y′<small>m</small></th><th>速度 v′<small>m/s</small></th><th>加速度 a′<small>m/s²</small></th></tr></thead><tbody id="readouts"></tbody></table></div><p class="ra-muted">正值向上，負值向下；選中的觀察者相對自身皆為 0。終點凍結在接觸瞬間的碰前狀態，不模擬碰撞衝量。</p></div>
+    <div class="ra-chart-card"><div class="ra-section-head"><h2>相對速度－時間圖</h2><label>追蹤 <select id="target" aria-label="速度圖追蹤物體"></select></label></div><canvas id="velocity-chart" aria-label="所選物體相對速度與時間的關係圖"></canvas><p class="ra-muted">曲線斜率就是相對加速度；虛線標記目前時刻。</p></div>
+  </section>
+  <footer class="ra-footer">操作順序：先預測 → 播放或拖曳時間軸 → 暫停並切換視角 → 用 a′ = a − a<sub>觀察者</sub> 解釋。</footer>
+</main>
+</body>
+</html>

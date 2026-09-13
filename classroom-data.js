@@ -3,6 +3,18 @@
 
   const activities = [
     {
+      file: "相對加速度.html",
+      title: "相對加速度",
+      category: "力學",
+      format: "多視圖",
+      summary: "切換地面、自由落體物體與加速電梯的觀察視角，理解相對加速度。",
+      goal: ["使用 a相對 = a物體 − a觀察者 判斷相對運動", "比較自由落體與加速電梯中的不同觀察結果"],
+      task: "在同一時刻暫停，切換兩個觀察者，記錄對方與地面的相對速度、相對加速度。",
+      question: "兩個物體都向下加速，為什麼互看可能是等速？螺絲脫落後從地面看一定立即向下嗎？",
+      demo: ["比較 A、B 與地面的視角", "用兩顆球驗證相對速度不變", "暫停在螺絲脫落前後，切換地面與電梯內視角"],
+      gesture: "拖曳時間軸定格，再切換觀察者；留意地面與樹也會隨參考系改變而移動。"
+    },
+    {
       file: "拋體運動.html",
       title: "拋體運動實驗室",
       category: "力學",
@@ -401,6 +413,7 @@
   ];
 
   const measurements = {
+    "相對加速度.html": { settingLabel: "情境、觀察者、初始條件與時刻", settingPlaceholder: "例：電梯，a=2 m/s²，觀察者在電梯內，t=1.5 s", resultLabel: "物體的相對速度與相對加速度", resultPlaceholder: "例：螺絲 v′=−5.9 m/s，a′=−11.8 m/s²", prompt: "固定同一瞬間與初始條件，切換地面和移動觀察者；用加速度相減解釋動畫和數值。" },
     "拋體運動.html": { settingLabel: "運動模式、h₀、m、v₀、θ 與觀察時刻", settingPlaceholder: "例：斜拋，h₀=0 m，m=2 kg，v₀=34.65 m/s，θ=45°", resultLabel: "落地時間、位置、速度分量與殘影間距", resultPlaceholder: "例：t落地=5.00 s，vᵧ=… m/s", prompt: "先比較四種模式的預設五秒飛行，再一次只改變高度、質量、初速或角度之一，觀察落地時間、軌跡與整秒殘影如何改變。" },
     "運動函數圖.html": { settingLabel: "運動模式與觀察時刻", settingPlaceholder: "例：等加速，t = 4.0 s", resultLabel: "x、v、a 或圖線特徵", resultPlaceholder: "例：x=32 m，v=16 m/s，a=4 m/s²", prompt: "選定同一觀察時刻，比較不同運動模式的 x、v、a 與圖線斜率。" },
     "卡文迪西實驗裝置.html": { settingLabel: "大球質量 M 與扭線係數 κ", settingPlaceholder: "例：M=100，κ=0.050", resultLabel: "平衡偏轉角或雷射位移", resultPlaceholder: "例：θ=…，光點位移=…", prompt: "固定扭線係數，逐次改變大球質量，比較穩定後的偏轉量。" },
