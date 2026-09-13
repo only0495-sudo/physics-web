@@ -142,29 +142,35 @@
       lines.forEach((line,i)=>label(ctx,line,spot.x+width/2,spot.y+4+lineHeight*(i+.5),item.color,'center',size));
     }
   }
-  function person(ctx, x, y, color) {
+  function person(ctx, x, y, color, selected = false) {
     ctx.save(); ctx.translate(x,y); ctx.scale(1.7,1.7); x=0; y=0;
+    if (selected) { ctx.shadowColor = color; ctx.shadowBlur = 18; }
     ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(x, y - 26, 6, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(x, y - 19); ctx.lineTo(x, y - 8); ctx.moveTo(x - 10, y - 11); ctx.lineTo(x, y - 17); ctx.lineTo(x + 10, y - 11); ctx.moveTo(x - 7, y); ctx.lineTo(x, y - 8); ctx.lineTo(x + 7, y); ctx.stroke();
     ctx.restore();
   }
-  function tree(ctx, x, y) {
+  function tree(ctx, x, y, selected = false) {
     ctx.save(); ctx.translate(x,y); ctx.scale(1.25,1.55); x=0; y=0;
+    if (selected) { ctx.shadowColor = '#4fae72'; ctx.shadowBlur = 20; }
     ctx.fillStyle = '#897658'; ctx.fillRect(x - 3, y - 20, 6, 20); ctx.fillStyle = '#76977a';
     ctx.beginPath(); ctx.moveTo(x, y - 55); ctx.lineTo(x - 20, y - 15); ctx.lineTo(x + 20, y - 15); ctx.closePath(); ctx.fill(); ctx.restore();
   }
-  function screw(ctx,x,y) {
+  function screw(ctx,x,y,selected=false) {
     ctx.save();ctx.translate(x,y);
     // Tip marks the simulated point; the enlarged icon ends exactly at the floor on contact.
     const metal=ctx.createLinearGradient(-9,0,9,0);
     metal.addColorStop(0,'#667781');metal.addColorStop(.45,'#ecf1f3');metal.addColorStop(1,'#8998a0');
     ctx.fillStyle=metal;ctx.strokeStyle='#485d68';ctx.lineWidth=1.8;ctx.lineJoin='round';
+    if(selected){ctx.shadowColor='#ef9a62';ctx.shadowBlur=22;}
     ctx.beginPath();ctx.moveTo(-7,-31);ctx.lineTo(7,-31);ctx.lineTo(6,-9);ctx.lineTo(0,0);ctx.lineTo(-6,-9);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.shadowBlur=0;
     ctx.strokeStyle='#566c78';ctx.lineWidth=2;
     for(let y=-26;y<=-10;y+=5){ctx.beginPath();ctx.moveTo(-7,y+2);ctx.lineTo(7,y-2);ctx.stroke();}
     ctx.fillStyle=metal;ctx.strokeStyle='#485d68';ctx.lineWidth=2;
+    if(selected)ctx.shadowBlur=22;
     ctx.beginPath();ctx.roundRect(-14,-41,28,11,4);ctx.fill();ctx.stroke();
+    ctx.shadowBlur=0;
     ctx.strokeStyle='#344955';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-7,-36);ctx.lineTo(7,-36);ctx.stroke();
     ctx.restore();
   }
@@ -189,19 +195,30 @@
       ctx.beginPath(); ctx.moveTo(46, y); ctx.lineTo(w - 15, y); ctx.stroke(); label(ctx, String(n), 38, y, '#71878e', 'right', 10);
     }
     label(ctx, 'y′ (m)', 12, 38, '#64777d', 'left', 10);
-    ctx.fillStyle = '#dce5d5'; ctx.fillRect(47, floorY, w - 60, Math.max(0, h - floorY));
-    ctx.strokeStyle = '#75936e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(47, floorY); ctx.lineTo(w - 13, floorY); ctx.stroke();
     const gx = 48 + (w - 64) * .15;
     const groundVisible=floorY>=140&&floorY<h-100;
-    if(groundVisible){tree(ctx,gx,floorY);queue.push({text:'地面／樹',x:gx,y:floorY+20,color:'#497158'});obstacles.push({x:gx-27,y:floorY-87,w:54,h:88});}
-    else {
+    let groundMarkerY;
+    if (scene === 3) {
       const start=M.state(scene,p,0);
       const groundChange=(s.ground.y-o.y)-(start.ground.y-start[observer].y);
-      // The lower strip is a compressed overview, separate from the enlarged cabin ruler.
-      const bandY=h-78-groundChange*1.5;
-      ctx.fillStyle='#e4eddf';ctx.fillRect(47,bandY,w-60,h-bandY);
-      ctx.strokeStyle='#aac49b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(47,bandY);ctx.lineTo(w-13,bandY);ctx.stroke();
-      queue.push({text:'地面示意',x:gx,y:h-95,color:'#497158'});
+      // Keep the tree on one compressed lower-left scale throughout the lift
+      // scene, so crossing the main ruler's edge cannot make it jump.
+      groundMarkerY=Math.max(165,Math.min(h-82,h-140-groundChange*3));
+      tree(ctx,gx,groundMarkerY,observer==='ground');
+      queue.push({text:'樹（縮略位置）',x:gx+55,y:groundMarkerY-48,color:'#497158'});
+      obstacles.push({x:gx-27,y:groundMarkerY-87,w:54,h:88});
+    } else {
+      ctx.fillStyle = '#dce5d5'; ctx.fillRect(47, floorY, w - 60, Math.max(0, h - floorY));
+      ctx.strokeStyle = '#75936e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(47, floorY); ctx.lineTo(w - 13, floorY); ctx.stroke();
+      if(groundVisible){tree(ctx,gx,floorY,observer==='ground');queue.push({text:'地面／樹',x:gx,y:floorY+20,color:'#497158'});obstacles.push({x:gx-27,y:floorY-87,w:54,h:88});}
+      else {
+        const start=M.state(scene,p,0);
+        const groundChange=(s.ground.y-o.y)-(start.ground.y-start[observer].y);
+        const bandY=h-78-groundChange*1.5;
+        ctx.fillStyle='#e4eddf';ctx.fillRect(47,bandY,w-60,h-bandY);
+        ctx.strokeStyle='#aac49b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(47,bandY);ctx.lineTo(w-13,bandY);ctx.stroke();
+        queue.push({text:'地面示意',x:gx,y:h-95,color:'#497158'});
+      }
     }
     const X = fraction => 48 + (w - 64) * fraction;
     const xs = scene === 3 ? { ground: gx, lift: X(.45), screw: X(.74) } : scene === 2 ? { ground: gx, A: X(.59), B: X(.59) } : { ground: gx, A: X(.46), B: X(.80) };
@@ -213,7 +230,10 @@
       const wall=ctx.createLinearGradient(left,0,right,0);wall.addColorStop(0,'#cbd9de');wall.addColorStop(.18,'#f7fafb');wall.addColorStop(.8,'#e8eff2');wall.addColorStop(1,'#c1d0d7');
       ctx.fillStyle=wall;ctx.fillRect(left,cy,cabinWidth,cabinHeight);
       ctx.strokeStyle='#b7c8d0';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo((left+right)/2,cy+8);ctx.lineTo((left+right)/2,fy-6);ctx.stroke();
-      ctx.strokeStyle = '#63818c'; ctx.lineWidth = 5; ctx.strokeRect(left, cy, right - left, fy - cy);
+      ctx.save();
+      if(observer==='lift'){ctx.shadowColor='#28b5cf';ctx.shadowBlur=20;}
+      ctx.strokeStyle = observer==='lift'?'#168ea8':'#63818c'; ctx.lineWidth = observer==='lift'?6:5; ctx.strokeRect(left, cy, right - left, fy - cy);
+      ctx.restore();
       ctx.fillStyle='#526f7b';ctx.fillRect(left-3,fy-3,cabinWidth+6,7);
       ctx.strokeStyle = '#a6b9bf'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo((left+right)/2, cy); ctx.lineTo((left+right)/2, -10); ctx.stroke();
       const personScale=Math.min(1,(cabinHeight-14)/58,cabinWidth*.46/42);
@@ -229,8 +249,8 @@
         ctx.globalAlpha = 1;
       }
       if (key === 'A' || key === 'B') {
-        if (scene === 1) person(ctx, x, y, b.color);
-        else { ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(x, y, key === 'A' ? 21 : 17, 0, 2*Math.PI); ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.stroke(); }
+        if (scene === 1) person(ctx, x, y, b.color, key===observer);
+        else { ctx.save();if(key===observer){ctx.shadowColor=b.color;ctx.shadowBlur=22;}ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(x, y, key === 'A' ? 21 : 17, 0, 2*Math.PI); ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.stroke();ctx.restore(); }
         queue.push({text: key, x: x + (scene === 2 ? (key === 'A' ? -34 : 34) : 0), y: y - (scene === 1 ? 72 : 0), color:b.color, size:18});
         obstacles.push({x:x-23,y:y-(scene===1?59:23),w:46,h:scene===1?61:46});
       }
@@ -239,13 +259,9 @@
         // the ceiling and its tip reaches the floor. Numerical y remains the model point.
         const fraction=Math.max(0,Math.min(1,(b.y-s.lift.y)/p.cabin));
         const tipY=y+43*fraction;
-        screw(ctx,x,tipY);
+        screw(ctx,x,tipY,key===observer);
         queue.push({text:'螺絲', x:x+32, y:tipY-24, color:b.color,size:16});
         obstacles.push({x:x-17,y:tipY-44,w:34,h:47});
-      }
-      if (key === observer) {
-        ctx.strokeStyle = '#087b75'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(x, y, 28, 0, 2*Math.PI); ctx.stroke(); ctx.setLineDash([]);
-        // The selected view is named above the canvas; a ring identifies its object without another overlapping caption.
       }
       let vx = x - Math.max(25, (w-64)*.075), ax = x + Math.max(25, (w-64)*.075);
       if (scene === 2 && key === 'A') { vx = X(.35); ax = X(.45); }
@@ -253,7 +269,7 @@
       if (scene === 3 && key === 'lift') { vx = cabinLeft-58; ax = cabinLeft-26; }
       if (scene === 3 && key === 'screw') { vx = cabinRight+26; ax = cabinRight+58; }
       if (key === 'ground') { vx = x - 38; ax = x + 38; }
-      const vectorY = key === 'ground' ? (groundVisible ? y - 26 : h-180) : y;
+      const vectorY = key === 'ground' ? (scene===3 ? groundMarkerY-30 : groundVisible ? y-26 : h-180) : y;
       const objectName = key === 'ground' ? '地面' : b.name;
       if ($('show-v').checked) arrow(ctx, vx, vectorY, r.v, velocityScale, '#126c9a', 'v′', queue, obstacles, objectName);
       if ($('show-a').checked) arrow(ctx, ax, vectorY, r.a, 4.6, '#bd6030', 'a′', queue, obstacles, objectName);
