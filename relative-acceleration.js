@@ -98,9 +98,10 @@
     ctx.font = `600 ${size}px "Microsoft JhengHei", sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
     ctx.lineWidth = 4; ctx.strokeStyle = '#f3f7f8'; ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y);
   }
-  function arrow(ctx, x, y, value, scale, color, text, queue, obstacles) {
+  function arrow(ctx, x, y, value, scale, color, text, queue, obstacles, objectName) {
+    const caption = `${objectName} ${text}`;
     if (Math.abs(value) < 1e-7) {
-      if(text==='a′')queue.push({text:'a′ = 0\nm/s²',x:x+32,y:y-24,color,size:14});
+      if(text==='a′')queue.push({text:`${caption} = 0\nm/s²`,x:x+32,y:y-24,color,size:14});
       return;
     }
     const length = Math.abs(value * scale), to = y - value * scale, dir = Math.sign(value);
@@ -112,7 +113,7 @@
     ctx.lineTo(x - halfHead, neck); ctx.lineTo(x, to); ctx.lineTo(x + halfHead, neck);
     ctx.lineTo(x + halfShaft, neck); ctx.lineTo(x + halfShaft, y); ctx.closePath(); ctx.fill(); ctx.restore();
     obstacles.push({ x: x - halfHead - 3, y: Math.min(y, to) - 3, w: halfHead * 2 + 6, h: length + 6 });
-    queue.push(text==='a′' ? {text:`a′\n${Math.abs(value).toFixed(1)} m/s²`,x:x+56,y:(y+to)/2,color,size:15} : { text, x, y: y + dir * 19, color, size: 15 });
+    queue.push(text==='a′' ? {text:`${caption}\n${Math.abs(value).toFixed(1)} m/s²`,x:x+56,y:(y+to)/2,color,size:15} : { text: caption, x, y: y + dir * 19, color, size: 15 });
   }
   function placeSceneLabels(ctx, queue, obstacles, w, h) {
     const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -253,8 +254,9 @@
       if (scene === 3 && key === 'screw') { vx = cabinRight+26; ax = cabinRight+58; }
       if (key === 'ground') { vx = x - 38; ax = x + 38; }
       const vectorY = key === 'ground' ? (groundVisible ? y - 26 : h-180) : y;
-      if ($('show-v').checked) arrow(ctx, vx, vectorY, r.v, velocityScale, '#126c9a', 'v′', queue, obstacles);
-      if ($('show-a').checked) arrow(ctx, ax, vectorY, r.a, 4.6, '#bd6030', 'a′', queue, obstacles);
+      const objectName = key === 'ground' ? '地面' : b.name;
+      if ($('show-v').checked) arrow(ctx, vx, vectorY, r.v, velocityScale, '#126c9a', 'v′', queue, obstacles, objectName);
+      if ($('show-a').checked) arrow(ctx, ax, vectorY, r.a, 4.6, '#bd6030', 'a′', queue, obstacles, objectName);
     }
     placeSceneLabels(ctx, queue, obstacles, w, h);
   }

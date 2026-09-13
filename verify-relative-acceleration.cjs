@@ -78,7 +78,7 @@ async function browserChecks() {
           if(name==='arc')this.auditPath=null;
           if((name==='moveTo'||name==='lineTo')&&this.auditPath)this.auditPath.push(args.slice(0,2));
           if(name==='fill'&&this.auditPath?.length===7)audit.arrows.push(this.auditPath.slice());
-          if(name==='fillText'&&(['A','B','地面／樹','地面','電梯地板','螺絲','v′','a′','a′ = 0','m/s²'].includes(String(args[0]))||/^\d+\.\d m\/s²$/.test(String(args[0])))){
+          if(name==='fillText'&&(['A','B','地面／樹','地面','電梯地板','螺絲','m/s²'].includes(String(args[0]))||/ (?:v′|a′)(?: = 0)?$/.test(String(args[0]))||/^\d+\.\d m\/s²$/.test(String(args[0])))){
             const width=this.measureText(args[0]).width, height=parseFloat(this.font.match(/([\d.]+)px/)[1]);
             audit.texts.push({text:args[0],x:args[1]-width/2,y:args[2]-height/2,w:width,h:height});
           }
@@ -97,7 +97,7 @@ async function browserChecks() {
       assert.ok(Math.abs(points[0][0]-points[6][0])<=6.01,'箭身不超出設計寬度');
       return{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};
     });
-    assert.equal(audit.texts.filter(v=>v.text==='v′'||v.text==='a′').length,boxes.length,'每支箭頭皆有未遺失的符號');
+    assert.equal(audit.texts.filter(v=>/ (?:v′|a′)$/.test(v.text)).length,boxes.length,'每支箭頭皆有物體名稱與符號');
     for(let i=0;i<audit.texts.length;i++){
       assert.ok(!boxes.some(b=>overlap(audit.texts[i],b)),'文字不遮住向量');
       for(let j=i+1;j<audit.texts.length;j++)assert.ok(!overlap(audit.texts[i],audit.texts[j]),'文字不互相重疊');
