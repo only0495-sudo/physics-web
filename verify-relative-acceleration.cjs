@@ -45,7 +45,11 @@ for(const liftA of [0,2,6])for(const liftV of [1,4,8])for(const cabin of [2,4,6]
 // Numerical derivatives cross-check all moving reference frames away from release/contact.
 for(const direction of [1,-1]){
   const q={...p,liftA:2*direction,liftV:4*direction,cabin:4},s=M.state(3,q,1.5),T=M.duration(3,q),e=M.state(3,q,T);
+  const start=M.state(3,q,0),expectedHeight=direction>0?10:20;
+  near(M.liftStartHeight(q),expectedHeight,'電梯起始高度設定');
+  near(start.lift.y,expectedHeight,'電梯地板起始位置高於地面');
   near(M.relative(s.screw,s.lift).a,-9.8-2*direction,'固定上下加速情境的相對加速度');
+  near(M.relative(s.ground,s.lift).a,-2*direction,'樹相對電梯的加速度');
   near(e.screw.y,e.lift.y,'上下加速皆接觸地板');assert.ok(e.lift.y>0);checks++;
 }
 for(const scene of [1,2,3])for(const t of [.4,1.3]){

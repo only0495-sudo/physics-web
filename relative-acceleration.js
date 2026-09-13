@@ -41,7 +41,7 @@
     $('target').value = target;
     $('parameters').innerHTML = (scene === 2 ? `<label class="ra-preset-picker">指定拋球參數<select id="ball-preset"><option value="custom">自訂參數</option>${M.ballPresets.map(preset => `<option value="${preset.id}">${preset.label}（${preset.height} m、${preset.launch} m/s）</option>`).join('')}</select></label><p id="ball-event" class="ra-event"></p><button type="button" id="jump-apex">跳到 B 的最高點</button>` : '') + specs[scene].map(([id, label, min, max, step, unit]) => `<label class="ra-param"><span>${label}<output id="value-${id}">${p[id]} ${unit}</output></span><input type="range" id="param-${id}" data-param="${id}" min="${min}" max="${max}" step="${step}" value="${p[id]}" aria-label="${label}（${unit}）"></label>`).join('');
     if(scene===3)$('parameters').innerHTML=`<div class="ra-lift-modes" role="group" aria-label="電梯加速情境"><button type="button" data-lift="up" aria-pressed="${p.liftA>0}">↑ 向上加速</button><button type="button" data-lift="down" aria-pressed="${p.liftA<0}">↓ 向下加速</button></div><p class="ra-event">固定向${p.liftA>0?'上':'下'}加速 2 m/s²<br>加速度大小 2 &lt; g = 9.8 m/s²<br>車廂高度 4 m；初速向${p.liftA>0?'上':'下'} 4 m/s</p>`;
-    $('parameters').insertAdjacentHTML('beforeend', `<p class="ra-muted">${scene === 1 ? 'A 從 60 m 靜止釋放；B 同時從 45 m 開始自由落體。B 初速為 0 時，兩人互看靜止。' : scene === 2 ? 'A 由靜止釋放，B 同時從正下方地面上拋。以相遇或首次觸地為終點，球以質點處理。' : `電梯從離地 ${p.liftA>0?4:20} m 處向${p.liftA>0?'上':'下'}運動；t = 1.00 s 螺絲從天花板脫落，以接觸電梯地板為終點。`}</p>`);
+    $('parameters').insertAdjacentHTML('beforeend', `<p class="ra-muted">${scene === 1 ? 'A 從 60 m 靜止釋放；B 同時從 45 m 開始自由落體。B 初速為 0 時，兩人互看靜止。' : scene === 2 ? 'A 由靜止釋放，B 同時從正下方地面上拋。以相遇或首次觸地為終點，球以質點處理。' : `電梯從離地 ${M.liftStartHeight(p)} m 處向${p.liftA>0?'上':'下'}運動；t = 1.00 s 螺絲從天花板脫落，以接觸電梯地板為終點。`}</p>`);
     reset();
   }
   function reset() { running = false; last = null; t = 0; prepareRanges(); render(); }
@@ -181,7 +181,8 @@
     // Track the rendered screw as well as its mathematical reference point.
     // This keeps the enlarged screw stationary while the entire cabin approaches it.
     const screwIconOffset=scene===3&&observer==='screw'?43*Math.max(0,Math.min(1,(s.screw.y-s.lift.y)/p.cabin)):0;
-    const Y = relativeY => scene===3 ? (h-20)/2+(range.cabinCenter-relativeY)*unit-screwIconOffset : 130+(range.center+range.span/2-relativeY)*unit;
+    const liftViewOffset=scene===3?(observer==='ground'?55:observer==='screw'?40:0):0;
+    const Y = relativeY => scene===3 ? (h-20)/2+(range.cabinCenter-relativeY)*unit-screwIconOffset-liftViewOffset : 130+(range.center+range.span/2-relativeY)*unit;
     const queue = [], obstacles = [];
     const at = b => Y(b.y - o.y), floorY = at(s.ground);
     ctx.fillStyle = '#eef4f5'; ctx.fillRect(0, 0, w, h);
@@ -201,11 +202,13 @@
     if (scene === 3) {
       const start=M.state(scene,p,0);
       const groundChange=(s.ground.y-o.y)-(start.ground.y-start[observer].y);
-      // Keep the tree on one compressed lower-left scale throughout the lift
-      // scene, so crossing the main ruler's edge cannot make it jump.
-      groundMarkerY=Math.max(165,Math.min(h-82,h-140-groundChange*3));
+      // The ground is a compressed position cue; keep it below the cabin
+      // without letting it jump when the main ruler's origin leaves the view.
+      groundMarkerY=Math.max(165,Math.min(h-82,h-125-groundChange*3));
+      ctx.fillStyle='#e4eddf';ctx.fillRect(47,groundMarkerY,w-60,Math.max(0,h-groundMarkerY));
+      ctx.strokeStyle='#75936e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(47,groundMarkerY);ctx.lineTo(w-13,groundMarkerY);ctx.stroke();
       tree(ctx,gx,groundMarkerY,observer==='ground');
-      queue.push({text:'樹（縮略位置）',x:gx+55,y:groundMarkerY-48,color:'#497158'});
+      queue.push({text:'地面／樹（位置示意）',x:gx+55,y:groundMarkerY-48,color:'#497158'});
       obstacles.push({x:gx-27,y:groundMarkerY-87,w:54,h:88});
     } else {
       ctx.fillStyle = '#dce5d5'; ctx.fillRect(47, floorY, w - 60, Math.max(0, h - floorY));
@@ -270,7 +273,7 @@
       if (scene === 3 && key === 'screw') { vx = cabinRight+26; ax = cabinRight+58; }
       if (key === 'ground') { vx = x - 38; ax = x + 38; }
       const vectorY = key === 'ground' ? (scene===3 ? groundMarkerY-30 : groundVisible ? y-26 : h-180) : y;
-      const objectName = key === 'ground' ? '地面' : b.name;
+      const objectName = key === 'ground' ? '樹' : b.name;
       if ($('show-v').checked) arrow(ctx, vx, vectorY, r.v, velocityScale, '#126c9a', 'v′', queue, obstacles, objectName);
       if ($('show-a').checked) arrow(ctx, ax, vectorY, r.a, 4.6, '#bd6030', 'a′', queue, obstacles, objectName);
     }

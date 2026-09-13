@@ -11,6 +11,7 @@
   ];
   const flight = (y, v, t) => ({ y: y + v * t - g * t * t / 2, v: v - g * t, a: -g });
   const hit = (y, v) => (v + Math.sqrt(v * v + 2 * g * y)) / g;
+  const liftStartHeight = p => p.liftA < 0 ? 20 : 10;
   function ballEvent(p) {
     const meet = p.height / p.launch, apex = p.launch / g;
     const ground = Math.min(hit(p.height, 0), hit(0, p.launch));
@@ -28,14 +29,14 @@
     const ground = { y: 0, v: 0, a: 0, name: '地面／樹', color: '#497158' };
     if (scene === 1) return { ground, A: { ...flight(60, 0, t), name: 'A 同學', color: '#126c9a' }, B: { ...flight(45, p.bv, t), name: 'B 同學', color: '#bd6030' } };
     if (scene === 2) return { ground, A: { ...flight(p.height, 0, t), name: '上方球 A', color: '#126c9a' }, B: { ...flight(0, p.launch, t), name: '上拋球 B', color: '#bd6030' } };
-    const floorStart=p.liftA<0?20:4;
+    const floorStart=liftStartHeight(p);
     const lift = { y: floorStart + p.liftV * t + p.liftA * t * t / 2, v: p.liftV + p.liftA * t, a: p.liftA, name: '電梯地板', color: '#126c9a' };
     const releaseY = floorStart + p.liftV + p.liftA / 2 + p.cabin;
     const screw = t < 1 ? { y: lift.y + p.cabin, v: lift.v, a: lift.a } : flight(releaseY, p.liftV + p.liftA, t - 1);
     return { ground, lift, screw: { ...screw, name: '螺絲', color: '#bd6030' } };
   }
   function relative(body, observer) { return { y: body.y - observer.y, v: body.v - observer.v, a: body.a - observer.a }; }
-  const api = { g, defaults, ballPresets, ballEvent, duration, state, relative };
+  const api = { g, defaults, ballPresets, ballEvent, duration, liftStartHeight, state, relative };
   root.RelativeAcceleration = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
