@@ -35,6 +35,8 @@
         }
         #canvas-container {
             flex: 1;
+            min-width: 0;
+            margin-right: 350px;
             width: 100%;
             height: 100%;
             display: block;
@@ -94,6 +96,7 @@
             margin-top: 5px;
         }
         button:hover { background-color: #c0392b; }
+        button:disabled { opacity: 0.5; cursor: default; }
         .explanation {
             font-size: 0.85rem;
             line-height: 1.5;
@@ -226,15 +229,22 @@
             <h1 style="border: none; padding: 0; margin: 0;">卡文迪西扭秤實驗</h1>
             <button id="btn-hide-panel" style="width: auto; margin: 0; padding: 6px 12px; background: #95a5a6; font-size: 0.85rem; border-radius: 4px;">收起 ➔</button>
         </div>
+        <div class="control-group">
+            <button id="btn-add-masses">加入鐵球</button>
+            <button id="btn-play" disabled>暫停</button>
+            <button id="btn-toggle-pos" disabled>切換 M 位置 (反轉引力矩)</button>
+            <button id="btn-reset" style="background-color: #7f8c8d;">重設實驗</button>
+        </div>
         
         <div class="explanation">
+            <p><strong>操作：</strong>先觀察靜止的橫桿，再按「加入鐵球」，觀察引力造成的扭轉與擺動。可開啟雷射觀察微小偏轉。</p>
             <p><strong>3D 物理核心：</strong>本模擬器精確計算空間中 4 個質點間的引力向量 <strong>F = G(Mm / r²)</strong>，並利用外積求出真實力矩。光線的反射亦遵守 3D 幾何法則。</p>
             <p style="color: #c0392b; font-weight: bold; margin-bottom: 0;">💡 光學槓桿的必要性：<br>請試著在「不開燈」時觀察裝置。由於萬有引力極微弱，鏡子轉動幅度極小（肉眼難辨）。必須透過拉長光線投射距離，將微小的角度改變放大為尺上的位移。</p>
         </div>
 
         <div class="control-group">
-            <label><span>大球質量 <span class="badge badge-M">M</span></span> <span id="val-M">100</span></label>
-            <input type="range" id="slider-M" min="10" max="500" value="100" step="10">
+            <label><span>大球質量 <span class="badge badge-M">M</span></span> <span id="val-M">5</span></label>
+            <input type="range" id="slider-M" min="5" max="500" value="5" step="5">
             
             <label><span>扭線恢復係數 (κ)</span> <span id="val-k">0.050</span></label>
             <input type="range" id="slider-k" min="0.01" max="0.1" value="0.05" step="0.005">
@@ -259,8 +269,6 @@
             </div>
         </div>
 
-        <button id="btn-toggle-pos">切換 M 位置 (反轉引力矩)</button>
-        <button id="btn-reset" style="background-color: #7f8c8d;">重置平衡</button>
         
     </div>
 </div>
@@ -271,7 +279,7 @@
  * ==========================================
  */
 const G_sim = 0.008;     // 大幅縮小引力常數，讓旋轉角度極小 (貼近真實微弱感)
-let mass_M = 100;        // 大球質量
+let mass_M = 5;          // 大球質量
 let mass_m = 0.1;        // 小球質量
 let kappa = 0.05;        // 提高扭線恢復係數，讓擺動幅度被嚴格限制
 const damping = 0.6;     // 阻尼係數 (調整至會緩慢擺動幾次後停止)
@@ -279,6 +287,8 @@ const damping = 0.6;     // 阻尼係數 (調整至會緩慢擺動幾次後停�
 // 動力學狀態
 let theta = 0;           // 扭秤當前旋轉角度 (繞 Y 軸)
 let omega = 0;           // 角速度
+let massesAdded = false; // 尚未加入大鐵球時，不產生大球引力
+let isRunning = false;
 
 // 幾何尺寸設定
 const L_rod = 120;       // 小球連接桿半長
@@ -305,9 +315,9 @@ scene.background = new THREE.Color(0xffffff);
 // 加上微弱的霧氣增加空間感
 scene.fog = new THREE.FogExp2(0xffffff, 0.0008);
 
-// 攝影機 (稍微往後退以看見全貌)
+// 從裝置前方略微俯視：橫桿在近處、尺在右後方，對應參考圖片。
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 3000);
-camera.position.set(300, 250, 650);
+camera.position.set(-180, 160, -520);
 
 // 渲染器
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -320,7 +330,9 @@ container.appendChild(renderer.domElement);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
-controls.target.set(0, 0, 200); // 將視角中心調整到裝置與尺的中間
+controls.target.set(0, 50, 40);
+controls.update();
+controls.saveState();
 
 // 燈光
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -392,6 +404,8 @@ M2.castShadow = true;
 M2.receiveShadow = true;
 scene.add(M1);
 scene.add(M2);
+M1.visible = false;
+M2.visible = false;
 
 // 底座
 const baseGeo = new THREE.CylinderGeometry(80, 100, 10, 32);
@@ -500,6 +514,7 @@ function updateCylinder(cylinder, pointA, pointB) {
  * ==========================================
  */
 function updatePhysics() {
+    if (!massesAdded || !isRunning) return;
     // 1. 更新大質量 M 的平滑移動
     let target_phi = M_angle_offset * M_position_state;
     current_M_phi += (target_phi - current_M_phi) * 0.05;
@@ -594,7 +609,7 @@ const gCtx = graphCvs.getContext('2d');
 let frameCounter = 0;
 
 function drawGraph() {
-    if(frameCounter % 3 === 0) {
+    if(isRunning && frameCounter % 3 === 0) {
         historyTheta.push(theta);
         historyTheta.shift();
     }
@@ -632,7 +647,7 @@ function animate() {
     drawGraph();
     controls.update();
     renderer.render(scene, camera);
-    frameCounter++;
+    if (isRunning) frameCounter++;
 }
 
 /** * ==========================================
@@ -649,7 +664,29 @@ document.getElementById('slider-k').addEventListener('input', (e) => {
     document.getElementById('val-k').innerText = kappa.toFixed(3);
 });
 
-document.getElementById('btn-toggle-pos').addEventListener('click', () => {
+const addMassesButton = document.getElementById('btn-add-masses');
+const playButton = document.getElementById('btn-play');
+const positionButton = document.getElementById('btn-toggle-pos');
+
+addMassesButton.addEventListener('click', () => {
+    if (massesAdded) return;
+    massesAdded = true;
+    isRunning = true;
+    M1.visible = M2.visible = true;
+    addMassesButton.disabled = true;
+    addMassesButton.textContent = '鐵球已加入';
+    playButton.disabled = false;
+    positionButton.disabled = false;
+});
+
+playButton.addEventListener('click', () => {
+    if (!massesAdded) return;
+    isRunning = !isRunning;
+    playButton.textContent = isRunning ? '暫停' : '繼續';
+});
+
+positionButton.addEventListener('click', () => {
+    if (!massesAdded) return;
     M_position_state *= -1;
 });
 
@@ -657,6 +694,19 @@ document.getElementById('btn-reset').addEventListener('click', () => {
     theta = 0;
     omega = 0;
     historyTheta.fill(0);
+    frameCounter = 0;
+    massesAdded = false;
+    isRunning = false;
+    M1.visible = M2.visible = false;
+    M_position_state = 1;
+    current_M_phi = M_angle_offset;
+    addMassesButton.disabled = false;
+    addMassesButton.textContent = '加入鐵球';
+    playButton.disabled = true;
+    playButton.textContent = '暫停';
+    positionButton.disabled = true;
+    toggleLaser(false);
+    controls.reset();
 });
 
 // 面板收起與展開邏輯
@@ -666,11 +716,13 @@ const floatingUI = document.getElementById('floating-ui');
 document.getElementById('btn-hide-panel').addEventListener('click', () => {
     panel.classList.add('collapsed');
     floatingUI.classList.add('show');
+    container.style.marginRight = '0';
 });
 
 document.getElementById('btn-show-panel').addEventListener('click', () => {
     panel.classList.remove('collapsed');
     floatingUI.classList.remove('show');
+    container.style.marginRight = '350px';
 });
 
 // 雷射光開關同步邏輯
@@ -717,13 +769,15 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 // 視窗自適應縮放
-window.addEventListener('resize', () => {
+function resizeScene() {
     const width = container.clientWidth;
     const height = container.clientHeight;
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-});
+}
+window.addEventListener('resize', resizeScene);
+new ResizeObserver(resizeScene).observe(container);
 
 // 開始模擬
 animate();
