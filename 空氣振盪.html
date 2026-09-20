@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="classroom-device.js"></script>
+  <title>空氣振盪｜看見聲音的疏與密</title>
+  <link rel="stylesheet" href="classroom-shell.css">
+  <link rel="stylesheet" href="air-wave.css">
+  <script src="classroom-data.js" defer></script>
+  <script src="classroom-shell.js" defer></script>
+  <script src="air-wave-model.js" defer></script>
+  <script src="air-wave.js" defer></script>
+</head>
+<body>
+<main>
+  <header><div><p class="eyebrow">波動學 ／ 聲音與縱波</p><h1>空氣振盪 <span>看見聲音的疏與密</span></h1></div><a href="index.html">返回實驗室 ↗</a></header>
+  <div class="workspace">
+    <section class="stage" aria-label="空氣縱波模擬">
+      <div class="stage-head"><strong><i></i> 位移、粒子與壓力</strong><span>波向右傳播 →</span></div>
+      <div class="transport"><button id="play" class="primary">開始</button><button id="step">前進 T/16</button><button id="reset">重設</button><label>播放速度 <select id="speed"><option value="1">每秒 1 週期</option><option value="0.25">每秒 ¼ 週期</option><option value="0.5" selected>每秒 ½ 週期</option></select></label><output id="time">0.00 ms</output></div>
+      <div class="canvas-wrap"><canvas id="wave" aria-label="上方為位移位置圖，中間為空氣粒子，下方為壓力位置圖；橘色虛線追蹤所選平衡位置。數值見追蹤讀值。"></canvas></div>
+      <div class="legend"><span class="blue">━ 位移 ξ</span><span class="purple">━ 壓力變化 p′</span><span class="orange">● 追蹤粒子</span><span>粒子位移放大 400 倍</span></div>
+      <div class="scrub"><label for="phase">週期內時刻 <output id="phase-value">0.00 T</output></label><input id="phase" type="range" min="0" max="1" step="0.001" value="0"><small>拖曳可暫停並觀察一個週期；曲線是同一瞬間不同位置的快照。</small></div>
+    </section>
+    <aside>
+      <section class="card"><p class="eyebrow">調整與觀察</p><h2>波源設定</h2>
+        <label class="range-label" for="amplitude">振幅 A <output id="amplitude-value"></output></label><input id="amplitude" type="range" min="0" max="0.2" step="0.01" value="0.15">
+        <label class="range-label" for="period">週期 T <output id="period-value"></output></label><input id="period" type="range" min="2" max="10" step="0.1" value="4">
+        <div class="metrics"><div><small>頻率 f</small><strong id="frequency"></strong></div><div><small>波長 λ</small><strong id="wavelength"></strong></div></div>
+        <p class="muted">調整振幅或週期會回到起始時刻。動畫以慢動作呈現，實際時間以毫秒顯示。</p>
+      </section>
+      <section class="card"><h2>追蹤同一群空氣</h2><label class="range-label" for="probe">平衡位置 x₀ <output id="probe-value"></output></label><input id="probe" type="range" min="0.1" max="2.3" step="0.01" value="0.8">
+        <label class="check"><input id="reference" type="checkbox" checked> 顯示位移參考線</label>
+        <dl><div><dt>粒子位移 ξ</dt><dd id="displacement"></dd></div><div><dt>壓力變化 p′</dt><dd id="pressure"></dd></div><div><dt>局部空氣狀態</dt><dd id="density"></dd></div></dl>
+        <p class="muted">橘色空心點是平衡位置，實心點是粒子位置。虛線對齊平衡位置，讀值使用未放大的物理量。</p>
+      </section>
+      <section class="insight"><p class="eyebrow">觀察重點</p><h2>空氣往返，波向前。</h2><p>位移曲線向右下降的地方，粒子相互靠近、壓力升高；向右上升的地方，粒子疏開、壓力降低。</p><p>位移的波峰與波谷，對應壓力變化為零。兩條曲線相差 <strong>¼ 波長</strong>。</p></section>
+    </aside>
+  </div>
+  <details><summary>物理模型與操作提示</summary><p>先按開始觀察橘色粒子，再暫停比較上下曲線。減小週期，觀察波長如何改變；把振幅設為零，確認空氣回到均勻分布。</p><p>以向右為正，採用一維、小振幅、無反射的穩態行進聲波，右端延伸至畫面外；初始時刻 ξ(x₀, 0) = A sin(kx₀)，左側活塞跟隨 ξ(0, t)。忽略衰減及分子的隨機熱運動，點代表空氣微團。</p><p>ξ(x₀, t) = A sin(kx₀ − ωt)；p′ = −ρc² ∂ξ/∂x₀ = −ρcωA cos(kx₀ − ωt)。c = 343 m/s、ρ = 1.2 kg/m³、ω = 2π/T、k = ω/c，總壓力為 P₀ + p′。小振幅近似下以平衡位置 x₀ 作為兩張圖的水平座標。</p><p>實際位置為 x₀ + ξ，畫面位置為 x₀ + 400ξ，因此疏密對比也被誇大；壓力讀值仍使用線性聲學公式。圖表縱軸依參數調整範圍，請搭配刻度比較振幅。</p></details>
+</main>
+</body>
+</html>

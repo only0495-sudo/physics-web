@@ -3,6 +3,18 @@
 
   const activities = [
     {
+      file: "空氣振盪.html",
+      title: "空氣振盪",
+      category: "波動學",
+      format: "多視圖",
+      summary: "同步觀察活塞、空氣疏密、位移與壓力曲線，理解聲音的縱波傳播。",
+      goal: ["區分粒子振盪與波的傳播", "比較位移、壓力及疏密的相位關係"],
+      task: "追蹤橘色粒子並暫停，對照位移曲線的斜率與壓力變化。",
+      question: "位移最大的位置，為什麼壓力變化反而是零？",
+      demo: ["觀察粒子左右振盪與波向右傳播", "暫停比較位移斜率與壓力", "改變週期，驗證波長與頻率的關係"],
+      gesture: "拖曳週期內時刻並移動追蹤位置，比較上下曲線與中間疏密。"
+    },
+    {
       file: "相對加速度.html",
       title: "相對加速度",
       category: "力學",
@@ -413,6 +425,7 @@
   ];
 
   const measurements = {
+    "空氣振盪.html": { settingLabel: "振幅、週期、位置與時刻", settingPlaceholder: "例：A=0.15 mm，T=4 ms，x₀=0.8 m，t=0 ms", resultLabel: "粒子位移與壓力變化", resultPlaceholder: "記錄 ξ（mm）、p′（Pa）與疏密狀態", prompt: "暫停於同一時刻，移動追蹤位置，比較位移曲線斜率與壓力正負。" },
     "相對加速度.html": { settingLabel: "情境、觀察者、初始條件與時刻", settingPlaceholder: "例：電梯，a=2 m/s²，觀察者在電梯內，t=1.5 s", resultLabel: "物體的相對速度與相對加速度", resultPlaceholder: "例：螺絲 v′=−5.9 m/s，a′=−11.8 m/s²", prompt: "固定同一瞬間與初始條件，切換地面和移動觀察者；用加速度相減解釋動畫和數值。" },
     "拋體運動.html": { settingLabel: "運動模式、h₀、m、v₀、θ 與觀察時刻", settingPlaceholder: "例：斜拋，h₀=0 m，m=2 kg，v₀=34.65 m/s，θ=45°", resultLabel: "落地時間、位置、速度分量與殘影間距", resultPlaceholder: "例：t落地=5.00 s，vᵧ=… m/s", prompt: "先比較四種模式的預設五秒飛行，再一次只改變高度、質量、初速或角度之一，觀察落地時間、軌跡與整秒殘影如何改變。" },
     "運動函數圖.html": { settingLabel: "運動模式與觀察時刻", settingPlaceholder: "例：等加速，t = 4.0 s", resultLabel: "x、v、a 或圖線特徵", resultPlaceholder: "例：x=32 m，v=16 m/s，a=4 m/s²", prompt: "選定同一觀察時刻，比較不同運動模式的 x、v、a 與圖線斜率。" },
