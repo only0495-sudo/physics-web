@@ -159,6 +159,7 @@
 
     .stage-card {
       position: relative;
+      align-self: start;
       min-height: 610px;
       overflow: hidden;
     }
@@ -202,6 +203,27 @@
     }
 
     .stage-card.stage-expanded #sim-canvas { height: 100%; }
+
+    .symmetry-panel {
+      position: absolute;
+      right: 18px;
+      bottom: 62px;
+      width: 43%;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #091c30;
+      display: flex;
+      flex-direction: column;
+    }
+    .symmetry-panel[hidden] { display: none; }
+    .symmetry-panel h2 { margin: 0; color: var(--cyan); font-size: 0.9rem; }
+    .symmetry-panel svg { width: 100%; flex: 1; min-height: 0; }
+    #symmetry-diagram text { stroke: none; }
+    .symmetry-panel p { margin: 4px 0 0; color: var(--muted); font-size: 0.7rem; line-height: 1.5; }
+    .stage-card.symmetry-stacked .symmetry-panel { position: relative; top: auto !important; right: auto; bottom: auto; width: auto; height: 460px; margin: 0 12px 58px; }
+    .stage-card.stage-expanded.symmetry-stacked { overflow-y: auto; }
+    .stage-card.stage-expanded.symmetry-stacked #sim-canvas { height: 540px; }
 
     .stage-transport {
       position: absolute;
@@ -566,7 +588,7 @@
       <div class="condition-pill" aria-label="共同模擬條件">
         <b>5.00 s</b>
         <strong>各模式預設飛行時間</strong>
-        <small>g = 9.8 m/s² · 不計空氣阻力</small>
+        <small>g = 10 m/s² · 不計空氣阻力</small>
       </div>
     </header>
 
@@ -610,6 +632,12 @@
           <span><i style="--swatch: var(--pink)"></i>速度分量</span>
           <span><i style="--swatch: var(--green)"></i>位移 Δr</span>
         </div>
+        <section class="symmetry-panel" id="symmetry-panel" hidden aria-labelledby="symmetry-title">
+          <h2 id="symmetry-title">鉛直上拋的對稱性</h2>
+          <svg id="symmetry-diagram" viewBox="0 0 360 390" role="img" aria-label="上升與下降在同一高度的速率相等、方向相反"></svg>
+          <p id="symmetry-detail"></p>
+          <p>左右分開僅供比較，實際沿同一直線運動；箭頭表示速度方向，落地點標示碰地前速度。</p>
+        </section>
       </div>
 
       <aside class="side-stack">
@@ -620,20 +648,20 @@
             <input id="object-mass" type="range" min="0.5" max="10" step="0.5" value="2">
           </div>
           <div class="parameter">
-            <div class="parameter-head"><label for="initial-height">初始高度 h₀</label><output id="height-output">122.5 m</output></div>
-            <input id="initial-height" type="range" min="0" max="200" step="0.5" value="122.5">
+            <div class="parameter-head"><label for="initial-height">初始高度 h₀</label><output id="height-output">125 m</output></div>
+            <input id="initial-height" type="range" min="0" max="200" step="0.5" value="125">
           </div>
           <div class="parameter" id="horizontal-parameter" hidden>
             <div class="parameter-head"><label for="horizontal-speed">水平初速 v₀ₓ</label><output id="horizontal-speed-output">18.0 m/s</output></div>
             <input id="horizontal-speed" type="range" min="0" max="40" step="0.5" value="18">
           </div>
           <div class="parameter" id="vertical-parameter" hidden>
-            <div class="parameter-head"><label for="vertical-speed">鉛直初速 v₀ᵧ</label><output id="vertical-speed-output">24.5 m/s</output></div>
-            <input id="vertical-speed" type="range" min="2" max="40" step="0.5" value="24.5">
+            <div class="parameter-head"><label for="vertical-speed">鉛直初速 v₀ᵧ</label><output id="vertical-speed-output">25 m/s</output></div>
+            <input id="vertical-speed" type="range" min="2" max="40" step="0.5" value="25">
           </div>
           <div class="parameter" id="launch-speed-parameter" hidden>
-            <div class="parameter-head"><label for="launch-speed">斜拋初速 v₀</label><output id="launch-speed-output">34.65 m/s</output></div>
-            <input id="launch-speed" type="range" min="5" max="50" step="0.01" value="34.65">
+            <div class="parameter-head"><label for="launch-speed">斜拋初速 v₀</label><output id="launch-speed-output">35.36 m/s</output></div>
+            <input id="launch-speed" type="range" min="5" max="50" step="0.01" value="35.36">
           </div>
           <div class="parameter" id="angle-parameter" hidden>
             <div class="parameter-head"><label for="launch-angle">斜拋仰角 θ</label><output id="angle-output">45°</output></div>
@@ -641,7 +669,7 @@
           </div>
           <div class="parameter">
             <div class="parameter-head"><span>運動預估</span><output id="fixed-condition">飛行時間 5.00 s</output></div>
-            <div class="model-note" id="condition-detail">重量 W = 19.6 N；忽略空氣阻力時，質量不影響軌跡，球體大小僅作質量示意。時間軸會依實際落地時間更新。</div>
+            <div class="model-note" id="condition-detail">重量 W = 20.0 N；忽略空氣阻力時，質量不影響軌跡，球體大小僅作質量示意。時間軸會依實際落地時間更新。</div>
           </div>
         </section>
 
@@ -662,7 +690,7 @@
 
         <section class="info-card" aria-labelledby="formula-title">
           <h2 class="panel-title" id="formula-title">此模式的運動方程</h2>
-          <p class="formula" id="formula-copy"><b>y(t)</b> = 122.5 − 4.9t²<br><b>vᵧ(t)</b> = −9.8t</p>
+          <p class="formula" id="formula-copy"><b>y(t)</b> = 125 − 5t²<br><b>vᵧ(t)</b> = −10t</p>
           <p class="model-note">SI 單位；水平向右為 +x，鉛直向上為 +y。箭頭長度依數值成比例變化，向量標籤顯示實際大小。</p>
         </section>
       </aside>
@@ -670,9 +698,9 @@
 
     <section class="data-strip" aria-label="即時物理量">
       <div class="datum"><span>物體質量 m</span><strong id="data-mass">2.00 kg</strong></div>
-      <div class="datum"><span>重量 W</span><strong id="data-weight">19.60 N</strong></div>
+      <div class="datum"><span>重量 W</span><strong id="data-weight">20.00 N</strong></div>
       <div class="datum"><span>位置 x</span><strong id="data-x">0.00 m</strong></div>
-      <div class="datum"><span>位置 y</span><strong id="data-y">122.50 m</strong></div>
+      <div class="datum"><span>位置 y</span><strong id="data-y">125.00 m</strong></div>
       <div class="datum"><span>水平速度 vₓ</span><strong id="data-vx">0.00 m/s</strong></div>
       <div class="datum"><span>鉛直速度 vᵧ</span><strong id="data-vy">0.00 m/s</strong></div>
       <div class="datum"><span>速率 |v|</span><strong id="data-speed">0.00 m/s</strong></div>
@@ -689,7 +717,7 @@
     (() => {
       "use strict";
 
-      const G = 9.8;
+      const G = 10;
       const DEFAULT_FLIGHT_TIME = 5;
       const DEFAULT_DROP_HEIGHT = 0.5 * G * DEFAULT_FLIGHT_TIME * DEFAULT_FLIGHT_TIME;
       const DEFAULT_UPWARD_SPEED = 0.5 * G * DEFAULT_FLIGHT_TIME;
@@ -715,8 +743,7 @@
       };
 
       const MODE_VIEW_BOUNDS = {
-        freefall: { minX: -120, maxX: 120, minY: -60, maxY: 220, gridStep: 40 },
-        vertical: { minX: -60, maxX: 60, minY: -10, maxY: 150, gridStep: 25 }
+        freefall: { minX: -120, maxX: 120, minY: -60, maxY: 220, gridStep: 40 }
       };
 
       const canvas = document.getElementById("sim-canvas");
@@ -808,8 +835,9 @@
         const landed = t >= duration - 1e-8;
         const x = initial.vx * motionTime;
         const y = Math.max(0, modeSettings[mode].height + initial.vy * motionTime - 0.5 * G * motionTime * motionTime);
-        const vx = landed ? 0 : initial.vx;
-        const vy = landed ? 0 : initial.vy - G * motionTime;
+        // Freeze the contact frame with the incoming velocity, before any collision response.
+        const vx = initial.vx;
+        const vy = initial.vy - G * motionTime;
         const ay = landed ? 0 : -G;
         return { t, motionTime, x, y, vx, vy, ax: 0, ay, speed: Math.hypot(vx, vy), landed, landingTime: duration };
       }
@@ -840,6 +868,11 @@
       }
 
       function getWorldBounds() {
+        if (mode === "vertical") {
+          const peak = modeSettings.vertical.height + modeSettings.vertical.verticalSpeed ** 2 / (2 * G);
+          const span = Math.max(8, peak * 1.25);
+          return { minX: -span * 0.18, maxX: span * 0.18, minY: -span * 0.1, maxY: span, gridStep: niceGridStep(span) };
+        }
         if (mode === "horizontal") {
           const height = modeSettings.horizontal.height;
           const maximumFlightTime = Math.sqrt(2 * height / G);
@@ -864,7 +897,9 @@
           stageReadout.getBoundingClientRect().bottom,
           stageActions.getBoundingClientRect().bottom
         ) - stageTop;
-        const pad = { left: 64, right: 48, top: Math.max(64, overlayBottom + 12), bottom: 62 };
+        const split = mode === "vertical" && canvasSize.width >= 760;
+        const pad = { left: 64, right: split ? canvasSize.width * 0.43 + 36 : 48, top: Math.max(64, overlayBottom + 12), bottom: 62 };
+        if (mode === "vertical") document.getElementById("symmetry-panel").style.top = `${pad.top}px`;
         const plotWidth = Math.max(1, canvasSize.width - pad.left - pad.right);
         const plotHeight = Math.max(1, canvasSize.height - pad.top - pad.bottom);
         const scale = Math.min(plotWidth / (bounds.maxX - bounds.minX), plotHeight / (bounds.maxY - bounds.minY));
@@ -884,6 +919,7 @@
       }
 
       function resizeCanvas() {
+        stageCard.classList.toggle("symmetry-stacked", mode === "vertical" && stageCard.clientWidth < 760);
         const rect = canvas.getBoundingClientRect();
         const ratio = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = Math.max(1, Math.round(rect.width * ratio));
@@ -1145,7 +1181,7 @@
         occupiedLabelRects = [];
         vectorArrowQueue = [];
         const transform = getTransform();
-        const scalePrefix = mode === "horizontal" || mode === "oblique" ? "最高初速視野" : "固定比例尺";
+        const scalePrefix = mode === "vertical" ? "依上拋高度縮放" : mode === "horizontal" || mode === "oblique" ? "最高初速視野" : "固定比例尺";
         scaleDisplay.textContent = `${scalePrefix}：每格 ${formatScaleValue(transform.gridStep)} m`;
         const point = physicsAt(time);
         drawGrid(transform);
@@ -1245,7 +1281,38 @@
         timelineLabels.innerHTML = labels.join("");
       }
 
+      function updateSymmetryDiagram() {
+        document.getElementById("symmetry-panel").hidden = mode !== "vertical";
+        if (mode !== "vertical") return;
+        const { height, verticalSpeed: speed } = modeSettings.vertical;
+        const rise = speed * speed / (2 * G);
+        const peakTime = speed / G;
+        const text = (x, y, value, color = "#eef6ff", anchor = "middle") => `<text x="${x}" y="${y}" fill="${color}" text-anchor="${anchor}" font-size="13">${value}</text>`;
+        let svg = `<path d="M 90 326 Q 90 56 180 56" fill="none" stroke="#52e1a1" stroke-width="4"/><path d="M 180 56 Q 270 56 270 326" fill="none" stroke="#ff5c87" stroke-width="4"/>`;
+        svg += text(78, 22, "上升 ↑", "#52e1a1") + text(282, 22, "下降 ↓", "#ff5c87");
+        svg += text(180, 44, "v = 0") + `<circle cx="180" cy="56" r="9" fill="#ffd166" stroke="#fff"/>`;
+        for (const fraction of [1, 0.8, 0.6, 0.4]) {
+          // The horizontal separation is schematic; vertical positions follow v² = v₀² − 2gΔy.
+          const y = 56 + 270 * fraction * fraction;
+          const left = 180 - 180 * fraction + 90 * fraction * fraction;
+          const right = 360 - left;
+          const level = height + rise * (1 - fraction * fraction);
+          const velocity = formatScaleValue(speed * fraction);
+          svg += `<path d="M ${left} ${y} H ${right}" stroke="#7995af" stroke-dasharray="5 5"/>`;
+          svg += text(180, y - 8, `${formatScaleValue(level)} m`, "#afc6dc");
+          for (const [x, direction, color] of [[left, -1, "#52e1a1"], [right, 1, "#ff5c87"]]) {
+            const end = y + direction * (12 + 25 * fraction);
+            svg += `<path d="M ${x} ${y} V ${end} m -4 ${-direction * 7} l 4 ${direction * 7} l 4 ${-direction * 7}" fill="none" stroke="${color}" stroke-width="2.5"/><circle cx="${x}" cy="${y}" r="8" fill="#ffd166" stroke="#fff"/>`;
+            svg += text(x + direction * 13, y + 5, `${velocity} m/s`, color, direction < 0 ? "end" : "start");
+          }
+        }
+        svg += text(180, 381, "同高度：速率相等，方向相反");
+        document.getElementById("symmetry-diagram").innerHTML = svg;
+        document.getElementById("symmetry-detail").textContent = `上升至最高點 ${peakTime.toFixed(2)} s，再經 ${peakTime.toFixed(2)} s 回到拋出高度 ${height.toFixed(1)} m。${height > 0 ? "之後繼續下落至地面。" : ""}`;
+      }
+
       function syncModeControls() {
+        updateSymmetryDiagram();
         const settings = modeSettings[mode];
         const heightMinimum = mode === "freefall" || mode === "horizontal" ? 10 : 0;
         const heightMaximum = mode === "vertical" ? 50 : 200;
@@ -1279,13 +1346,13 @@
 
         const h = settings.height.toFixed(1);
         if (mode === "freefall") {
-          formulaCopy.innerHTML = `<b>y(t)</b> = ${h} − 4.9t²<br><b>vᵧ(t)</b> = −9.8t`;
+          formulaCopy.innerHTML = `<b>y(t)</b> = ${h} − 5t²<br><b>vᵧ(t)</b> = −10t`;
         } else if (mode === "vertical") {
-          formulaCopy.innerHTML = `<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 4.9t²<br><b>vᵧ(t)</b> = ${initial.vy.toFixed(1)} − 9.8t`;
+          formulaCopy.innerHTML = `<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 5t²<br><b>vᵧ(t)</b> = ${initial.vy.toFixed(1)} − 10t`;
         } else if (mode === "horizontal") {
-          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} − 4.9t²<br><b>v(t)</b> = ⟨${initial.vx.toFixed(1)}, −9.8t⟩`;
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} − 5t²<br><b>v(t)</b> = ⟨${initial.vx.toFixed(1)}, −10t⟩`;
         } else {
-          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 4.9t²<br><b>v₀</b> = ${settings.launchSpeed.toFixed(2)} m/s，θ = ${settings.angle.toFixed(0)}°`;
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 5t²<br><b>v₀</b> = ${settings.launchSpeed.toFixed(2)} m/s，θ = ${settings.angle.toFixed(0)}°`;
         }
       }
 
@@ -1298,6 +1365,7 @@
           button.setAttribute("aria-pressed", String(active));
         });
         syncModeControls();
+        resizeCanvas();
         reset();
       }
 

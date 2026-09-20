@@ -3,6 +3,18 @@
 
   const activities = [
     {
+      file: "重力場模擬器.html",
+      title: "重力場模擬器",
+      category: "力學",
+      format: "2D",
+      summary: "拖曳發射質點、預測軌跡，探索黑洞引力與多質點相互吸引。",
+      goal: ["比較初速度如何改變軌道", "觀察萬有引力方向與多體交互作用"],
+      task: "沿切線方向發射質點，調整初速讓它繞行黑洞。",
+      question: "引力持續指向中心，為什麼質點不一定落入黑洞？",
+      demo: ["點擊建立靜止質點", "拖曳初速並比較預測軌跡", "開啟合引力箭頭並加入其他質點"],
+      gesture: "按住設定起點，沿發射方向拖曳，放開建立質點。"
+    },
+    {
       file: "空氣振盪.html",
       title: "空氣振盪",
       category: "波動學",
@@ -425,6 +437,7 @@
   ];
 
   const measurements = {
+    "重力場模擬器.html": { settingLabel: "初始位置、速度與相互吸引設定", settingPlaceholder: "例：距中心 250 m，切線初速 400 m/s，關閉相互吸引", resultLabel: "軌道形狀與是否被吸收", resultPlaceholder: "例：近似圓軌道，持續繞行未被吸收", prompt: "在相同起點比較靜止、切線初速及更快初速的軌跡，再加入其他質點觀察改變。" },
     "空氣振盪.html": { settingLabel: "振幅、週期、位置與時刻", settingPlaceholder: "例：A=0.15 mm，T=4 ms，x₀=0.8 m，t=0 ms", resultLabel: "粒子位移與壓力變化", resultPlaceholder: "記錄 ξ（mm）、p′（Pa）與疏密狀態", prompt: "暫停於同一時刻，移動追蹤位置，比較位移曲線斜率與壓力正負。" },
     "相對加速度.html": { settingLabel: "情境、觀察者、初始條件與時刻", settingPlaceholder: "例：電梯，a=2 m/s²，觀察者在電梯內，t=1.5 s", resultLabel: "物體的相對速度與相對加速度", resultPlaceholder: "例：螺絲 v′=−5.9 m/s，a′=−11.8 m/s²", prompt: "固定同一瞬間與初始條件，切換地面和移動觀察者；用加速度相減解釋動畫和數值。" },
     "拋體運動.html": { settingLabel: "運動模式、h₀、m、v₀、θ 與觀察時刻", settingPlaceholder: "例：斜拋，h₀=0 m，m=2 kg，v₀=34.65 m/s，θ=45°", resultLabel: "落地時間、位置、速度分量與殘影間距", resultPlaceholder: "例：t落地=5.00 s，vᵧ=… m/s", prompt: "先比較四種模式的預設五秒飛行，再一次只改變高度、質量、初速或角度之一，觀察落地時間、軌跡與整秒殘影如何改變。" },

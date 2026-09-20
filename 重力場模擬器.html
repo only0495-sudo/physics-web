@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>重力場模擬器</title>
+  <link rel="stylesheet" href="gravity.css">
+  <script src="gravity-model.js" defer></script><script src="gravity.js" defer></script>
+</head>
+<body>
+  <header><div class="brand"><span class="mark">◉</span><div><p>力學實驗室 ／ 軌道探索</p><h1>重力場模擬器</h1></div></div><a href="index.html">返回實驗室 ↗</a></header>
+  <main>
+    <section class="universe" aria-label="重力場互動區">
+      <canvas id="space" tabindex="0" aria-label="點擊建立質點，按住拖曳設定初速。也可用右側圓軌道示範按鈕建立質點。"></canvas>
+      <div class="stage-top"><span><i></i> <span id="state">模擬中</span></span><span>中央引力源固定</span></div>
+      <div id="empty"><span class="empty-line"></span><h2>從一顆質點開始。</h2><p>點一下，觀察墜落。<br>按住並拖曳，試著創造一條軌道。</p></div>
+      <div class="stage-bottom"><span>── 已走軌跡　┄ 預測軌跡</span><span id="scale"></span></div>
+    </section>
+    <aside>
+      <section><p class="eyebrow">實驗控制</p><div class="transport"><button id="play" class="primary">暫停</button><button id="reset">重設</button></div><div class="metrics"><div><span>質點數</span><strong id="count">0 <small>/ 32</small></strong></div><div><span>模擬時間</span><strong id="time">0.00 <small>s</small></strong></div></div></section>
+      <section><p class="eyebrow">觀察設定</p><label class="toggle"><span>萬有引力向量</span><input id="vectors" type="checkbox"></label><label class="toggle"><span>質點互相吸引</span><input id="mutual" type="checkbox" checked></label><label class="toggle"><span>保留運動軌跡</span><input id="trails" type="checkbox" checked></label><label class="speed">時間倍率 <select id="speed"><option value="0.125">⅛ 倍</option><option value="0.25" selected>¼ 倍（預設）</option><option value="0.5">½ 倍</option><option value="1">1 倍</option><option value="2">2 倍</option></select></label><p class="note">箭頭表示合引力方向；長度依加速度的 ¾ 次方縮放，強弱差異更明顯，最長 240 px。</p></section>
+      <section><p class="eyebrow">創造你的軌道</p><ol><li><b>選擇位置</b><span>在黑色畫面按住，設定起點。</span></li><li><b>給它初速</b><span>沿發射方向拖曳；拉得越長，速度越快。</span></li><li><b>放手，觀察</b><span>參考虛線，試著沿黑洞的切線方向發射。</span></li></ol><button id="orbit" class="wide">＋ 加入圓軌道示範</button><p class="note">示範初速依中央引力計算；其他質點可能使軌道偏移。</p></section>
+      <div id="message" role="status">點擊可建立靜止質點；拖曳時暫停模擬。</div>
+      <details><summary>物理模型與單位</summary><p>採平面牛頓萬有引力，原點在黑洞中心，向右為 +x、向上為 +y。位置以 m、速度以 m/s、時間以 s 計算。</p><p>G = 6.6743 × 10⁻¹¹ N·m²/kg²；黑洞質量 6 × 10¹⁷ kg，每顆質點 6 × 10¹⁴ kg。黑洞由外力固定，質量不隨吸收改變。</p><p>為避免極近距離的數值發散，使用 a = GM r⃗ /(r² + ε²)³ᐟ²，ε = 4 m。距中心 18 m 內吸收；質點彼此可穿越，不計碰撞及相對論效應。</p><p>虛線預測未來 4 s，包含所有現有質點的運動。新加質點會改變後續軌跡。離開畫面的質點仍參與計算，最多 32 顆。拖曳速度上限 1,200 m/s。</p></details>
+    </aside>
+  </main>
+</body>
+</html>

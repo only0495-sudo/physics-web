@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 const root = path.dirname(fileURLToPath(import.meta.url));
 const htmlFiles = fs.readdirSync(root).filter((name) => name.endsWith(".html"));
 const appPages = new Set(["index.html", "lesson.html", "notebook.html", "compare.html"]);
+// This game owns its responsive canvas and controls instead of the classroom overlay.
+const standaloneAssets = { "重力場模擬器.html": ["gravity.css", "gravity-model.js", "gravity.js"] };
 const simulations = htmlFiles.filter((name) => !appPages.has(name));
 const errors = [];
 const warnings = [];
@@ -30,7 +32,18 @@ for (const name of htmlFiles) {
   if (!/<meta\s+name=["']viewport["']/i.test(html)) errors.push(`${name}: 缺少 viewport`);
   if (/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/i.test(html)) errors.push(`${name}: 仍鎖定縮放`);
 
-  if (!appPages.has(name)) {
+  if (standaloneAssets[name]) {
+    for (const asset of standaloneAssets[name]) {
+      if (!html.includes(asset)) errors.push(`${name}: 缺少 ${asset}`);
+      if (asset.endsWith('.js')) {
+        try { new vm.Script(fs.readFileSync(path.join(root, asset), 'utf8'), { filename: asset }); }
+        catch (error) { errors.push(`${asset}: ${error.message}`); }
+      }
+    }
+    for (const id of ['space', 'play', 'reset', 'vectors', 'mutual', 'trails', 'speed', 'orbit']) {
+      if (!html.includes(`id="${id}"`)) errors.push(`${name}: 缺少獨立模擬控制 ${id}`);
+    }
+  } else if (!appPages.has(name)) {
     for (const asset of ["classroom-device.js", "classroom-shell.css", "classroom-data.js", "classroom-shell.js"]) {
       if (!html.includes(asset)) errors.push(`${name}: 缺少 ${asset}`);
     }
