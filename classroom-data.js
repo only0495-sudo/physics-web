@@ -3,6 +3,18 @@
 
   const activities = [
     {
+      file: "向量.html",
+      title: "向量・單位向量與加法",
+      category: "力學",
+      format: "2D",
+      summary: "用方向鍵探索單位向量，再以三角形法、平行四邊形法探索向量相加。",
+      goal: ["以 î、ĵ 表示二維向量", "區分路徑步數與淨位移，理解正負分量"],
+      task: "從原點用方向鍵走到箭頭終點，再換一種路徑抵達相同位置。",
+      question: "多走一步再退一步，總步數與位移向量會如何改變？",
+      demo: ["預測水平與鉛直方向", "用方向鍵一步一步抵達終點", "比較不同路徑的淨分量"],
+      gesture: "點按方向按鈕或鍵盤方向鍵；每按一次移動一個單位向量。"
+    },
+    {
       file: "重力場模擬器.html",
       title: "重力場模擬器",
       category: "力學",
@@ -437,6 +449,7 @@
   ];
 
   const measurements = {
+    "向量.html": { settingLabel: "目標座標與移動路徑", settingPlaceholder: "例：目標 (3, −2)，先右移再下移", resultLabel: "淨分量與總步數", resultPlaceholder: "例：3î − 2ĵ，共走 5 步；繞路後分量相同", prompt: "以不同路徑抵達相同終點，比較總步數與水平、鉛直淨分量。" },
     "重力場模擬器.html": { settingLabel: "初始位置、速度與相互吸引設定", settingPlaceholder: "例：距中心 250 m，切線初速 400 m/s，關閉相互吸引", resultLabel: "軌道形狀與是否被吸收", resultPlaceholder: "例：近似圓軌道，持續繞行未被吸收", prompt: "在相同起點比較靜止、切線初速及更快初速的軌跡，再加入其他質點觀察改變。" },
     "空氣振盪.html": { settingLabel: "振幅、週期、位置與時刻", settingPlaceholder: "例：A=0.15 mm，T=4 ms，x₀=0.8 m，t=0 ms", resultLabel: "粒子位移與壓力變化", resultPlaceholder: "記錄 ξ（mm）、p′（Pa）與疏密狀態", prompt: "暫停於同一時刻，移動追蹤位置，比較位移曲線斜率與壓力正負。" },
     "相對加速度.html": { settingLabel: "情境、觀察者、初始條件與時刻", settingPlaceholder: "例：電梯，a=2 m/s²，觀察者在電梯內，t=1.5 s", resultLabel: "物體的相對速度與相對加速度", resultPlaceholder: "例：螺絲 v′=−5.9 m/s，a′=−11.8 m/s²", prompt: "固定同一瞬間與初始條件，切換地面和移動觀察者；用加速度相減解釋動畫和數值。" },

@@ -7,7 +7,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const htmlFiles = fs.readdirSync(root).filter((name) => name.endsWith(".html"));
 const appPages = new Set(["index.html", "lesson.html", "notebook.html", "compare.html"]);
 // This game owns its responsive canvas and controls instead of the classroom overlay.
-const standaloneAssets = { "重力場模擬器.html": ["gravity.css", "gravity-model.js", "gravity.js"] };
+const standaloneAssets = { "重力場模擬器.html": ["gravity.css", "gravity-model.js", "gravity.js"], "向量.html": ["vector.css", "vector.js", "vector-operations.js"] };
 const simulations = htmlFiles.filter((name) => !appPages.has(name));
 const errors = [];
 const warnings = [];
@@ -40,7 +40,7 @@ for (const name of htmlFiles) {
         catch (error) { errors.push(`${asset}: ${error.message}`); }
       }
     }
-    for (const id of ['space', 'play', 'reset', 'vectors', 'mutual', 'trails', 'speed', 'orbit']) {
+    for (const id of (name === '向量.html' ? ['board', 'up', 'down', 'left', 'right', 'undo', 'reset', 'new', 'decompose'] : ['space', 'play', 'reset', 'vectors', 'mutual', 'trails', 'speed', 'orbit'])) {
       if (!html.includes(`id="${id}"`)) errors.push(`${name}: 缺少獨立模擬控制 ${id}`);
     }
   } else if (!appPages.has(name)) {

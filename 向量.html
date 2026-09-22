@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>向量｜單位向量與加法</title>
+  <link rel="stylesheet" href="vector.css">
+  <script src="vector.js" defer></script>
+  <script src="vector-operations.js" defer></script>
+</head>
+<body>
+  <header><a href="index.html" class="brand"><span>↗</span> 物理探究實驗室</a><a href="index.html">返回實驗室 ↗</a></header>
+  <main>
+    <nav class="scenario-nav" aria-label="選擇向量情境"><button id="scenario-unit" aria-pressed="true" aria-controls="unit-scenario">情境一 · 單位向量</button><button id="scenario-operations" aria-pressed="false" aria-controls="operations-scenario">情境二 · 向量加法</button></nav>
+    <div id="unit-scenario">
+    <div class="intro"><div><p class="eyebrow">基礎概念 ／ 單位向量</p><h1>用方向鍵，走出一支向量。</h1><p>從原點出發，用 <b class="x-color">î</b> 和 <b class="y-color">ĵ</b> 抵達箭頭的終點。</p></div><span class="pill">每一格，都是一個單位</span></div>
+    <div class="workspace unit-integrated">
+      <button class="primary" id="new">換一個隨機向量 ↗</button>
+      <section class="board-card" aria-label="向量座標平面與操作">
+        <div class="board-heading"><h2>你的向量任務</h2><span id="badge">探索中</span></div>
+        <div class="legend"><span class="target-key">↗ 目標向量</span><span>● 目前位置</span><span class="path-key">┄ 已走路徑</span></div>
+        
+        <div class="unit-stage">
+          <section class="control-card"><p class="eyebrow">01 ／ 用單位向量移動</p><h2>方向鍵，就是你的工具。</h2><p class="muted">點按下方按鈕，或使用鍵盤方向鍵。<br>按一下走一格；長按不會連續移動。</p>
+          <div class="dpad" aria-label="單位向量方向控制"><button id="up" data-direction="up" aria-label="向上一步，加一個 ĵ">↑<small>+ĵ</small></button><button id="left" data-direction="left" aria-label="向左一步，減一個 î">←<small>−î</small></button><span class="dpad-center">一步<br>一單位</span><button id="right" data-direction="right" aria-label="向右一步，加一個 î">→<small>+î</small></button><button id="down" data-direction="down" aria-label="向下一步，減一個 ĵ">↓<small>−ĵ</small></button></div>
+          <div id="message" role="status">看一看紫色箭頭，試著走到它的終點。</div>
+          <div class="actions"><button id="undo">↶ 撤銷一步</button><button id="reset">回到起點</button></div>
+        </section>
+          <div class="unit-plot"><svg id="board" viewBox="0 0 640 640" role="img" aria-labelledby="board-title board-desc"><title id="board-title">二維向量座標平面</title><desc id="board-desc"></desc><g id="drawing"></g></svg></div>
+          <section class="readout-card unit-readout"><p class="eyebrow">02 ／ 看見向量的組成</p><div class="components"><div><span>水平淨移動</span><strong id="x-value" class="x-color">0 î</strong><small id="x-count">右 0 − 左 0 = 0</small></div><div><span>鉛直淨移動</span><strong id="y-value" class="y-color">0 ĵ</strong><small id="y-count">上 0 − 下 0 = 0</small></div></div><div class="equation"><span>目前位移 <span class="vec">r</span></span><strong id="equation">0î + 0ĵ</strong></div><p class="step-note">已走 <b id="steps">0</b> 步 <span>／ 相反方向的步數會抵消</span></p><label class="toggle"><input id="decompose" type="checkbox"> 顯示目標分量提示</label><div id="answer" hidden></div></section>
+        </div>
+        <div class="board-footer"><span>自動放大視野 · 每格一單位 · 右 +x、上 +y</span><span id="position">目前 (0, 0)</span></div>
+      </section>
+    </div>
+    <section class="learning"><div><span class="number">想一想</span><h2>走法不同，向量會不同嗎？</h2><p>先向右再向上，或先向上再向右，只要起點與終點相同，位移向量就相同。試著多走一步，再往回走一步！</p></div><div><span class="number">記住這個關係</span><p class="general"><span class="vec">a</span> = a<sub>x</sub> î + a<sub>y</sub> ĵ</p><p>î = (1, 0)、ĵ = (0, 1)，是長度為 1、互相垂直的單位向量。本遊戲以整數格點練習；一般二維向量的分量可以是任意實數，例如 1.5î − 0.5ĵ。此處使用無量綱座標。</p></div></section>
+    </div>
+    <div id="operations-scenario" hidden>
+      <div class="intro"><div><p class="eyebrow">基礎概念 ／ 向量加法</p><h1>把向量接起來，看見合成結果。</h1><p>拖動兩支向量，試著把端點接在一起。</p></div><span class="pill">親手拼出兩種加法</span></div>
+      <div class="workspace">
+        <section class="readout-card operation-readout"><p class="eyebrow">02 ／ 連接成功後揭示</p><p id="result-prompt" class="muted">還沒接好。先拖動圖上的兩支向量，讓端點靠在一起。</p><div id="operation-result" hidden><h2 id="success-method"></h2><p id="step-explanation" class="muted"></p><table class="vector-sum" aria-label="向量分量直式相加"><thead><tr><th scope="col">向量</th><th scope="col">î 分量</th><th scope="col">ĵ 分量</th></tr></thead><tbody><tr><th scope="row">A</th><td id="sum-ax"></td><td id="sum-ay"></td></tr><tr><th scope="row" id="sum-b-label">＋ B</th><td id="sum-bx"></td><td id="sum-by"></td></tr><tr class="sum-total"><th scope="row">R</th><td id="sum-rx"></td><td id="sum-ry"></td></tr></tbody></table><div class="equation"><span>合成結果 R</span><strong id="result-equation"></strong></div><p id="component-calculation" class="calculation"></p></div></section>
+        <div class="operation-left">
+        <section class="board-card" aria-label="向量加法作圖">
+          <div class="board-heading"><h2 id="construction-title">三角形法 · A + B</h2><span class="pill" id="construction-step">等待連接</span></div>
+          <div class="legend"><span class="x-color">━ 向量 A</span><span class="y-color" id="operand-legend">━ 向量 B</span><span class="target-key">━ 結果 R</span><span>┄ 平移參考線</span></div>
+          <svg id="operation-board" tabindex="0" viewBox="0 0 640 480" role="img" aria-labelledby="operation-title operation-desc"><title id="operation-title">向量加法座標圖</title><desc id="operation-desc"></desc><g id="operation-drawing"></g></svg>
+          <div class="board-footer"><span>右為 +x，上為 +y · 每格一單位</span><span id="result-position"></span></div>
+          <p id="construction-note" class="construction-note" role="status"></p>
+        </section>
+
+        </div>
+        <aside>
+          <section class="control-card"><p class="eyebrow">01 ／ 拖動向量，自己發現</p>
+            <p id="operation-rule" class="rule">先把兩支向量接起來</p>
+            <ol class="drag-instructions"><li><b>抓住箭身或端點</b><span>整支向量會一起平移，方向與長度不變。</span></li><li><b>試著連接兩個端點</b><span>首尾相接，或把兩個起點接在一起，放開後會自動吸附。</span></li><li><b>看圖形，再看計算</b><span>成功後才揭示合成箭頭與左側直式。</span></li></ol>
+            <div class="vector-values"><p class="x-color" id="a-components"></p><p class="y-color" id="b-components"></p></div>
+            <p class="muted">空心圓是尾端（起點）；箭頭尖端是頭端（終點）。新題每支向量長度為 6–9 單位。</p>
+            <div class="actions"><button id="operation-random">換一組向量</button><button id="operation-reset">重新散開</button></div>
+            <details class="keyboard-help"><summary>鍵盤操作</summary><p class="muted">選擇向量後，按方向鍵每次平移一格，按 Enter 檢查連接；可再按「選擇 A／B」切換向量。</p><div class="choice-row"><button id="select-a" aria-pressed="true">選擇 A</button><button id="select-b" aria-pressed="false">選擇 B</button></div></details>
+          </section>
+
+        </aside>
+      </div>
+      <section class="learning"><div><span class="number">三角形法</span><h2>首尾相接，連起起點與終點。</h2><p>把第二支向量的起點移到 A 的終點，方向、長度都不變。結果由 A 的起點指向第二支向量的終點。</p></div><div><span class="number">平行四邊形法</span><h2>共同起點，取對角線。</h2><p>以 A 和 B為鄰邊，補出兩條平行邊。從共同起點指向對角頂點的向量，就是結果。</p></div></section>
+    </div>
+  </main>
+</body>
+</html>
