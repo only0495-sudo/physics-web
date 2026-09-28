@@ -6,6 +6,12 @@ function near(actual, expected, message, tolerance = 1e-7) {
   assert.ok(Number.isFinite(actual) && Math.abs(actual - expected) < tolerance, `${message}: ${actual} ≠ ${expected}`); checks++;
 }
 const p = { ...M.defaults };
+for(const t of [0,.3,7/M.g,14/M.g]){
+  const ground=M.cartState(t),cart=M.cartState(t,'cart');
+  near(ground.x,3*t,'地面看球保留平台水平速度');near(cart.x,0,'平台看球沒有水平位移');
+  near(ground.y,cart.y,'兩視角鉛直位置相同');near(ground.x,ground.cartX,'球始終在人的正上方');
+}
+near(M.cartState(M.duration(0,p)).y,0,'球回到拋出高度');
 // Hand-calculated defaults and release continuity.
 let s = M.state(1, p, 1);
 near(s.A.y, 55.1, 'A 在一秒後高度'); near(s.B.y, 40.1, 'B 在一秒後高度');
@@ -82,7 +88,7 @@ async function browserChecks() {
           if(name==='arc')this.auditPath=null;
           if((name==='moveTo'||name==='lineTo')&&this.auditPath)this.auditPath.push(args.slice(0,2));
           if(name==='fill'&&this.auditPath?.length===7)audit.arrows.push(this.auditPath.slice());
-          if(name==='fillText'&&(['A','B','地面／樹','地面','電梯地板','螺絲','m/s²'].includes(String(args[0]))||/ (?:v′|a′)(?: = 0)?$/.test(String(args[0]))||/^\d+\.\d m\/s²$/.test(String(args[0])))){
+          if(name==='fillText'&&(['A','B','地面／樹','地面','電梯地板','螺絲','m/s²'].includes(String(args[0]))||/^相對(?:靜止|等速)/.test(String(args[0]))||/ (?:v′|a′)(?: = 0)?$/.test(String(args[0]))||/^\d+\.\d m\/s²$/.test(String(args[0])))){
             const width=this.measureText(args[0]).width, height=parseFloat(this.font.match(/([\d.]+)px/)[1]);
             audit.texts.push({text:args[0],x:args[1]-width/2,y:args[2]-height/2,w:width,h:height});
           }
@@ -108,14 +114,53 @@ async function browserChecks() {
     }
   }
   const slider=async(id,value)=>{const input=page.locator(id);if(value===Number(await input.getAttribute('max'))){await input.focus();await input.press('End');}else{await input.fill(String(value));await input.dispatchEvent('input');}};
+  async function checkLabelContinuity(){
+    const failure=await page.evaluate(()=>{
+      const input=document.getElementById('timeline'),saved=input.value,T=Number(input.max);
+      let previous=new Map(),failure=null;
+      for(let i=0;i<=400&&!failure;i++){
+        input.value=String(T*i/400);input.dispatchEvent(new Event('input',{bubbles:true}));
+        const texts=window.vectorAudit.texts,overlaps=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+        const arrows=window.vectorAudit.arrows.map(points=>{const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);return{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};});
+        for(let j=0;j<texts.length;j++)if(arrows.some(b=>overlaps(texts[j],b))||texts.slice(j+1).some(b=>overlaps(texts[j],b))){failure={overlap:texts[j].text,time:input.value};break;}
+        const current=new Map(window.vectorAudit.texts.filter(q=>!/^\d|^m\/|^相對/.test(q.text)).map(q=>[q.text.replace(' = 0',''),{x:q.x+q.w/2,y:q.y}]));
+        for(const [id,pos] of current){const before=previous.get(id);if(before&&(Math.abs(pos.x-before.x)>.1||Math.abs(pos.y-before.y)>8)){failure={id,before,pos,time:input.value};break;}}
+        previous=current;
+      }
+      input.value=saved;input.dispatchEvent(new Event('input',{bubbles:true}));return failure;
+    });
+    assert.equal(failure,null,'整段動畫標示不得跳位：'+JSON.stringify(failure));
+  }
   try {
-    await page.goto(url); await page.locator('#readouts tr').first().waitFor();
+    await page.goto(url);
+    assert.equal(await page.locator('[data-scene="0"]').getAttribute('aria-pressed'),'true','預設進入相對運動入門');
+    assert.equal(await page.locator('.ra-evidence').isVisible(),false,'入門隱藏加速度表格');
+    await slider('#timeline',.7);
+    assert.match(await page.locator('#scene-note').innerText(),/拋物線/);
+    await page.locator('[data-observer="cart"]').click();
+    assert.equal(await page.locator('#time').innerText(),'0.70 s','換視角保留時間');
+    assert.match(await page.locator('#scene-note').innerText(),/同一直線/);
+    assert.match(await page.locator('#intro-readout').innerText(),/水平速度 0.0/);
+    await slider('#timeline',Number(await page.locator('#timeline').getAttribute('max')));
+    assert.match(await page.locator('#phase').innerText(),/落回手中/);
+    const introDir=process.env.SIM_SCREENSHOTS || '.agents';
+    for(const width of [390,1440]){
+      await page.setViewportSize({width,height:1100});await slider('#timeline',.7);
+      for(const frame of ['ground','cart']){
+        await page.locator(`[data-observer="${frame}"]`).click();
+        await page.screenshot({path:`${introDir}/intro-${frame}-${width}.png`,fullPage:true});
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+      }
+    }
+    await page.locator('[data-scene="1"]').click();await page.locator('#readouts tr').first().waitFor();
     await page.locator('#play').click();await page.waitForTimeout(180);await page.locator('#play').click();
     const paused=await page.locator('#time').innerText();assert.notEqual(paused,'0.00 s');await page.waitForTimeout(120);assert.equal(await page.locator('#time').innerText(),paused);
     await slider('#timeline',1);await page.locator('[data-observer="A"]').click();assert.equal(await page.locator('#time').innerText(),'1.00 s');
     assert.match(await page.locator('#readouts tr').first().innerText(),/\+9.80/);
+    assert.ok(await page.evaluate(()=>window.vectorAudit.texts.some(q=>q.text==='相對靜止')),'動畫物件旁標示相對靜止');
     await page.locator('#step').click();assert.equal(await page.locator('#time').innerText(),'1.10 s');
     await slider('#param-bv',-8);assert.equal(await page.locator('#time').innerText(),'0.00 s');assert.match(await page.locator('#insight-title').innerText(),/8.0 m\/s/);
+    assert.ok(await page.evaluate(()=>window.vectorAudit.texts.some(q=>q.text==='相對等速向下')),'動畫物件旁標示相對等速');
     for(const scene of [1,2,3]){
       await page.locator(`[data-scene="${scene}"]`).click();
       const inputs=page.locator('[data-param]');
@@ -131,6 +176,7 @@ async function browserChecks() {
         await page.locator(`[data-observer="${ref}"]`).click();assert.equal(await page.locator('[data-observer="'+ref+'"]').getAttribute('aria-pressed'),'true');
         const zeros=await page.locator('#readouts tr[data-observer="true"] td').allTextContents();assert.deepEqual(zeros.slice(1),['0.00','0.00','0.00']);
         await checkVectorLayout();
+        await checkLabelContinuity();
       }
       for(const id of ['show-v','show-a','show-trails']){await page.locator('#'+id).check();await page.locator('#'+id).uncheck();await page.locator('#'+id).check();}
       for(const value of await page.locator('#target option').evaluateAll(os=>os.map(o=>o.value)))await page.locator('#target').selectOption(value);
@@ -149,7 +195,7 @@ async function browserChecks() {
       if(!await page.locator('#jump-apex').isDisabled()){await page.locator('#jump-apex').click();assert.ok(await page.locator('#readouts tr').nth(2).innerText().then(v=>v.includes('0.00')));}
       for(const width of [390,1440]){
         await page.setViewportSize({width,height:1100});
-        for(const ref of ['ground','A','B']){await page.locator(`[data-observer="${ref}"]`).click();await checkVectorLayout();}
+        for(const ref of ['ground','A','B']){await page.locator(`[data-observer="${ref}"]`).click();await checkVectorLayout();await checkLabelContinuity();}
         await slider('#timeline',Number(await page.locator('#timeline').getAttribute('max')));await checkVectorLayout();
       }
     }
@@ -171,6 +217,7 @@ async function browserChecks() {
       assert.ok(later.floor<first.floor-20,'螺絲視角必須真的看到電梯地板向上移動');
       assert.ok(Math.abs(later.screw-first.screw)<.01,'螺絲圖示必須固定在螺絲觀察者畫面中');
       await checkVectorLayout();await page.screenshot({path:dir+`/screw-view-${direction}.png`,fullPage:true});
+      await checkLabelContinuity();
     }
     await page.locator('[data-scene="3"]').click();await slider('#timeline',1.3);await page.locator('[data-observer="lift"]').click();
     await page.screenshot({path:dir+'/relative-elevator.png',fullPage:true});

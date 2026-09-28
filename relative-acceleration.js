@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const M = window.RelativeAcceleration, $ = id => document.getElementById(id);
-  let scene = 1, observer = 'ground', target = 'A', t = 0, running = false, last = null;
+  let scene = 0, observer = 'ground', target = 'A', t = 0, running = false, last = null;
   const p = { ...M.defaults };
   const names = { ground: '地面', A: 'A 的視角', B: 'B 的視角', lift: '電梯內', screw: '螺絲的視角' };
   const specs = {
@@ -11,6 +11,8 @@
   };
   let frameRanges = {};
   let velocityScale = 2.2;
+  let labelPlanKey = '', labelPlan = new Map(), probingLabels = false;
+  const probeCanvas = document.createElement('canvas');
   const end = () => M.duration(scene, p);
   const signed = n => (Math.abs(n) < .005 ? '0.00' : (n > 0 ? '+' : '') + n.toFixed(2));
   function prepareRanges() {
@@ -35,6 +37,12 @@
     velocityScale = Math.min(scene === 3 ? 4 : 2.2, 85 / Math.max(1, maxSpeed));
   }
   function configure() {
+    document.querySelector('.ra-app').classList.toggle('ra-intro',scene===0);
+    $('intro-panel').hidden=scene!==0;
+    if(scene===0){
+      $('views').innerHTML='<button type="button" data-observer="ground" aria-pressed="true">地面視角</button><button type="button" data-observer="cart" aria-pressed="false">平台視角</button>';
+      reset();return;
+    }
     const s = M.state(scene, p, 0);
     $('views').innerHTML = Object.keys(s).map(key => `<button type="button" data-observer="${key}" aria-pressed="${observer === key}">${names[key]}</button>`).join('');
     $('target').innerHTML = Object.entries(s).map(([key, b]) => `<option value="${key}">${b.name}</option>`).join('');
@@ -44,7 +52,7 @@
     $('parameters').insertAdjacentHTML('beforeend', `<p class="ra-muted">${scene === 1 ? 'A 從 60 m 靜止釋放；B 同時從 45 m 開始自由落體。B 初速為 0 時，兩人互看靜止。' : scene === 2 ? 'A 由靜止釋放，B 同時從正下方地面上拋。以相遇或首次觸地為終點，球以質點處理。' : `電梯從離地 ${M.liftStartHeight(p)} m 處向${p.liftA>0?'上':'下'}運動；t = 1.00 s 螺絲從天花板脫落，以接觸電梯地板為終點。`}</p>`);
     reset();
   }
-  function reset() { running = false; last = null; t = 0; prepareRanges(); render(); }
+  function reset() { running = false; last = null; t = 0; if(scene!==0)prepareRanges(); render(); }
   function phase() {
     if (t >= end() - 1e-8) return scene === 1 ? '首次觸地｜碰前定格' : scene === 2 ? (M.ballEvent(p).kind === 'meet' ? '兩球相遇｜碰前定格' : 'B 先觸地，尚未相遇｜碰前定格') : '螺絲接觸電梯地板｜碰前定格';
     if (scene === 2) return Math.abs(t - p.launch / M.g) < 1e-8 ? 'B 到達最高點（地面視角）' : t < p.launch / M.g ? 'B 正在上升（地面視角）' : 'B 已開始下落，A 正在追上 B';
@@ -91,17 +99,21 @@
     const c = $(id), box = c.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
     const width = Math.max(1, box.width), height = Math.max(1, box.height);
     if (c.width !== Math.round(width * dpr) || c.height !== Math.round(height * dpr)) { c.width = Math.round(width * dpr); c.height = Math.round(height * dpr); }
-    const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
+    const ctx = (probingLabels ? probeCanvas : c).getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
     return { ctx, w: width, h: height };
   }
   function label(ctx, text, x, y, color = '#405a62', align = 'left', size = 12) {
     ctx.font = `600 ${size}px "Microsoft JhengHei", sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
     ctx.lineWidth = 4; ctx.strokeStyle = '#f3f7f8'; ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y);
   }
+  function motionWords(r) {
+    if(Math.abs(r.a)>1e-7)return '';
+    return Math.abs(r.v)<1e-7?'相對靜止':`相對等速向${r.v>0?'上':'下'}`;
+  }
   function arrow(ctx, x, y, value, scale, color, text, queue, obstacles, objectName) {
     const caption = `${objectName} ${text}`;
     if (Math.abs(value) < 1e-7) {
-      if(text==='a′')queue.push({text:`${caption} = 0\nm/s²`,x:x+32,y:y-24,color,size:14});
+      if(text==='a′')queue.push({text:`${caption} = 0\nm/s²`,x:x+56,y,color,size:15});
       return;
     }
     const length = Math.abs(value * scale), to = y - value * scale, dir = Math.sign(value);
@@ -113,33 +125,61 @@
     ctx.lineTo(x - halfHead, neck); ctx.lineTo(x, to); ctx.lineTo(x + halfHead, neck);
     ctx.lineTo(x + halfShaft, neck); ctx.lineTo(x + halfShaft, y); ctx.closePath(); ctx.fill(); ctx.restore();
     obstacles.push({ x: x - halfHead - 3, y: Math.min(y, to) - 3, w: halfHead * 2 + 6, h: length + 6 });
-    queue.push(text==='a′' ? {text:`${caption}\n${Math.abs(value).toFixed(1)} m/s²`,x:x+56,y:(y+to)/2,color,size:15} : { text: caption, x, y: y + dir * 19, color, size: 15 });
+    queue.push(text==='a′' ? {text:`${caption}\n${Math.abs(value).toFixed(1)} m/s²`,x:x+56,y,color,size:15} : { text: caption, x, y: y + 24, color, size: 15 });
+  }
+  const labelId = item => item.text.split('\n')[0].replace(' = 0', '');
+  const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  function plannedBox(item, plan, w, h) {
+    return {x:Math.max(48,Math.min(w-plan.w-8,(plan.fixed ? plan.x : item.x+plan.dx)-plan.w/2)),
+      y:Math.max(54,Math.min(h-66-plan.h,(plan.fixed ? plan.y : item.y+plan.dy)-plan.h/2)),w:plan.w,h:plan.h};
+  }
+  function prepareLabelPlan(ctx,w,h) {
+    const key=JSON.stringify([scene,observer,p,w,h,$('show-v').checked,$('show-a').checked]);
+    if(key===labelPlanKey)return;
+    const frames=[],items=new Map();
+    probingLabels=true;
+    try {
+      const times=Array.from({length:81},(_,i)=>end()*i/80);
+      if(scene===3)times.push(1-1e-6,1);
+      for(const time of times)frames.push(drawScene(M.state(scene,p,time)));
+    } finally {probingLabels=false;}
+    for(const frame of frames)for(const item of frame.queue){
+      const id=labelId(item),size=Math.max(14,item.size||14),lines=item.text.split('\n');
+      ctx.font=`600 ${size}px "Microsoft JhengHei", sans-serif`;
+      const old=items.get(id);
+      items.set(id,{w:Math.max(old?.w||0,...lines.map(line=>ctx.measureText(line).width+10)),h:Math.max(old?.h||0,size*1.3*lines.length+10)});
+    }
+    labelPlan=new Map();
+    for(const [id,dimensions] of items){
+      const samples=frames.map(frame=>({frame,item:frame.queue.find(q=>labelId(q)===id)})).filter(s=>s.item);
+      const candidates=[];
+      for(const dy of [0,-24,24,-48,48,-72,72,-96,96,-128,128])for(const dx of [0,-24,24,-48,48,-80,80,-120,120])candidates.push({...dimensions,dx,dy});
+      let chosen;
+      const clear=plan=>samples.every(({frame,item})=>{
+        const box=plannedBox(item,plan,w,h);
+        return !frame.obstacles.some(b=>overlaps(box,b))&&!frame.queue.some(q=>{
+          const other=labelPlan.get(labelId(q));return other&&overlaps(box,plannedBox(q,other,w,h));
+        });
+      });
+      chosen=candidates.find(clear);
+      // Tight layouts get one permanent callout position, never a per-frame search.
+      if(!chosen)for(let y=70;y<h-80&&!chosen;y+=20)for(let x=60;x<w-20;x+=24){
+        const plan={...dimensions,fixed:true,x,y};if(clear(plan)){chosen=plan;break;}
+      }
+      labelPlan.set(id,chosen||candidates[0]);
+    }
+    labelPlanKey=key;
   }
   function placeSceneLabels(ctx, queue, obstacles, w, h) {
-    const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    prepareLabelPlan(ctx,w,h);
     for (const item of queue) {
       const size = Math.max(14, item.size || 14);
       ctx.font = `600 ${size}px "Microsoft JhengHei", sans-serif`;
       const lines=item.text.split('\n'),lineHeight=size*1.3;
-      const width = Math.max(...lines.map(line=>ctx.measureText(line).width)) + 8, height = lineHeight*lines.length + 8;
-      let spot;
-      // Prefer a nearby clear position, accounting for all arrows and previously placed words.
-      for (const dy of [0, -22, 22, -44, 44, -66, 66, -88, 88]) {
-        for (const dx of [0, -24, 24, -48, 48]) {
-          const box = { x: Math.max(48, Math.min(w - width - 8, item.x + dx - width / 2)), y: item.y + dy - height / 2, w: width, h: height };
-          if (box.y < 54 || box.y + height > h - 66 || obstacles.some(b => overlaps(box, b))) continue;
-          spot = box; break;
-        }
-        if (spot) break;
-      }
-      if(!spot){
-        for(let y=58;y+height<h-66&&!spot;y+=12)for(let x=48;x+width<w-8;x+=12){
-          const box={x,y,w:width,h:height};if(!obstacles.some(b=>overlaps(box,b))){spot=box;break;}
-        }
-      }
-      if (!spot) continue;
-      obstacles.push(spot);
-      lines.forEach((line,i)=>label(ctx,line,spot.x+width/2,spot.y+4+lineHeight*(i+.5),item.color,'center',size));
+      const plan=labelPlan.get(labelId(item));
+      if(!plan)continue;
+      const spot=plannedBox(item,plan,w,h);
+      lines.forEach((line,i)=>label(ctx,line,spot.x+spot.w/2,spot.y+5+lineHeight*(i+.5),item.color,'center',size));
     }
   }
   function person(ctx, x, y, color, selected = false) {
@@ -208,19 +248,19 @@
       ctx.fillStyle='#e4eddf';ctx.fillRect(47,groundMarkerY,w-60,Math.max(0,h-groundMarkerY));
       ctx.strokeStyle='#75936e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(47,groundMarkerY);ctx.lineTo(w-13,groundMarkerY);ctx.stroke();
       tree(ctx,gx,groundMarkerY,observer==='ground');
-      queue.push({text:'地面／樹（位置示意）',x:gx+55,y:groundMarkerY-48,color:'#497158'});
+      queue.push({body:'ground',text:'地面／樹（位置示意）',x:gx+55,y:groundMarkerY-48,color:'#497158'});
       obstacles.push({x:gx-27,y:groundMarkerY-87,w:54,h:88});
     } else {
       ctx.fillStyle = '#dce5d5'; ctx.fillRect(47, floorY, w - 60, Math.max(0, h - floorY));
       ctx.strokeStyle = '#75936e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(47, floorY); ctx.lineTo(w - 13, floorY); ctx.stroke();
-      if(groundVisible){tree(ctx,gx,floorY,observer==='ground');queue.push({text:'地面／樹',x:gx,y:floorY+20,color:'#497158'});obstacles.push({x:gx-27,y:floorY-87,w:54,h:88});}
+      if(groundVisible){tree(ctx,gx,floorY,observer==='ground');queue.push({body:'ground',text:'地面／樹',x:gx,y:floorY+20,color:'#497158'});obstacles.push({x:gx-27,y:floorY-87,w:54,h:88});}
       else {
         const start=M.state(scene,p,0);
         const groundChange=(s.ground.y-o.y)-(start.ground.y-start[observer].y);
         const bandY=h-78-groundChange*1.5;
         ctx.fillStyle='#e4eddf';ctx.fillRect(47,bandY,w-60,h-bandY);
         ctx.strokeStyle='#aac49b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(47,bandY);ctx.lineTo(w-13,bandY);ctx.stroke();
-        queue.push({text:'地面示意',x:gx,y:h-95,color:'#497158'});
+        queue.push({body:'ground',text:'地面示意',x:gx,y:h-95,color:'#497158'});
       }
     }
     const X = fraction => 48 + (w - 64) * fraction;
@@ -241,7 +281,7 @@
       ctx.strokeStyle = '#a6b9bf'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo((left+right)/2, cy); ctx.lineTo((left+right)/2, -10); ctx.stroke();
       const personScale=Math.min(1,(cabinHeight-14)/58,cabinWidth*.46/42);
       ctx.save();ctx.translate(xs.lift,fy);ctx.scale(personScale,personScale);person(ctx,0,0,'#126c9a');ctx.restore();
-      queue.push({text: '電梯地板', x: xs.lift, y: fy + 20, color: '#126c9a'});
+      queue.push({body:'lift',text: '電梯地板', x: xs.lift, y: fy + 20, color: '#126c9a'});
       obstacles.push({x:xs.lift-21*personScale,y:fy-58*personScale,w:42*personScale,h:60*personScale});
     }
     for (const [key, b] of Object.entries(s)) {
@@ -254,7 +294,7 @@
       if (key === 'A' || key === 'B') {
         if (scene === 1) person(ctx, x, y, b.color, key===observer);
         else { ctx.save();if(key===observer){ctx.shadowColor=b.color;ctx.shadowBlur=22;}ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(x, y, key === 'A' ? 21 : 17, 0, 2*Math.PI); ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.stroke();ctx.restore(); }
-        queue.push({text: key, x: x + (scene === 2 ? (key === 'A' ? -34 : 34) : 0), y: y - (scene === 1 ? 72 : 0), color:b.color, size:18});
+        queue.push({body:key,text: key, x: x + (scene === 2 ? (key === 'A' ? -34 : 34) : 0), y: y - (scene === 1 ? 72 : 0), color:b.color, size:18});
         obstacles.push({x:x-23,y:y-(scene===1?59:23),w:46,h:scene===1?61:46});
       }
       if (key === 'screw') {
@@ -263,7 +303,7 @@
         const fraction=Math.max(0,Math.min(1,(b.y-s.lift.y)/p.cabin));
         const tipY=y+43*fraction;
         screw(ctx,x,tipY,key===observer);
-        queue.push({text:'螺絲', x:x+32, y:tipY-24, color:b.color,size:16});
+        queue.push({body:key,text:'螺絲', x:x+32, y:tipY-24, color:b.color,size:16});
         obstacles.push({x:x-17,y:tipY-44,w:34,h:47});
       }
       let vx = x - Math.max(25, (w-64)*.075), ax = x + Math.max(25, (w-64)*.075);
@@ -272,11 +312,16 @@
       if (scene === 3 && key === 'lift') { vx = cabinLeft-58; ax = cabinLeft-26; }
       if (scene === 3 && key === 'screw') { vx = cabinRight+26; ax = cabinRight+58; }
       if (key === 'ground') { vx = x - 38; ax = x + 38; }
-      const vectorY = key === 'ground' ? (scene===3 ? groundMarkerY-30 : groundVisible ? y-26 : h-180) : y;
+      const vectorY = key === 'ground' ? (scene===3 ? groundMarkerY-30 : Math.max(114,Math.min(h-180,y-26))) : y;
       const objectName = key === 'ground' ? '樹' : b.name;
       if ($('show-v').checked) arrow(ctx, vx, vectorY, r.v, velocityScale, '#126c9a', 'v′', queue, obstacles, objectName);
       if ($('show-a').checked) arrow(ctx, ax, vectorY, r.a, 4.6, '#bd6030', 'a′', queue, obstacles, objectName);
     }
+    for(const item of queue)if(item.body){
+      const words=motionWords(M.relative(s[item.body],o));
+      if(words){item.text+='\n'+words;item.size=14;}
+    }
+    if(probingLabels)return {queue,obstacles};
     placeSceneLabels(ctx, queue, obstacles, w, h);
   }
   function drawChart() {
@@ -296,7 +341,58 @@
     const s=M.state(scene,p,t);ctx.fillStyle=s[target].color;ctx.beginPath();ctx.arc(X(t),Y(s[target].v-s[observer].v),4,0,Math.PI*2);ctx.fill();
     if(scene===3)label(ctx,'脫落',X(1),13,'#bd6030','center',10);
   }
+  function renderIntro() {
+    const onCart=observer==='cart',s=M.cartState(t,observer),T=end();
+    $('play').textContent=running?'暫停':t>=T-1e-8?'重新播放':t===0?'開始':'繼續';
+    $('step').disabled=t>=T-1e-8;
+    $('time').textContent=t.toFixed(2)+' s';$('timeline').max=T;$('timeline').value=t;
+    $('end-time').textContent=`接回球 ${T.toFixed(2)} s`;
+    $('view-title').textContent=onCart?'平台上的觀察者':'地面觀察者';
+    $('phase').textContent=t===0?'準備從手中上拋':t>=T-1e-8?'球落回手中':t<7/M.g?'球正在上升':'球正在下降';
+    document.querySelectorAll('#views [data-observer]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.observer===observer)));
+    $('scale-note').textContent='｜ 相對運動入門：比較軌跡';
+    $('scene-note').textContent=onCart?'平台視角：球沿同一直線上升、下降，落回手中。':'地面視角：球與平台一起向右，球沿拋物線落回手中。';
+    $('intro-readout').textContent=`此視角的球：水平速度 ${s.vx.toFixed(1)} m/s；鉛直速度 ${signed(s.vy)} m/s。`;
+    const {ctx,w,h}=canvas('scene-canvas');
+    const scale=Math.min((w-125)/(3*T),(h-280)/3.5),deckY=h-170,handY=deckY-43;
+    const origin=onCart?w*.53:(w-3*T*scale)/2;
+    const X=x=>origin+x*scale,Y=y=>handY-y*scale;
+    ctx.fillStyle='#eef6f8';ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='#dfead9';ctx.fillRect(0,deckY+29,w,h-deckY-29);
+    ctx.strokeStyle='#9cb692';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,deckY+29);ctx.lineTo(w,deckY+29);ctx.stroke();
+    // Ground landmarks move left in the cart frame; the world frame stays fixed.
+    const offset=onCart?-3*t:0;
+    for(let x=-10;x<=18;x+=2){const px=X(x+offset);if(px<10||px>w-10)continue;
+      ctx.strokeStyle='#abc1ad';ctx.beginPath();ctx.moveTo(px,deckY+30);ctx.lineTo(px,deckY+40);ctx.stroke();
+      label(ctx,`${x} m`,px,deckY+54,'#587561','center',12);
+    }
+    label(ctx,onCart?'鉛直軌跡':'拋物線軌跡',w/2,70,'#126c9a','center',20);
+    label(ctx,onCart?'球相對平台的水平速度為 0':'球保留平台向右的水平速度',w/2,101,'#526971','center',w<450?13:15);
+    function path(until,color,width){
+      ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash([7,7]);ctx.lineCap='round';ctx.beginPath();
+      for(let i=0;i<=100;i++){const q=M.cartState(until*i/100,observer);if(i===0)ctx.moveTo(X(q.x),Y(q.y));else ctx.lineTo(X(q.x),Y(q.y));}
+      ctx.stroke();ctx.setLineDash([]);
+    }
+    path(T,'#9eb9c6',3);if(t>0)path(t,'#bd6030',3);
+    const cx=X(s.cartX),carWidth=Math.min(104,w*.22);
+    ctx.fillStyle='#126c9a';ctx.fillRect(cx-carWidth/2,deckY,carWidth,9);
+    for(const side of [-1,1]){ctx.fillStyle='#43565d';ctx.beginPath();ctx.arc(cx+side*carWidth*.32,deckY+18,10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e6edf0';ctx.beginPath();ctx.arc(cx+side*carWidth*.32,deckY+18,4,0,Math.PI*2);ctx.fill();}
+    // A dedicated two-arm pose: left arm rests, right palm releases/catches the ball.
+    ctx.save();ctx.translate(cx,deckY);
+    if(onCart){ctx.shadowColor='#126c9a';ctx.shadowBlur=12;}
+    ctx.fillStyle='#126c9a';ctx.strokeStyle='#126c9a';ctx.lineWidth=6;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.arc(-25,-48,9,0,2*Math.PI);ctx.fill();
+    ctx.beginPath();ctx.moveTo(-25,-37);ctx.lineTo(-25,-17);
+    ctx.moveTo(-37,0);ctx.lineTo(-25,-17);ctx.lineTo(-13,0);
+    ctx.moveTo(-25,-32);ctx.lineTo(-40,-23);
+    ctx.moveTo(-25,-32);ctx.lineTo(-12,-22);ctx.lineTo(0,-31);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-4,-31);ctx.lineTo(4,-31);ctx.stroke();ctx.restore();
+    ctx.fillStyle='#c96732';ctx.beginPath();ctx.arc(X(s.x),Y(s.y),12,0,2*Math.PI);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+    label(ctx,onCart?'人與平台：相對靜止':'人與平台：等速向右 →',Math.max(95,Math.min(w-95,cx)),deckY+77,'#126c9a','center',14);
+    label(ctx,onCart?'地面：相對等速向左 ←':'地面：相對靜止',w/2,deckY+105,'#497158','center',14);
+  }
   function render() {
+    if(scene===0){renderIntro();return;}
     const s = M.state(scene, p, t);
     $('play').textContent = running ? '暫停' : t >= end()-1e-8 ? '重新播放' : t === 0 ? '開始' : '繼續';
     $('step').disabled = t >= end()-1e-8;
@@ -305,7 +401,7 @@
     $('phase').textContent = phase(); $('view-title').textContent = observer==='ground' ? '地面觀察者' : observer==='lift' ? '電梯內觀察者' : `${s[observer].name}的視角`;
     $('table-frame').textContent = `相對於${s[observer].name}`;
     document.querySelectorAll('#views [data-observer]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.observer===observer)));
-    $('readouts').innerHTML = Object.entries(s).map(([key,b])=>{const r=M.relative(b,s[observer]);return `<tr data-observer="${key===observer}"><td style="color:${b.color}">${b.name}${key===observer?' ◉':''}</td><td>${signed(r.y)}</td><td>${signed(r.v)}</td><td>${signed(r.a)}</td></tr>`;}).join('');
+    $('readouts').innerHTML = Object.entries(s).map(([key,b])=>{const r=M.relative(b,s[observer]),motion=motionWords(r);return `<tr data-observer="${key===observer}"><td style="color:${b.color}">${b.name}${key===observer?' ◉':''}${motion?`<small class="ra-motion-word">${motion}</small>`:''}</td><td>${signed(r.y)}</td><td>${signed(r.v)}</td><td>${signed(r.a)}</td></tr>`;}).join('');
     explain(s); drawScene(s); drawChart();
   }
   document.querySelectorAll('[data-scene]').forEach(b=>b.addEventListener('click',()=>{

@@ -31,7 +31,22 @@ html[data-physics-page="相對加速度"] .ra-app{width:100%}
 @media(max-width:1100px){.ra-workspace{grid-template-columns:1fr}.ra-panel,.ra-wide .ra-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px}.ra-panel section+section{margin:0;padding:0;border:0}}
 @media(max-width:600px){.ra-app{padding:16px 8px}.ra-panel,.ra-wide .ra-panel{grid-template-columns:1fr}.ra-canvas-wrap{min-height:580px}.ra-wide .ra-canvas-wrap{min-height:740px}}
 .ra-lift-modes{display:flex;gap:8px;flex-wrap:wrap}
+.ra-motion-word{display:block;margin-top:5px;font-size:13px;font-weight:700;color:#087b75}
+.ra-scenes{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ra-intro .ra-panel>section:not(#intro-panel),.ra-intro .ra-evidence,.ra-intro .ra-footer{display:none}
+.ra-intro .ra-panel{display:block}
+#intro-panel p{font-size:15px;line-height:1.8}
+#intro-panel h2:not(:first-child){margin-top:20px}
+#intro-panel .ra-formula{font-size:17px;line-height:1.8}
+@media(max-width:760px){.ra-scenes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .ra-lift-modes button[aria-pressed=true]{background:#087b75;color:white;border-color:#087b75}
+
+/* Keep the animation scale independent of changing explanatory text beside it. */
+.ra-canvas-wrap{flex:0 0 auto;height:680px}
+.ra-intro .ra-canvas-wrap{min-height:600px;height:600px}
+.ra-wide .ra-canvas-wrap{height:740px}
+@media(max-width:600px){.ra-canvas-wrap{height:580px}.ra-wide .ra-canvas-wrap{height:740px}}
+@media(max-width:600px){.ra-intro .ra-canvas-wrap{min-height:480px;height:480px}.ra-intro.ra-wide .ra-canvas-wrap{min-height:740px;height:740px}}
 #views{gap:10px}
 #views button{min-height:54px;min-width:110px;padding:12px 20px;font-size:18px;font-weight:700;border-radius:10px}
 .ra-viewbar>span{font-size:15px;font-weight:600}

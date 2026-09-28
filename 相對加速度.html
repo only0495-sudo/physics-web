@@ -6,17 +6,18 @@
   <script src="classroom-device.js"></script>
   <title>相對加速度｜換個觀察者，看見不同的運動</title>
   <link rel="stylesheet" href="classroom-shell.css">
-  <link rel="stylesheet" href="relative-acceleration.css">
+  <link rel="stylesheet" href="relative-acceleration.css?v=20260928-object-words">
   <script src="classroom-data.js" defer></script>
   <script src="classroom-shell.js" defer></script>
-  <script src="relative-acceleration-model.js" defer></script>
-  <script src="relative-acceleration.js" defer></script>
+  <script src="relative-acceleration-model.js?v=20260928-cart" defer></script>
+  <script src="relative-acceleration.js?v=20260928-object-words" defer></script>
 </head>
 <body>
 <main class="ra-app">
   <header class="ra-header"><div><p class="ra-eyebrow">力學實驗室 ／ 觀察者與參考系</p><h1>相對加速度<span>換個位置，看同一段運動。</span></h1></div><a href="index.html">返回實驗室 ↗</a></header>
   <nav class="ra-scenes" aria-label="選擇情境">
-    <button type="button" data-scene="1" aria-pressed="true"><span>01</span><div><strong>兩人自由落體</strong><small>一起下落，彼此怎麼動？</small></div></button>
+    <button type="button" data-scene="0" aria-pressed="true"><span>入門</span><div><strong>平台車上拋球</strong><small>同一顆球，兩種軌跡。</small></div></button>
+    <button type="button" data-scene="1" aria-pressed="false"><span>01</span><div><strong>兩人自由落體</strong><small>一起下落，彼此怎麼動？</small></div></button>
     <button type="button" data-scene="2" aria-pressed="false"><span>02</span><div><strong>落下與上拋的球</strong><small>方向不同，加速度相同。</small></div></button>
     <button type="button" data-scene="3" aria-pressed="false"><span>03</span><div><strong>加速電梯與螺絲</strong><small>換個視角，落下有多快？</small></div></button>
   </nav>
@@ -29,6 +30,7 @@
       <div class="ra-canvas-wrap"><canvas id="scene-canvas" aria-label="相對運動動畫，詳細數值列於下方表格"></canvas><div class="ra-canvas-note">↑ 鉛直向上為正　<span id="scale-note"></span></div><div id="scene-note" class="ra-scene-note"></div></div>
     </section>
     <aside class="ra-panel">
+      <section id="intro-panel" hidden><p class="ra-eyebrow">相對運動入門 ／ 先看軌跡</p><h2>球會落回誰的手上？</h2><p>平台車由左向右等速行駛，車上的人將球相對自己鉛直上拋。球離手後保留平台的水平速度，最後落回同一人的手中。</p><h2>切換觀察者</h2><p><strong>地面：</strong>球同時向右與上下運動，呈拋物線。</p><p><strong>平台：</strong>球沒有相對水平速度，沿鉛直線上升再下降。</p><h2>固定條件</h2><p>平台速度向右 3 m/s<br>上拋初速度向上 7 m/s<br>忽略空氣阻力，g = 9.8 m/s²</p><p class="ra-muted">淡色虛線：完整預測軌跡<br>橘色虛線：已走過的軌跡<br>切換視角保留同一時刻，可暫停比較。</p><div class="ra-formula">v<sub>x，相對</sub> = v<sub>x，球</sub> − v<sub>x，平台</sub><br>3 − 3 = 0 m/s</div><p id="intro-readout" class="ra-muted"></p></section>
       <section><p class="ra-eyebrow">先選觀察者，再比較</p><h2>同一條相對運動公式</h2><div class="ra-formula">a<sub>相對</sub> = a<sub>物體</sub> − a<sub>觀察者</sub></div><p class="ra-muted">y′ = y − y<sub>觀察者</sub>　v′ = v − v<sub>觀察者</sub><br>座標軸不旋轉；畫面與數值同步換到所選參考系。</p></section>
       <section><h2>實驗設定</h2><div id="parameters"></div><p class="ra-muted">調整初始條件會重設時間。忽略空氣阻力，g = 9.8 m/s²。</p></section>
       <section><h2>畫面標示</h2><div class="ra-toggles"><label><input id="show-v" type="checkbox" checked> 速度箭頭 <i class="ra-v"></i></label><label><input id="show-a" type="checkbox" checked> 加速度箭頭 <i class="ra-a"></i></label><label><input id="show-trails" type="checkbox"> 等時間殘影</label></div><p class="ra-muted">箭頭表示所選視角的 v′、a′；兩種物理量各自使用固定比例尺。殘影每隔 0.2 s，使用同一參考系的歷史位置。</p></section>

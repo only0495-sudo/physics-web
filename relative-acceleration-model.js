@@ -21,6 +21,7 @@
     return { time, apex, meet, kind, phase };
   }
   function duration(scene, p) {
+    if (scene === 0) return 14 / g;
     if (scene === 1) return Math.min(hit(60, 0), hit(45, p.bv));
     if (scene === 2) return ballEvent(p).time;
     return 1 + Math.sqrt(2 * p.cabin / (g + p.liftA));
@@ -36,7 +37,12 @@
     return { ground, lift, screw: { ...screw, name: '螺絲', color: '#bd6030' } };
   }
   function relative(body, observer) { return { y: body.y - observer.y, v: body.v - observer.v, a: body.a - observer.a }; }
-  const api = { g, defaults, ballPresets, ballEvent, duration, liftStartHeight, state, relative };
+  // Coordinates measured from the release point; the cart has constant velocity.
+  function cartState(t, frame = 'ground') {
+    const x = frame === 'cart' ? 0 : 3*t;
+    return {x, y:7*t-.5*g*t*t, vx:frame === 'cart'?0:3, vy:7-g*t, cartX:x};
+  }
+  const api = { g, defaults, ballPresets, ballEvent, duration, liftStartHeight, state, relative, cartState };
   root.RelativeAcceleration = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

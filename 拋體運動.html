@@ -157,6 +157,17 @@
       backdrop-filter: blur(18px);
     }
 
+    .stage-column { min-width: 0; }
+    .velocity-charts { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+    .velocity-charts.two-components { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .velocity-chart { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+    .velocity-chart[hidden] { display: none; }
+    .velocity-chart h2 { margin: 0 0 6px; color: var(--ink); font-size: 0.86rem; }
+    .velocity-chart p { margin: 0; color: var(--muted); font-size: 0.75rem; }
+    .velocity-chart svg { display: block; width: 100%; max-height: 300px; }
+    #velocity-charts svg text { stroke: none; }
+    @media (max-width: 720px) { .velocity-charts.two-components { grid-template-columns: 1fr; } }
+
     .stage-card {
       position: relative;
       align-self: start;
@@ -210,9 +221,8 @@
       bottom: 62px;
       width: 43%;
       padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: #091c30;
+      border: none;
+      background: transparent;
       display: flex;
       flex-direction: column;
     }
@@ -600,6 +610,7 @@
     </nav>
 
     <section class="workspace">
+      <div class="stage-column">
       <div class="stage-card">
         <div class="stage-transport" aria-label="動畫播放控制">
           <button class="transport-button primary" id="play-button" type="button">開始</button>
@@ -640,6 +651,20 @@
         </section>
       </div>
 
+      <section class="velocity-charts" id="velocity-charts" aria-label="速度與時間圖，隨動畫逐步描繪">
+        <article class="velocity-chart" id="velocity-x-chart" hidden>
+          <h2>水平速度 vₓ–t 圖</h2>
+          <svg id="velocity-x-plot" viewBox="0 0 440 280" role="img" aria-label="水平速度與時間圖"></svg>
+          <p id="velocity-x-value"></p>
+        </article>
+        <article class="velocity-chart">
+          <h2>鉛直速度 vᵧ–t 圖</h2>
+          <svg id="velocity-y-plot" viewBox="0 0 440 280" role="img" aria-label="鉛直速度與時間圖"></svg>
+          <p id="velocity-y-value"></p>
+        </article>
+      </section>
+      </div>
+
       <aside class="side-stack">
         <section class="control-card" aria-labelledby="parameter-title">
           <h2 class="panel-title" id="parameter-title">條件設定 <small>僅 g 固定 · 時間由條件決定</small></h2>
@@ -658,6 +683,15 @@
           <div class="parameter" id="vertical-parameter" hidden>
             <div class="parameter-head"><label for="vertical-speed">鉛直初速 v₀ᵧ</label><output id="vertical-speed-output">25 m/s</output></div>
             <input id="vertical-speed" type="range" min="2" max="40" step="0.5" value="25">
+          </div>
+          <div class="parameter" id="height-comparison-parameter" hidden>
+            <label class="vector-switch" style="--switch-color: var(--yellow)"><input id="height-comparison" type="checkbox">同高度比較：記錄速度與時間</label>
+            <div id="height-comparison-controls" hidden>
+              <div class="parameter-head" style="margin-top: 12px"><label for="comparison-height">虛線高度 y</label><output id="comparison-height-output"></output></div>
+              <input id="comparison-height" type="range" min="1" max="100" step="1" value="64" aria-describedby="comparison-help">
+              <p class="model-note" id="comparison-help">直接上下拖曳黃色虛線或右端 ↕ 把手，也可使用高度滑桿。經過虛線時留下紀錄；重設或調整高度後重新記錄，拖曳時間軸則顯示該時刻之前的紀錄。</p>
+              <p class="model-note" id="comparison-record" role="status"></p>
+            </div>
           </div>
           <div class="parameter" id="launch-speed-parameter" hidden>
             <div class="parameter-head"><label for="launch-speed">斜拋初速 v₀</label><output id="launch-speed-output">35.36 m/s</output></div>
@@ -691,7 +725,7 @@
         <section class="info-card" aria-labelledby="formula-title">
           <h2 class="panel-title" id="formula-title">此模式的運動方程</h2>
           <p class="formula" id="formula-copy"><b>y(t)</b> = 125 − 5t²<br><b>vᵧ(t)</b> = −10t</p>
-          <p class="model-note">SI 單位；水平向右為 +x，鉛直向上為 +y。箭頭長度依數值成比例變化，向量標籤顯示實際大小。</p>
+          <p class="model-note">SI 單位；水平向右為 +x，鉛直向上為 +y。平拋、斜拋的兩軸分別縮放以放大軌跡，畫面角度與箭頭長度不代表實際角度及大小，請以設定值、刻度與向量數值為準。</p>
         </section>
       </aside>
     </section>
@@ -761,6 +795,9 @@
       const heightOutput = document.getElementById("height-output");
       const horizontalParameter = document.getElementById("horizontal-parameter");
       const verticalParameter = document.getElementById("vertical-parameter");
+      const comparisonToggle = document.getElementById("height-comparison");
+      const comparisonHeight = document.getElementById("comparison-height");
+      const comparisonRecord = document.getElementById("comparison-record");
       const launchSpeedParameter = document.getElementById("launch-speed-parameter");
       const angleParameter = document.getElementById("angle-parameter");
       const horizontalSpeed = document.getElementById("horizontal-speed");
@@ -873,18 +910,20 @@
           const span = Math.max(8, peak * 1.25);
           return { minX: -span * 0.18, maxX: span * 0.18, minY: -span * 0.1, maxY: span, gridStep: niceGridStep(span) };
         }
-        if (mode === "horizontal") {
-          const height = modeSettings.horizontal.height;
-          const maximumFlightTime = Math.sqrt(2 * height / G);
-          const maximumRange = Number(horizontalSpeed.max) * maximumFlightTime;
-          return envelopeBounds(maximumRange, height);
-        }
-        if (mode === "oblique") {
-          const height = modeSettings.oblique.height;
-          const maximumSpeed = Number(launchSpeed.max);
-          const maximumRange = maximumSpeed / G * Math.sqrt(maximumSpeed * maximumSpeed + 2 * G * height);
-          const maximumHeight = height + maximumSpeed * maximumSpeed / (2 * G);
-          return envelopeBounds(maximumRange, maximumHeight);
+        if (mode === "horizontal" || mode === "oblique") {
+          const height = modeSettings[mode].height;
+          // Keep the view fixed while speed or angle changes, using the full speed range.
+          const maximumSpeed = Number(mode === "horizontal" ? horizontalSpeed.max : launchSpeed.max);
+          const range = mode === "horizontal"
+            ? maximumSpeed * Math.sqrt(2 * height / G)
+            : maximumSpeed / G * Math.sqrt(maximumSpeed * maximumSpeed + 2 * G * height);
+          const peak = mode === "horizontal" ? height : height + maximumSpeed * maximumSpeed / (2 * G);
+          const bounds = envelopeBounds(range, peak);
+          // Fit the fixed envelope to the available space with modest margins.
+          const padX = Math.max(1, range * 0.08);
+          const padY = Math.max(1, peak * 0.12);
+          return { ...bounds, minX: -padX, maxX: range + padX, minY: -padY, maxY: peak + padY,
+            gridStepX: niceGridStep(Math.max(1, range)), gridStepY: niceGridStep(Math.max(1, peak)) };
         }
         return MODE_VIEW_BOUNDS[mode];
       }
@@ -903,18 +942,22 @@
         const plotWidth = Math.max(1, canvasSize.width - pad.left - pad.right);
         const plotHeight = Math.max(1, canvasSize.height - pad.top - pad.bottom);
         const scale = Math.min(plotWidth / (bounds.maxX - bounds.minX), plotHeight / (bounds.maxY - bounds.minY));
-        const usedWidth = (bounds.maxX - bounds.minX) * scale;
-        const usedHeight = (bounds.maxY - bounds.minY) * scale;
         const alignToLeft = mode === "horizontal" || mode === "oblique";
+        const scaleX = alignToLeft ? plotWidth / (bounds.maxX - bounds.minX) : scale;
+        const scaleY = alignToLeft ? plotHeight / (bounds.maxY - bounds.minY) : scale;
+        const usedWidth = (bounds.maxX - bounds.minX) * scaleX;
+        const usedHeight = (bounds.maxY - bounds.minY) * scaleY;
         const horizontalGap = alignToLeft ? 0 : (plotWidth - usedWidth) / 2;
-        const offsetX = pad.left + horizontalGap - bounds.minX * scale;
-        const offsetY = pad.top + (plotHeight - usedHeight) / 2 + bounds.maxY * scale;
+        const offsetX = pad.left + horizontalGap - bounds.minX * scaleX;
+        const offsetY = pad.top + (plotHeight - usedHeight) / 2 + bounds.maxY * scaleY;
         return {
           scale,
           bounds,
           gridStep: bounds.gridStep,
-          x: worldX => offsetX + worldX * scale,
-          y: worldY => offsetY - worldY * scale
+          gridStepX: bounds.gridStepX || bounds.gridStep,
+          gridStepY: bounds.gridStepY || bounds.gridStep,
+          x: worldX => offsetX + worldX * scaleX,
+          y: worldY => offsetY - worldY * scaleY
         };
       }
 
@@ -1025,7 +1068,8 @@
 
       function drawGrid(transform) {
         const bounds = transform.bounds;
-        const step = transform.gridStep;
+        const step = transform.gridStepY;
+        const gridRight = mode === "vertical" && canvasSize.width >= 760 ? canvasSize.width * 0.57 - 28 : canvasSize.width - 28;
 
         ctx.save();
         ctx.strokeStyle = COLORS.grid;
@@ -1038,35 +1082,41 @@
           const py = transform.y(y);
           ctx.beginPath();
           ctx.moveTo(44, py);
-          ctx.lineTo(canvasSize.width - 28, py);
+          ctx.lineTo(gridRight, py);
           ctx.stroke();
           ctx.fillText(`${formatScaleValue(y)} m`, 40, py);
         }
 
         ctx.globalAlpha = 0.55;
-        for (let x = Math.ceil(bounds.minX / step) * step; x <= bounds.maxX + 1e-8; x += step) {
+        for (let x = Math.ceil(bounds.minX / transform.gridStepX) * transform.gridStepX; x <= bounds.maxX + 1e-8; x += transform.gridStepX) {
           const px = transform.x(x);
+          if (px > gridRight) continue;
           ctx.beginPath();
           ctx.moveTo(px, 42);
           ctx.lineTo(px, canvasSize.height - 36);
           ctx.stroke();
+          if (mode === "horizontal" || mode === "oblique") {
+            ctx.textAlign = "center";
+            ctx.fillText(`${formatScaleValue(x)} m`, px, transform.y(0) + 23);
+          }
         }
         ctx.restore();
       }
 
       function drawGround(transform) {
         const y = transform.y(0);
+        const groundRight = mode === "vertical" && canvasSize.width >= 760 ? canvasSize.width * 0.57 - 28 : canvasSize.width - 25;
         ctx.save();
         ctx.strokeStyle = COLORS.ground;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(32, y);
-        ctx.lineTo(canvasSize.width - 25, y);
+        ctx.lineTo(groundRight, y);
         ctx.stroke();
 
         ctx.strokeStyle = "rgba(73, 101, 124, 0.48)";
         ctx.lineWidth = 1;
-        for (let x = 36; x < canvasSize.width - 24; x += 16) {
+        for (let x = 36; x < groundRight; x += 16) {
           ctx.beginPath();
           ctx.moveTo(x, y + 1);
           ctx.lineTo(x - 9, y + 10);
@@ -1075,7 +1125,7 @@
         ctx.fillStyle = "#7892a9";
         ctx.font = "700 10px Inter, sans-serif";
         ctx.textAlign = "right";
-        ctx.fillText("地面 y = 0", canvasSize.width - 28, y - 9);
+        ctx.fillText("地面 y = 0", groundRight - 3, y - 9);
         ctx.restore();
       }
 
@@ -1175,19 +1225,78 @@
         }
       }
 
+      function drawHeightComparison(transform) {
+        if (mode !== "vertical" || !comparisonToggle.checked) return;
+        const { height, verticalSpeed: v0 } = modeSettings.vertical;
+        const fraction = Number(comparisonHeight.value) / 100;
+        const level = height + fraction * v0 * v0 / (2 * G);
+        const speed = v0 * Math.sqrt(1 - fraction);
+        // Analytic crossings avoid skipping a measurement between animation frames.
+        const upTime = (v0 - speed) / G;
+        const downTime = (v0 + speed) / G;
+        const up = time + 1e-8 >= upTime;
+        const down = time + 1e-8 >= downTime;
+        const upText = up ? `上升：${upTime.toFixed(2)} s，vᵧ = +${speed.toFixed(2)} m/s` : "上升：等待經過";
+        const downText = down ? `下降：${downTime.toFixed(2)} s，vᵧ = −${speed.toFixed(2)} m/s` : "下降：等待經過";
+        const atPeak = fraction === 1;
+        const midpointNote = height === 0 ? "全程時間中點" : "往返拋出高度的時間中點";
+        const summary = atPeak
+          ? (up ? `最高點：${upTime.toFixed(2)} s，vᵧ = 0 m/s。上升、下降紀錄重合；此為${midpointNote}（往返 ${(2 * v0 / G).toFixed(2)} s）。` : "最高點：等待到達，速度將為 0 m/s。")
+          : `${upText}；${downText}${down ? `。距最高點各 ${(speed / G).toFixed(2)} s，速率相等、方向相反。` : "。"}`;
+        if (comparisonRecord.textContent !== summary) comparisonRecord.textContent = summary;
+        document.getElementById("comparison-height-output").textContent = `${level.toFixed(2)} m`;
+        comparisonHeight.setAttribute("aria-valuetext", `${level.toFixed(2)} 公尺`);
+        const left = 52;
+        const right = canvasSize.width >= 760 ? canvasSize.width * 0.57 - 28 : canvasSize.width - 18;
+        const y = transform.y(level);
+        ctx.save();
+        ctx.strokeStyle = "#ffd166";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+        ctx.stroke();
+        ctx.restore();
+        roundedLabel("↕", right - 5, y, { color: "#ffd166", border: "#ffd166", font: "bold 18px sans-serif" });
+        const font = "700 14px Inter, sans-serif";
+        const labelRight = transform.x(0) - 32;
+        const drawComparisonLabel = (text, direction, color) => {
+          ctx.save();
+          ctx.font = font;
+          const lines = ctx.measureText(text).width + 14 > labelRight - 5 ? text.split("，").map(line => line.replace("vᵧ = ", "vᵧ=")) : [text];
+          lines.forEach((line, index) => {
+            const width = ctx.measureText(line).width + 14;
+            const row = direction < 0 ? lines.length - 1 - index : index;
+            roundedLabel(line, labelRight - width / 2, y + direction * (19 + row * 25), { color, font });
+          });
+          ctx.restore();
+        };
+        if (atPeak) {
+          drawComparisonLabel(up ? `最高點：${upTime.toFixed(2)} s，vᵧ = 0 m/s` : "最高點：等待到達", -1, "#ffd166");
+          drawComparisonLabel(up ? (height === 0 ? "全程時間中點" : "往返時間中點") : "上升、下降在此重合", 1, "#ffd166");
+        } else {
+          drawComparisonLabel(upText, -1, "#52e1a1");
+          drawComparisonLabel(downText, 1, "#ff5c87");
+        }
+      }
+
       function draw() {
         if (!canvasSize.width || !canvasSize.height) return;
         ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
         occupiedLabelRects = [];
         vectorArrowQueue = [];
         const transform = getTransform();
-        const scalePrefix = mode === "vertical" ? "依上拋高度縮放" : mode === "horizontal" || mode === "oblique" ? "最高初速視野" : "固定比例尺";
-        scaleDisplay.textContent = `${scalePrefix}：每格 ${formatScaleValue(transform.gridStep)} m`;
+        const scalePrefix = mode === "vertical" ? "依上拋高度縮放" : "固定比例尺";
+        scaleDisplay.textContent = mode === "horizontal" || mode === "oblique"
+          ? `最高初速固定視野｜橫格 ${formatScaleValue(transform.gridStepX)} m · 縱格 ${formatScaleValue(transform.gridStepY)} m`
+          : `${scalePrefix}：每格 ${formatScaleValue(transform.gridStep)} m`;
         const point = physicsAt(time);
         drawGrid(transform);
         drawGround(transform);
         drawPredictedTrajectory(transform);
         drawGhosts(transform);
+        drawHeightComparison(transform);
         drawVectors(point);
         drawQueuedVectorLabels();
         drawProjectile(transform, point);
@@ -1213,6 +1322,64 @@
       function render() {
         updateReadout();
         draw();
+        drawVelocityCharts();
+      }
+
+      const velocityChartScales = {};
+
+      function setupVelocityCharts() {
+        const twoComponents = mode === "horizontal" || mode === "oblique";
+        document.getElementById("velocity-x-chart").hidden = !twoComponents;
+        document.getElementById("velocity-charts").classList.toggle("two-components", twoComponents);
+        const duration = landingTime();
+        const initial = initialVelocity();
+        for (const axis of ["x", "y"]) {
+          const start = axis === "x" ? initial.vx : initial.vy;
+          const end = axis === "x" ? initial.vx : initial.vy - G * duration;
+          const low = Math.min(0, start, end);
+          const high = Math.max(0, start, end);
+          const target = Math.max(2, high - low) / 5;
+          const magnitude = 10 ** Math.floor(Math.log10(target));
+          const step = [1, 2, 5, 10].find(n => n * magnitude >= target) * magnitude;
+          const min = Math.floor(low / step) * step - step;
+          const max = Math.ceil(high / step) * step + step;
+          const x = t => 62 + t / duration * 352;
+          const y = v => 230 - (v - min) / (max - min) * 194;
+          velocityChartScales[axis] = { x, y, start };
+          let svg = `<text x="16" y="20" fill="#afc6dc" font-size="14">v${axis === "x" ? "ₓ" : "ᵧ"}（m/s）</text>`;
+          for (let i = 0; i <= 5; i++) {
+            const t = duration * i / 5;
+            const px = x(t);
+            svg += `<path d="M ${px} 36 V 230" stroke="#29415a"/><text x="${px}" y="252" text-anchor="middle" fill="#afc6dc" font-size="13">${formatScaleValue(t)}</text>`;
+          }
+          for (let v = min; v <= max + step / 100; v += step) {
+            const py = y(v);
+            svg += `<path d="M 62 ${py} H 414" stroke="${Math.abs(v) < step / 100 ? "#a1bad1" : "#29415a"}"/><text x="54" y="${py + 4}" text-anchor="end" fill="#afc6dc" font-size="13">${formatScaleValue(v)}</text>`;
+          }
+          const color = axis === "x" ? "#38d9f2" : "#ff5c87";
+          svg += `<path d="M 62 36 V 230 H 414" fill="none" stroke="#a1bad1"/><text x="414" y="275" text-anchor="end" fill="#afc6dc" font-size="14">時間 t（s）</text>
+            <path id="velocity-${axis}-trace" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+            <circle id="velocity-${axis}-point" r="5" fill="${color}"/>`;
+          document.getElementById(`velocity-${axis}-plot`).innerHTML = svg;
+        }
+      }
+
+      function drawVelocityCharts() {
+        const point = physicsAt(time);
+        for (const axis of ["x", "y"]) {
+          const scale = velocityChartScales[axis];
+          if (!scale) continue;
+          const velocity = axis === "x" ? point.vx : point.vy;
+          const x = scale.x(point.t);
+          const y = scale.y(velocity);
+          document.getElementById(`velocity-${axis}-trace`).setAttribute("d", `M ${scale.x(0)} ${scale.y(scale.start)} L ${x} ${y}`);
+          const dot = document.getElementById(`velocity-${axis}-point`);
+          dot.setAttribute("cx", x);
+          dot.setAttribute("cy", y);
+          const description = `t = ${point.t.toFixed(2)} s · v${axis === "x" ? "ₓ" : "ᵧ"} = ${velocity.toFixed(2)} m/s`;
+          document.getElementById(`velocity-${axis}-value`).textContent = description;
+          document.getElementById(`velocity-${axis}-plot`).setAttribute("aria-label", `${axis === "x" ? "水平" : "鉛直"}速度與時間圖，已描繪至 ${description}`);
+        }
       }
 
       function stopAnimation() {
@@ -1322,11 +1489,15 @@
         if (settings.height > heightMaximum) settings.height = heightMaximum;
         const initial = initialVelocity();
         const duration = landingTime();
+        setupVelocityCharts();
         time = Math.min(time, duration);
         updateTimelineScale(duration);
         heightInput.value = String(settings.height);
         horizontalParameter.hidden = mode !== "horizontal";
         verticalParameter.hidden = mode !== "vertical";
+        document.getElementById("height-comparison-parameter").hidden = mode !== "vertical";
+        canvas.style.touchAction = mode === "vertical" && comparisonToggle.checked ? "none" : "auto";
+        canvas.style.cursor = mode === "vertical" && comparisonToggle.checked ? "ns-resize" : "";
         launchSpeedParameter.hidden = mode !== "oblique";
         angleParameter.hidden = mode !== "oblique";
         horizontalSpeed.value = String(modeSettings.horizontal.horizontalSpeed);
@@ -1383,6 +1554,45 @@
       }
 
       bindRangeControl(massInput, value => { objectMass = value; });
+      comparisonToggle.addEventListener("change", () => {
+        document.getElementById("height-comparison-controls").hidden = !comparisonToggle.checked;
+        canvas.style.touchAction = mode === "vertical" && comparisonToggle.checked ? "none" : "auto";
+        canvas.style.cursor = mode === "vertical" && comparisonToggle.checked ? "ns-resize" : "";
+        render();
+      });
+      comparisonHeight.addEventListener("input", reset);
+      let comparisonDragPointer = null;
+      canvas.addEventListener("pointerdown", event => {
+        if (mode !== "vertical" || !comparisonToggle.checked || event.button !== 0) return;
+        const rect = canvas.getBoundingClientRect();
+        const transform = getTransform();
+        const { height, verticalSpeed: v0 } = modeSettings.vertical;
+        const level = height + Number(comparisonHeight.value) / 100 * v0 * v0 / (2 * G);
+        const right = canvasSize.width >= 760 ? canvasSize.width * 0.57 - 18 : canvasSize.width - 5;
+        const x = event.clientX - rect.left;
+        if (x < 40 || x > right || Math.abs(event.clientY - rect.top - transform.y(level)) > 26) return;
+        event.preventDefault();
+        comparisonDragPointer = event.pointerId;
+        canvas.setPointerCapture(event.pointerId);
+        reset();
+      });
+      canvas.addEventListener("pointermove", event => {
+        if (comparisonDragPointer !== event.pointerId) return;
+        const transform = getTransform();
+        const { height, verticalSpeed: v0 } = modeSettings.vertical;
+        const y = event.clientY - canvas.getBoundingClientRect().top;
+        const fraction = (transform.y(height) - y) / transform.scale / (v0 * v0 / (2 * G));
+        comparisonHeight.value = String(Math.max(1, Math.min(100, Math.round(fraction * 100))));
+        reset();
+      });
+      const endComparisonDrag = event => {
+        if (comparisonDragPointer !== event.pointerId) return;
+        comparisonDragPointer = null;
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      };
+      canvas.addEventListener("pointerup", endComparisonDrag);
+      canvas.addEventListener("pointercancel", endComparisonDrag);
+      canvas.addEventListener("lostpointercapture", endComparisonDrag);
       bindRangeControl(heightInput, value => { modeSettings[mode].height = value; });
       bindRangeControl(horizontalSpeed, value => { modeSettings.horizontal.horizontalSpeed = value; });
       bindRangeControl(verticalSpeed, value => { modeSettings.vertical.verticalSpeed = value; });
