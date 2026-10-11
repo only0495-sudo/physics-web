@@ -11,15 +11,6 @@
   const empty = document.getElementById("empty-state");
   const state = { category: "全部", query: "", role: readStorage("physics-role", "teacher") };
 
-  function readPlan() {
-    try { return new Set(JSON.parse(readStorage("physics-lesson-plan", "[]"))); } catch (_) { return new Set(); }
-  }
-
-  function savePlan(plan) {
-    writeStorage("physics-lesson-plan", JSON.stringify([...plan]));
-    document.getElementById("studio-plan-count").textContent = plan.size;
-  }
-
   function readStorage(key, fallback) {
     try { return localStorage.getItem(key) || fallback; } catch (_) { return fallback; }
   }
@@ -66,7 +57,6 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", String(active));
     });
-    document.getElementById("studio-link").hidden = role !== "teacher";
     render();
   }
 
@@ -93,17 +83,13 @@
 
   function render() {
     const visible = visibleActivities();
-    const plan = readPlan();
-    const roleText = state.role === "teacher" ? "開啟課堂展示" : "開始學生探究";
     grid.innerHTML = visible.map((item) => `
       <article class="activity-card" data-category="${escapeHtml(item.category)}">
         <div class="card-topline"><span class="category-tag">${escapeHtml(item.category)}</span><span class="format-tag">${escapeHtml(item.format)}</span></div>
-        <h3>${escapeHtml(item.title)}</h3>
+        <h3><a href="${encodeURI(item.file)}?role=${state.role}">${escapeHtml(item.title)}</a></h3>
         <p class="card-summary">${escapeHtml(item.summary)}</p>
-        <p class="card-focus">${escapeHtml(item.goal[0])}</p>
         <div class="card-actions">
-          <a class="card-link" href="${encodeURI(item.file)}?role=${state.role}" aria-label="${roleText}：${escapeHtml(item.title)}">${roleText}</a>
-          ${state.role === "teacher" ? `<button class="lesson-add${plan.has(item.file) ? " added" : ""}" type="button" data-file="${escapeHtml(item.file)}" aria-pressed="${plan.has(item.file)}">${plan.has(item.file) ? "✓ 已加入課堂" : "＋ 加入課堂流程"}</button>` : ""}
+          <a class="card-link" href="${encodeURI(item.file)}?role=${state.role}" aria-label="模擬開始：${escapeHtml(item.title)}">模擬開始 <span aria-hidden="true">↗</span></a>
         </div>
       </article>`).join("");
     empty.hidden = visible.length !== 0;
@@ -111,18 +97,7 @@
     const scope = state.category === "全部" ? "全部領域" : state.category;
     summary.textContent = state.query ? `${scope}中找到 ${visible.length} 個相符實驗` : `${scope}共有 ${visible.length} 個互動實驗`;
     renderFilters();
-    document.getElementById("studio-plan-count").textContent = plan.size;
   }
-
-  grid.addEventListener("click", (event) => {
-    const button = event.target.closest(".lesson-add");
-    if (!button) return;
-    const plan = readPlan();
-    if (plan.has(button.dataset.file)) plan.delete(button.dataset.file);
-    else plan.add(button.dataset.file);
-    savePlan(plan);
-    render();
-  });
 
   filters.addEventListener("click", (event) => {
     const button = event.target.closest(".filter-button");

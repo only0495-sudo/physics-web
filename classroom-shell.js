@@ -370,6 +370,7 @@
           <span class="pc-orientation-symbol" aria-hidden="true">↻</span>
           <strong>請將裝置轉為橫向</strong>
           <span>本模擬以橫向手機／平板設計，旋轉後會自動顯示完整實驗畫面。</span>
+          <a class="lab-home-link" href="index.html">← 返回實驗室</a>
         </div>
       </div>
       <nav class="pc-dock" aria-label="物理教學工具列">
@@ -377,7 +378,7 @@
           <span class="pc-brand-mark" aria-hidden="true">φ</span>
           <span class="pc-brand-copy"><strong>${role === "teacher" ? "課堂演示" : "物理探究"}</strong><span class="pc-device-label">${device.label}</span></span>
         </div>
-        <a class="pc-dock-action" href="index.html" aria-label="回到實驗室首頁"><span class="pc-action-symbol" aria-hidden="true">⌂</span><span class="pc-dock-label">首頁</span></a>
+        <a class="pc-dock-action pc-home-link" href="index.html" aria-label="返回實驗室" title="返回實驗室"><span class="pc-action-symbol" aria-hidden="true">←</span><span class="pc-dock-label"><span>返回</span><span>實驗室</span></span></a>
         <button class="pc-dock-action pc-primary pc-guide-button" type="button" aria-controls="pc-guide" aria-expanded="false" title="教學指南（Alt+G）"><span class="pc-action-symbol" aria-hidden="true">?</span><span class="pc-dock-label">教學</span></button>
         <button class="pc-dock-action pc-present-button" type="button" aria-pressed="false" title="課堂展示（Alt+P）"><span class="pc-action-symbol" aria-hidden="true">◫</span><span class="pc-dock-label">展示</span></button>
         <button class="pc-dock-action pc-clarity-button" type="button" aria-pressed="${clarityOn}" title="加強投影可讀性（Alt+C）"><span class="pc-action-symbol" aria-hidden="true">Aa</span><span class="pc-dock-label">清晰</span></button>
