@@ -157,7 +157,35 @@
       backdrop-filter: blur(18px);
     }
 
-    .stage-column { min-width: 0; }
+    .stage-column { min-width: 0; align-self: start; }
+    .particle-controls { margin-bottom: 16px; }
+    .launch-heading { margin: 0 0 10px; font-size: .85rem; }
+    .particle-count-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .particle-count-buttons button, .scenario-buttons button { min-height: 56px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #13243a; color: var(--ink); cursor: pointer; font-weight: 700; }
+    .particle-count-buttons button[aria-pressed="true"] { background: #63e6be; color: #071426; border-color: #63e6be; }
+    .scenario-controls { margin-top: 18px; }
+    .scenario-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .scenario-buttons button { text-align: left; font-size: .75rem; }
+    .scenario-buttons small { display: block; color: var(--muted); font-size: .65rem; font-weight: 400; margin-top: 5px; }
+    .scenario-buttons button[aria-pressed="true"] { border-color: var(--cyan); background: #163447; }
+    .particle-count-buttons button:focus-visible, .scenario-buttons button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+    .particle-controls[hidden], .comparison-results[hidden] { display: none; }
+    .particle-settings { margin-top: 10px; padding: 12px; border-left: 3px solid var(--particle-color); background: rgba(255,255,255,.035); border-radius: 8px; }
+    .particle-settings strong { color: var(--particle-color); font-size: .82rem; }
+    .particle-settings .parameter-head { margin: 10px 0 2px; }
+    .comparison-results { margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; background: #10151f; }
+    .comparison-results table { width: 100%; border-collapse: collapse; font-size: .78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .comparison-results caption { padding: 12px; text-align: left; color: var(--muted); }
+    .comparison-results th, .comparison-results td { padding: 10px 12px; text-align: right; border-top: 1px solid var(--line); }
+    .comparison-results th:first-child, .comparison-results td:first-child { text-align: left; }
+    .particle-key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0; font-size: .8rem; font-weight: 700; }
+    .stage-card #sim-canvas { background: #0d111b; }
+    .launch-summary { position: absolute; z-index: 2; right: 18px; margin: 0; padding: 0; list-style: none; font-size: .8rem; line-height: 1.7; font-weight: 800; pointer-events: none; }
+    .launch-summary[hidden], #independence-controls[hidden], #independence-readout[hidden] { display: none; }
+    .stage-card.independence-active #sim-canvas { height: calc(560px + var(--independent-bottom, 180px)); }
+    .stage-card.stage-expanded.independence-active #sim-canvas { height: 100%; }
+    #independence-readout { margin: 10px 0; color: var(--muted); font-size: .78rem; line-height: 1.6; }
+    @media (max-width: 720px) { .stage-card.independence-active #sim-canvas { height: calc(660px + var(--independent-bottom, 180px)); } }
     .velocity-charts { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
     .velocity-charts.two-components { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .velocity-chart { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
@@ -482,7 +510,7 @@
 
     .data-strip {
       display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 8px;
       margin-top: 12px;
     }
@@ -612,6 +640,7 @@
     <section class="workspace">
       <div class="stage-column">
       <div class="stage-card">
+        <ul class="launch-summary" id="launch-summary" aria-label="各質點初始條件" hidden></ul>
         <div class="stage-transport" aria-label="動畫播放控制">
           <button class="transport-button primary" id="play-button" type="button">開始</button>
           <button class="transport-button" id="step-button" type="button">＋1 秒</button>
@@ -651,6 +680,14 @@
         </section>
       </div>
 
+      <p id="independence-readout" hidden></p>
+      <div id="particle-key" class="particle-key" aria-label="質點顏色對照"></div>
+      <section class="comparison-results" id="comparison-results" hidden>
+        <table><caption>同時發射比較 · 落地後保留碰地瞬間速度</caption>
+          <thead><tr><th>質點</th><th>狀態</th><th>飛行時間 (s)</th><th>射程 (m)</th><th>最高高度 (m)</th><th>vₓ (m/s)</th><th>vᵧ (m/s)</th></tr></thead>
+          <tbody id="comparison-rows"></tbody>
+        </table>
+      </section>
       <section class="velocity-charts" id="velocity-charts" aria-label="速度與時間圖，隨動畫逐步描繪">
         <article class="velocity-chart" id="velocity-x-chart" hidden>
           <h2>水平速度 vₓ–t 圖</h2>
@@ -668,18 +705,47 @@
       <aside class="side-stack">
         <section class="control-card" aria-labelledby="parameter-title">
           <h2 class="panel-title" id="parameter-title">條件設定 <small>僅 g 固定 · 時間由條件決定</small></h2>
-          <div class="parameter">
-            <div class="parameter-head"><label for="object-mass">物體質量 m</label><output id="mass-output">2.0 kg</output></div>
-            <input id="object-mass" type="range" min="0.5" max="10" step="0.5" value="2">
+          <section class="particle-controls" id="particle-controls" hidden>
+            <h3 class="launch-heading">選擇同時發射數量</h3>
+            <div class="particle-count-buttons" id="particle-count" role="group" aria-label="同時發射數量">
+              <button type="button" data-count="1" aria-pressed="true">●<br>單顆</button>
+              <button type="button" data-count="2" aria-pressed="false">● ●<br>兩顆比較</button>
+              <button type="button" data-count="3" aria-pressed="false">● ● ●<br>三顆比較</button>
+            </div>
+            <section id="scenario-controls" class="scenario-controls" hidden>
+              <h3 class="launch-heading">斜拋特殊案例 · 一鍵套用</h3>
+              <div class="scenario-buttons">
+                <button type="button" data-scenario="complementary">互餘角，同射程<small>同初速 · 30° 與 60° · 兩顆</small></button>
+                <button type="button" data-scenario="equal-height">同最高點，同時落地<small>相同鉛直初速 · 兩／三顆</small></button>
+                <button type="button" data-scenario="max-range">哪個角度飛最遠？<small>同初速 · 30°／45°／60° · 三顆</small></button>
+                <button type="button" data-scenario="speed">初速加倍會怎樣？<small>同仰角 · 20 與 40 m/s · 兩顆</small></button>
+              </div>
+              <p id="scenario-note" class="model-note" role="status">先預測，再播放驗證。案例皆由同一地面高度發射，不計空氣阻力。</p>
+            </section>
+            <p class="model-note">各質點可獨立調整初速與角度；按「開始」同時發射。</p>
+            <p id="shared-height-note" class="model-note"></p>
+            <div class="particle-settings" style="--particle-color:#63e6be"><strong>質點 A</strong>
+          <div class="parameter" id="horizontal-parameter" hidden>
+            <div class="parameter-head"><label for="horizontal-speed">A · 水平初速 v₀ₓ</label><output id="horizontal-speed-output">18.0 m/s</output></div>
+            <input id="horizontal-speed" type="range" min="0" max="40" step="0.5" value="18">
           </div>
-          <div class="parameter">
+          <div class="parameter" id="launch-speed-parameter" hidden>
+            <div class="parameter-head"><label for="launch-speed">A · 斜拋初速 v₀</label><output id="launch-speed-output">35.36 m/s</output></div>
+            <input id="launch-speed" type="range" min="5" max="50" step="0.01" value="35.36">
+          </div>
+          <div class="parameter" id="angle-parameter" hidden>
+            <div class="parameter-head"><label for="launch-angle">A · 斜拋仰角 θ</label><output id="angle-output">45°</output></div>
+            <input id="launch-angle" type="range" min="10" max="90" step="1" value="45">
+          </div>
+            </div>
+            <div id="extra-particle-controls"></div>
+            <div class="parameter-head" style="margin-top:12px"><label for="focus-particle">數值／向量／方程觀察對象</label><select id="focus-particle"><option value="0">質點 A</option></select></div>
+          </section>
+          <div class="parameter" id="height-parameter">
             <div class="parameter-head"><label for="initial-height">初始高度 h₀</label><output id="height-output">125 m</output></div>
             <input id="initial-height" type="range" min="0" max="200" step="0.5" value="125">
           </div>
-          <div class="parameter" id="horizontal-parameter" hidden>
-            <div class="parameter-head"><label for="horizontal-speed">水平初速 v₀ₓ</label><output id="horizontal-speed-output">18.0 m/s</output></div>
-            <input id="horizontal-speed" type="range" min="0" max="40" step="0.5" value="18">
-          </div>
+
           <div class="parameter" id="vertical-parameter" hidden>
             <div class="parameter-head"><label for="vertical-speed">鉛直初速 v₀ᵧ</label><output id="vertical-speed-output">25 m/s</output></div>
             <input id="vertical-speed" type="range" min="2" max="40" step="0.5" value="25">
@@ -693,22 +759,21 @@
               <p class="model-note" id="comparison-record" role="status"></p>
             </div>
           </div>
-          <div class="parameter" id="launch-speed-parameter" hidden>
-            <div class="parameter-head"><label for="launch-speed">斜拋初速 v₀</label><output id="launch-speed-output">35.36 m/s</output></div>
-            <input id="launch-speed" type="range" min="5" max="50" step="0.01" value="35.36">
-          </div>
-          <div class="parameter" id="angle-parameter" hidden>
-            <div class="parameter-head"><label for="launch-angle">斜拋仰角 θ</label><output id="angle-output">45°</output></div>
-            <input id="launch-angle" type="range" min="10" max="90" step="1" value="45">
-          </div>
+
+
           <div class="parameter">
             <div class="parameter-head"><span>運動預估</span><output id="fixed-condition">飛行時間 5.00 s</output></div>
-            <div class="model-note" id="condition-detail">重量 W = 20.0 N；忽略空氣阻力時，質量不影響軌跡，球體大小僅作質量示意。時間軸會依實際落地時間更新。</div>
+            <div class="model-note" id="condition-detail">忽略空氣阻力，g = 10 m/s²。時間軸會依實際落地時間更新。</div>
           </div>
         </section>
 
         <section class="control-card" aria-labelledby="vector-title">
           <h2 class="panel-title" id="vector-title">向量顯示 <small>預設全部關閉</small></h2>
+          <div id="independence-controls" hidden>
+            <label class="vector-switch" style="--switch-color: var(--cyan)"><input id="independence-toggle" type="checkbox">運動獨立性：位移接力與對稱分段</label>
+            <p class="model-note" style="margin-bottom:12px">依「觀察對象」顯示位移。水平每秒分段，以綠、橘交替接力；鉛直自動等分上升時間，下降採相同間隔，同高度的對應箭頭使用相同顏色。若由高處發射，回到起始高度後的下落另行延伸。</p>
+          </div>
+          <label class="vector-switch" style="--switch-color: var(--cyan); margin-bottom: 10px"><input id="show-ghosts" type="checkbox">顯示整秒殘影與時間</label>
           <div class="switch-grid">
             <label class="vector-switch" style="--switch-color: var(--cyan)"><input type="checkbox" data-vector="velocity">速度 v</label>
             <label class="vector-switch" style="--switch-color: var(--orange)"><input type="checkbox" data-vector="acceleration">加速度 a</label>
@@ -731,8 +796,6 @@
     </section>
 
     <section class="data-strip" aria-label="即時物理量">
-      <div class="datum"><span>物體質量 m</span><strong id="data-mass">2.00 kg</strong></div>
-      <div class="datum"><span>重量 W</span><strong id="data-weight">20.00 N</strong></div>
       <div class="datum"><span>位置 x</span><strong id="data-x">0.00 m</strong></div>
       <div class="datum"><span>位置 y</span><strong id="data-y">125.00 m</strong></div>
       <div class="datum"><span>水平速度 vₓ</span><strong id="data-vx">0.00 m/s</strong></div>
@@ -741,8 +804,8 @@
     </section>
 
     <section class="teaching-note" aria-label="操作說明與觀察重點">
-      <article><strong>操作</strong><p>選一種運動，先看完整虛線軌跡，再按「開始」。可拖曳時間軸或逐秒前進。</p></article>
-      <article><strong>觀察</strong><p>比較相鄰殘影的距離；距離愈大，代表該段平均速率愈大。</p></article>
+      <article><strong>操作</strong><p>選一種運動後按「開始」；淡虛線是預測路徑，彩色實線隨時間描繪。平拋、斜拋可選擇 1～3 個質點同時發射。</p></article>
+      <article><strong>觀察</strong><p>用顏色對照各質點的軌跡、比較表與 v–t 圖。可開啟整秒殘影，或切換觀察對象查看向量與即時數值。</p></article>
       <article><strong>想一想</strong><p>把平拋與自由落體設成相同初始高度後，兩者的鉛直位置為何在每個整數秒都相同？</p></article>
     </section>
   </main>
@@ -755,8 +818,39 @@
       const DEFAULT_FLIGHT_TIME = 5;
       const DEFAULT_DROP_HEIGHT = 0.5 * G * DEFAULT_FLIGHT_TIME * DEFAULT_FLIGHT_TIME;
       const DEFAULT_UPWARD_SPEED = 0.5 * G * DEFAULT_FLIGHT_TIME;
-      const PROJECTILE_RADIUS = 15;
-      const GHOST_RADIUS = 9;
+      const PROJECTILE_RADIUS = 7;
+      const GHOST_RADIUS = 4;
+      const PARTICLE_COLORS = ["#63e6be", "#ffb86b", "#ff8fae"];
+      const PARTICLE_NAMES = ["A", "B", "C"];
+      const extraParticles = {
+        horizontal: [{ horizontalSpeed: 28 }, { horizontalSpeed: 38 }],
+        oblique: [{ launchSpeed: 50, angle: 30 }, { launchSpeed: 25 / Math.sin(Math.PI / 3), angle: 60 }]
+      };
+      const particleCounts = { horizontal: 1, oblique: 1 };
+      let focusParticle = 0;
+      let activeScenario = "";
+      const scenarioNotes = {
+        complementary: "同地面發射、同初速 40 m/s，30° + 60° = 90°：射程相等，但最高高度與飛行時間不同。先猜哪顆先落地？",
+        "equal-height": "由同一地面發射，鉛直初速皆為 25 m/s：最高高度皆為 31.25 m，飛行時間皆為 5 s。水平速度不同仍可同時落地；此結論需要相同起始與落地高度。",
+        "max-range": "同地面發射、同初速 40 m/s，比較 30°、45°、60°：45° 射程最遠；30° 與 60° 射程相等。最高的那顆一定最遠嗎？",
+        speed: "同地面發射、同為 45°，初速由 20 加倍至 40 m/s：飛行時間變 2 倍，最高高度與射程都變 4 倍。先預測再對照比較表。"
+      };
+
+      function applyScenario(name) {
+        if (mode !== "oblique" || !scenarioNotes[name]) return;
+        const count = name === "equal-height" ? Math.max(2, activeParticleCount()) : name === "max-range" ? 3 : 2;
+        particleCounts.oblique = count;
+        modeSettings.oblique.height = 0;
+        const angles = name === "complementary" ? [30, 60] : name === "speed" ? [45, 45] : [30, 45, 60];
+        angles.slice(0, count).forEach((angle, i) => {
+          const launchSpeed = name === "equal-height" ? 25 / Math.sin(angle * Math.PI / 180) : name === "speed" ? [20, 40][i] : 40;
+          Object.assign(i === 0 ? modeSettings.oblique : extraParticles.oblique[i - 1], { angle, launchSpeed });
+        });
+        activeScenario = name;
+        focusParticle = 0;
+        syncModeControls();
+        reset();
+      }
       const COLORS = {
         trajectory: "#67d7ea",
         current: "#f5fbff",
@@ -766,7 +860,7 @@
         components: "#ff5c87",
         displacement: "#52e1a1",
         ground: "#49657c",
-        grid: "rgba(113, 151, 181, 0.24)"
+        grid: "rgba(113, 151, 181, 0.12)"
       };
 
       const modeSettings = {
@@ -789,9 +883,7 @@
       const stageZoomButton = document.getElementById("stage-zoom-button");
       const modeButtons = [...document.querySelectorAll(".mode-tab")];
       const vectorInputs = [...document.querySelectorAll("[data-vector]")];
-      const massInput = document.getElementById("object-mass");
       const heightInput = document.getElementById("initial-height");
-      const massOutput = document.getElementById("mass-output");
       const heightOutput = document.getElementById("height-output");
       const horizontalParameter = document.getElementById("horizontal-parameter");
       const verticalParameter = document.getElementById("vertical-parameter");
@@ -821,8 +913,6 @@
       const timeDisplay = document.getElementById("time-display");
 
       const dataFields = {
-        mass: document.getElementById("data-mass"),
-        weight: document.getElementById("data-weight"),
         x: document.getElementById("data-x"),
         y: document.getElementById("data-y"),
         vx: document.getElementById("data-vx"),
@@ -831,7 +921,6 @@
       };
 
       let mode = "freefall";
-      let objectMass = Number(massInput.value);
       let time = 0;
       let running = false;
       let frameId = null;
@@ -840,8 +929,20 @@
       let occupiedLabelRects = [];
       let vectorArrowQueue = [];
 
-      function initialVelocity() {
-        const settings = modeSettings[mode];
+      function activeParticleCount() {
+        return particleCounts[mode] || 1;
+      }
+
+      function particleSettings(index = 0) {
+        return index === 0 ? modeSettings[mode] : { ...modeSettings[mode], ...extraParticles[mode][index - 1] };
+      }
+
+      function flightDuration() {
+        return Math.max(...Array.from({ length: activeParticleCount() }, (_, i) => landingTime(i)));
+      }
+
+      function initialVelocity(index = 0) {
+        const settings = particleSettings(index);
         if (mode === "vertical") return { vx: 0, vy: settings.verticalSpeed };
         if (mode === "horizontal") return { vx: settings.horizontalSpeed, vy: 0 };
         if (mode === "oblique") {
@@ -858,17 +959,17 @@
         return { x: 0, y: modeSettings[mode].height };
       }
 
-      function landingTime() {
-        const { vy } = initialVelocity();
+      function landingTime(index = 0) {
+        const { vy } = initialVelocity(index);
         const height = modeSettings[mode].height;
         return (vy + Math.sqrt(vy * vy + 2 * G * height)) / G;
       }
 
-      function physicsAt(rawTime) {
-        const duration = landingTime();
+      function physicsAt(rawTime, index = 0) {
+        const duration = landingTime(index);
         const t = Math.max(0, Math.min(duration, rawTime));
         const motionTime = Math.min(t, duration);
-        const initial = initialVelocity();
+        const initial = initialVelocity(index);
         const landed = t >= duration - 1e-8;
         const x = initial.vx * motionTime;
         const y = Math.max(0, modeSettings[mode].height + initial.vy * motionTime - 0.5 * G * motionTime * motionTime);
@@ -937,7 +1038,13 @@
           stageActions.getBoundingClientRect().bottom
         ) - stageTop;
         const split = mode === "vertical" && canvasSize.width >= 760;
-        const pad = { left: 64, right: split ? canvasSize.width * 0.43 + 36 : 48, top: Math.max(64, overlayBottom + 12), bottom: 62 };
+        const horizontalMotion = mode === "horizontal" || mode === "oblique";
+        const independent = independenceEnabled();
+        const pad = { left: independent ? (canvasSize.width < 600 ? 148 : 200) : 64, right: split ? canvasSize.width * 0.43 + 36 : 48, top: Math.max(64, overlayBottom + 12), bottom: independent ? 125 : 62 };
+        if (horizontalMotion) {
+          document.getElementById("launch-summary").style.top = `${pad.top}px`;
+          pad.top += activeParticleCount() * 23 + 22;
+        }
         if (mode === "vertical") document.getElementById("symmetry-panel").style.top = `${pad.top}px`;
         const plotWidth = Math.max(1, canvasSize.width - pad.left - pad.right);
         const plotHeight = Math.max(1, canvasSize.height - pad.top - pad.bottom);
@@ -952,6 +1059,7 @@
         const offsetY = pad.top + (plotHeight - usedHeight) / 2 + bounds.maxY * scaleY;
         return {
           scale,
+          pad,
           bounds,
           gridStep: bounds.gridStep,
           gridStepX: bounds.gridStepX || bounds.gridStep,
@@ -962,6 +1070,8 @@
       }
 
       function resizeCanvas() {
+        stageCard.classList.toggle("independence-active", independenceEnabled());
+        stageCard.style.setProperty("--independent-bottom", `${125}px`);
         stageCard.classList.toggle("symmetry-stacked", mode === "vertical" && stageCard.clientWidth < 760);
         const rect = canvas.getBoundingClientRect();
         const ratio = window.PhysicsDeviceLayout?.profile?.renderPixelRatio || Math.min(window.devicePixelRatio || 1, 2);
@@ -1073,7 +1183,7 @@
 
         ctx.save();
         ctx.strokeStyle = COLORS.grid;
-        ctx.fillStyle = "#6f8ba4";
+        ctx.fillStyle = "#b4c1d1";
         ctx.lineWidth = 1;
         ctx.font = "600 10px Inter, sans-serif";
         ctx.textAlign = "right";
@@ -1081,21 +1191,23 @@
         for (let y = Math.ceil(Math.max(0, bounds.minY) / step) * step; y <= bounds.maxY + 1e-8; y += step) {
           const py = transform.y(y);
           ctx.beginPath();
-          ctx.moveTo(44, py);
+          ctx.moveTo(independenceEnabled() ? transform.pad.left - 12 : 44, py);
           ctx.lineTo(gridRight, py);
           ctx.stroke();
-          ctx.fillText(`${formatScaleValue(y)} m`, 40, py);
+          ctx.fillText(`${formatScaleValue(y)} m`, independenceEnabled() ? transform.pad.left - 16 : 40, py);
         }
 
         ctx.globalAlpha = 0.55;
         for (let x = Math.ceil(bounds.minX / transform.gridStepX) * transform.gridStepX; x <= bounds.maxX + 1e-8; x += transform.gridStepX) {
           const px = transform.x(x);
+          if (independenceEnabled() && px < transform.pad.left) continue;
           if (px > gridRight) continue;
           ctx.beginPath();
-          ctx.moveTo(px, 42);
-          ctx.lineTo(px, canvasSize.height - 36);
+          ctx.moveTo(px, independenceEnabled() ? transform.pad.top : 42);
+          ctx.lineTo(px, independenceEnabled() ? transform.y(0) : canvasSize.height - 36);
           ctx.stroke();
-          if (mode === "horizontal" || mode === "oblique") {
+          const labelInterval = Math.max(1, Math.ceil(65 / Math.abs(transform.x(transform.gridStepX) - transform.x(0))));
+          if ((mode === "horizontal" || mode === "oblique") && Math.round(x / transform.gridStepX) % labelInterval === 0) {
             ctx.textAlign = "center";
             ctx.fillText(`${formatScaleValue(x)} m`, px, transform.y(0) + 23);
           }
@@ -1110,35 +1222,36 @@
         ctx.strokeStyle = COLORS.ground;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(32, y);
+        ctx.moveTo(independenceEnabled() ? transform.x(0) : 32, y);
         ctx.lineTo(groundRight, y);
         ctx.stroke();
 
         ctx.strokeStyle = "rgba(73, 101, 124, 0.48)";
         ctx.lineWidth = 1;
-        for (let x = 36; x < groundRight; x += 16) {
+        for (let x = independenceEnabled() ? transform.x(0) + 4 : 36; x < groundRight; x += 16) {
           ctx.beginPath();
           ctx.moveTo(x, y + 1);
           ctx.lineTo(x - 9, y + 10);
           ctx.stroke();
         }
-        ctx.fillStyle = "#7892a9";
+        ctx.fillStyle = "#b4c1d1";
         ctx.font = "700 10px Inter, sans-serif";
         ctx.textAlign = "right";
         ctx.fillText("地面 y = 0", groundRight - 3, y - 9);
         ctx.restore();
       }
 
-      function drawPredictedTrajectory(transform) {
-        const duration = landingTime();
+      function drawPredictedTrajectory(transform, particle = 0) {
+        const duration = landingTime(particle);
+        const color = PARTICLE_COLORS[particle];
         ctx.save();
-        ctx.strokeStyle = COLORS.trajectory;
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        ctx.setLineDash([7, 8]);
-        ctx.globalAlpha = 0.62;
+        ctx.setLineDash([2, 7]);
+        ctx.globalAlpha = 0.32;
         ctx.beginPath();
         for (let index = 0; index <= 160; index += 1) {
-          const point = physicsAt(index * duration / 160);
+          const point = physicsAt(index * duration / 160, particle);
           const x = transform.x(point.x);
           const y = transform.y(point.y);
           if (index === 0) ctx.moveTo(x, y);
@@ -1147,7 +1260,20 @@
         ctx.stroke();
         ctx.restore();
 
-        const endpoint = physicsAt(duration);
+        // Trace only the elapsed part with a bright solid line.
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        const elapsed = Math.min(time, duration);
+        for (let i = 0; i <= 100; i++) {
+          const p = physicsAt(elapsed * i / 100, particle);
+          if (i === 0) ctx.moveTo(transform.x(p.x), transform.y(p.y));
+          else ctx.lineTo(transform.x(p.x), transform.y(p.y));
+        }
+        ctx.stroke();
+        ctx.restore();
+        const endpoint = physicsAt(duration, particle);
         const lx = transform.x(endpoint.x);
         const ly = transform.y(endpoint.y);
         ctx.save();
@@ -1158,18 +1284,18 @@
         ctx.arc(lx, ly, 12, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
-        roundedLabel(`落地 ${duration.toFixed(2)} s`, lx, ly + 31, { color: "#ffd166", border: "rgba(255,209,102,.4)" });
+        if (activeParticleCount() === 1) roundedLabel(`落地 ${duration.toFixed(2)} s`, lx, ly + 31, { color, border: `${color}66` });
       }
 
-      function drawGhosts(transform) {
-        const wholeSeconds = Math.floor(Math.min(time, landingTime()) + 1e-8);
+      function drawGhosts(transform, particle = 0) {
+        const wholeSeconds = Math.floor(Math.min(time, landingTime(particle)) + 1e-8);
         for (let second = 0; second <= wholeSeconds; second += 1) {
-          const point = physicsAt(second);
+          const point = physicsAt(second, particle);
           const x = transform.x(point.x);
           const y = transform.y(point.y);
           ctx.save();
           ctx.globalAlpha = second === wholeSeconds && Math.abs(time - second) < 0.025 ? 0.82 : 0.44;
-          ctx.fillStyle = COLORS.ghost;
+          ctx.fillStyle = PARTICLE_COLORS[particle];
           ctx.strokeStyle = "rgba(211, 232, 248, 0.86)";
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -1177,7 +1303,7 @@
           ctx.fill();
           ctx.stroke();
           ctx.restore();
-          roundedLabel(`${second} s`, x + (mode === "freefall" || mode === "vertical" ? 31 : 0), y - 22, {
+          roundedLabel(`${activeParticleCount() > 1 ? PARTICLE_NAMES[particle] + " · " : ""}${second} s`, x + (mode === "freefall" || mode === "vertical" ? 31 : 0), y - 22, {
             color: "#adc4d8",
             font: "700 10px Inter, sans-serif",
             background: "rgba(5,18,32,.76)"
@@ -1185,21 +1311,22 @@
         }
       }
 
-      function drawProjectile(transform, point) {
+      function drawProjectile(transform, point, particle = 0) {
         const x = transform.x(point.x);
         const y = transform.y(point.y);
-        const radius = Math.max(10, Math.min(23, PROJECTILE_RADIUS * Math.cbrt(objectMass / 2)));
+        const radius = PROJECTILE_RADIUS;
         ctx.save();
-        ctx.shadowColor = COLORS.trajectory;
-        ctx.shadowBlur = 30;
+        ctx.shadowColor = PARTICLE_COLORS[particle];
+        ctx.shadowBlur = 13;
         ctx.fillStyle = COLORS.current;
-        ctx.strokeStyle = COLORS.trajectory;
-        ctx.lineWidth = 4.5;
+        ctx.strokeStyle = PARTICLE_COLORS[particle];
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
+        if (activeParticleCount() > 1) roundedLabel(PARTICLE_NAMES[particle], x + 18, y - 18 - particle * 14, { color: PARTICLE_COLORS[particle], font: "700 14px sans-serif" });
       }
 
       function isVectorVisible(name) {
@@ -1281,6 +1408,82 @@
         }
       }
 
+      function independenceEnabled() {
+        return (mode === "horizontal" || mode === "oblique") && document.getElementById("independence-toggle").checked;
+      }
+
+      function drawIndependence(transform) {
+        const readout = document.getElementById("independence-readout");
+        readout.hidden = true;
+        if (!independenceEnabled()) return;
+        const elapsed = Math.min(time, landingTime(focusParticle));
+        const peakTime = initialVelocity(focusParticle).vy / G;
+        const upX = canvasSize.width < 600 ? 30 : 50;
+        const downX = canvasSize.width < 600 ? 82 : 118;
+        const rowY = transform.y(0) + 52;
+        const color = PARTICLE_COLORS[focusParticle];
+        const arrow = (x, y, endX, endY) => {
+          const dx = endX - x, dy = endY - y;
+          const length = Math.hypot(dx, dy);
+          if (length < 0.01) return;
+          const ux = dx / length, uy = dy / length;
+          const head = Math.min(8, length * .45);
+          const halfWidth = Math.min(4, head * .55);
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(endX, endY); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(endX, endY);
+          ctx.lineTo(endX - ux * head - uy * halfWidth, endY - uy * head + ux * halfWidth);
+          ctx.lineTo(endX - ux * head + uy * halfWidth, endY - uy * head - ux * halfWidth);
+          ctx.closePath(); ctx.fill();
+        };
+        ctx.save();
+        ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+        ctx.font = "600 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("上升", upX, transform.pad.top - 16);
+        ctx.fillText("下降", downX, transform.pad.top - 16);
+        const segmentColors = ["#63e6be", "#ffb86b"];
+        const setSegmentColor = index => {
+          ctx.strokeStyle = segmentColors[index % 2];
+          ctx.fillStyle = segmentColors[index % 2];
+        };
+        // Horizontal intervals stay one second long and preserve the full range.
+        for (let i = 0; i < Math.ceil(elapsed - 1e-9); i++) {
+          const end = Math.min(i + 1, elapsed);
+          const from = physicsAt(i, focusParticle), to = physicsAt(end, focusParticle);
+          setSegmentColor(i);
+          arrow(transform.x(from.x), rowY, transform.x(to.x), rowY);
+        }
+        // Divide the ascent evenly: the apex is an exact boundary for every launch angle.
+        // Reverse the color sequence on descent so equal-height intervals match.
+        const ascentSegments = Math.max(1, Math.round(peakTime));
+        const interval = peakTime > 0 ? peakTime / ascentSegments : 1;
+        const drawVerticalSegment = (start, end, lane, colorIndex) => {
+          if (start >= elapsed - 1e-9) return;
+          setSegmentColor(colorIndex);
+          arrow(lane, transform.y(physicsAt(start, focusParticle).y), lane,
+            transform.y(physicsAt(Math.min(end, elapsed), focusParticle).y));
+        };
+        if (peakTime > 0) {
+          for (let i = 0; i < ascentSegments; i++) {
+            drawVerticalSegment(i * interval, (i + 1) * interval, upX, i);
+            drawVerticalSegment(peakTime + i * interval, peakTime + (i + 1) * interval,
+              downX, ascentSegments - 1 - i);
+          }
+        }
+        // Below the launch height there is no matching ascent; keep this real extra fall.
+        const returnTime = 2 * peakTime;
+        for (let i = 0; returnTime + i < elapsed - 1e-9; i++) {
+          drawVerticalSegment(returnTime + i, returnTime + i + 1, downX, peakTime > 0 ? i + 1 : i);
+        }
+        // A subtle apex connector aligns the two vertical projections without implying sideways motion.
+        if (mode === "oblique" && elapsed >= peakTime && peakTime > 0) {
+          const y = transform.y(physicsAt(peakTime, focusParticle).y);
+          ctx.strokeStyle = color; ctx.globalAlpha = .4; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+          ctx.beginPath(); ctx.moveTo(upX, y); ctx.lineTo(downX, y); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       function draw() {
         if (!canvasSize.width || !canvasSize.height) return;
         ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
@@ -1291,24 +1494,25 @@
         scaleDisplay.textContent = mode === "horizontal" || mode === "oblique"
           ? `最高初速固定視野｜橫格 ${formatScaleValue(transform.gridStepX)} m · 縱格 ${formatScaleValue(transform.gridStepY)} m`
           : `${scalePrefix}：每格 ${formatScaleValue(transform.gridStep)} m`;
-        const point = physicsAt(time);
+        const point = physicsAt(time, focusParticle);
         drawGrid(transform);
         drawGround(transform);
-        drawPredictedTrajectory(transform);
-        drawGhosts(transform);
+        drawIndependence(transform);
+        for (let i = 0; i < activeParticleCount(); i++) {
+          drawPredictedTrajectory(transform, i);
+          if (document.getElementById("show-ghosts").checked) drawGhosts(transform, i);
+        }
         drawHeightComparison(transform);
         drawVectors(point);
         drawQueuedVectorLabels();
-        drawProjectile(transform, point);
+        for (let i = 0; i < activeParticleCount(); i++) drawProjectile(transform, physicsAt(time, i), i);
       }
 
       function updateReadout() {
-        const duration = landingTime();
-        const point = physicsAt(time);
+        const duration = flightDuration();
+        const point = physicsAt(time, focusParticle);
         timeDisplay.textContent = time.toFixed(2);
         timeline.value = time.toFixed(2);
-        dataFields.mass.textContent = `${objectMass.toFixed(2)} kg`;
-        dataFields.weight.textContent = `${(objectMass * G).toFixed(2)} N`;
         dataFields.x.textContent = `${point.x.toFixed(2)} m`;
         dataFields.y.textContent = `${point.y.toFixed(2)} m`;
         dataFields.vx.textContent = `${point.vx.toFixed(2)} m/s`;
@@ -1323,21 +1527,80 @@
         updateReadout();
         draw();
         drawVelocityCharts();
+        updateComparisonResults();
       }
 
       const velocityChartScales = {};
+
+      function syncParticleControls() {
+        const available = mode === "horizontal" || mode === "oblique";
+        const count = activeParticleCount();
+        document.getElementById("particle-controls").hidden = !available;
+        document.getElementById("independence-controls").hidden = !available;
+        document.getElementById("launch-summary").hidden = !available;
+        document.getElementById("comparison-results").hidden = !available;
+        document.querySelectorAll("[data-count]").forEach(button => button.setAttribute("aria-pressed", String(Number(button.dataset.count) === count)));
+        document.getElementById("height-parameter").hidden = available && count > 1;
+        document.getElementById("shared-height-note").textContent = count > 1 ? `共同起始高度 ${modeSettings[mode].height.toFixed(1)} m；多質點模式僅調整初速${mode === "oblique" ? "與角度" : ""}。要改高度請切回單顆。` : "";
+        document.getElementById("scenario-controls").hidden = mode !== "oblique";
+        document.querySelectorAll("[data-scenario]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.scenario === activeScenario)));
+        document.getElementById("scenario-note").textContent = scenarioNotes[activeScenario] || "目前為自訂條件。先預測，再播放驗證；套用案例會從同一地面高度發射。";
+        const host = document.getElementById("extra-particle-controls");
+        const key = `${mode}-${count}`;
+        if (host.dataset.key !== key) {
+          host.dataset.key = key;
+          host.innerHTML = Array.from({ length: count - 1 }, (_, n) => {
+            const i = n + 1;
+            return `<div class="particle-settings" style="--particle-color:${PARTICLE_COLORS[i]}"><strong>質點 ${PARTICLE_NAMES[i]}</strong>
+              <div class="parameter-head"><label for="particle-${i}-speed">${mode === "horizontal" ? "水平初速" : "初速"}</label><output id="particle-${i}-speed-output"></output></div>
+              <input id="particle-${i}-speed" data-particle="${i}" data-setting="${mode === "horizontal" ? "horizontalSpeed" : "launchSpeed"}" type="range" min="${mode === "horizontal" ? 0 : 5}" max="${mode === "horizontal" ? 40 : 50}" step="0.01">
+              ${mode === "oblique" ? `<div class="parameter-head"><label for="particle-${i}-angle">仰角</label><output id="particle-${i}-angle-output"></output></div><input id="particle-${i}-angle" data-particle="${i}" data-setting="angle" type="range" min="10" max="90" step="1">` : ""}</div>`;
+          }).join("");
+          document.getElementById("focus-particle").innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i}">質點 ${PARTICLE_NAMES[i]}</option>`).join("");
+        }
+        focusParticle = Math.min(focusParticle, count - 1);
+        document.getElementById("focus-particle").value = String(focusParticle);
+        for (let i = 1; i < count; i++) {
+          const settings = particleSettings(i);
+          const speed = mode === "horizontal" ? settings.horizontalSpeed : settings.launchSpeed;
+          document.getElementById(`particle-${i}-speed`).value = speed;
+          document.getElementById(`particle-${i}-speed-output`).textContent = `${speed.toFixed(2)} m/s`;
+          if (mode === "oblique") {
+            document.getElementById(`particle-${i}-angle`).value = settings.angle;
+            document.getElementById(`particle-${i}-angle-output`).textContent = `${settings.angle}°`;
+          }
+        }
+        document.getElementById("particle-key").innerHTML = Array.from({ length: count }, (_, i) => {
+          const p = particleSettings(i);
+          return `<span style="color:${PARTICLE_COLORS[i]}">● ${PARTICLE_NAMES[i]}${available ? ` · ${(mode === "horizontal" ? p.horizontalSpeed : p.launchSpeed).toFixed(2)} m/s${mode === "oblique" ? ` · ${p.angle}°` : ""}` : ""}</span>`;
+        }).join("") + (count > 1 ? '<span style="color:var(--muted)">圖線重合代表速度相同</span>' : "");
+        document.getElementById("launch-summary").innerHTML = available ? Array.from({ length: count }, (_, i) => {
+          const p = particleSettings(i);
+          return `<li style="color:${PARTICLE_COLORS[i]}">${PARTICLE_NAMES[i]} · v₀ = ${(mode === "horizontal" ? p.horizontalSpeed : p.launchSpeed).toFixed(2)} m/s${mode === "oblique" ? ` · θ = ${p.angle}°` : ""}</li>`;
+        }).join("") : "";
+      }
+
+      function updateComparisonResults() {
+        if (mode !== "horizontal" && mode !== "oblique") return;
+        document.getElementById("comparison-rows").innerHTML = Array.from({ length: activeParticleCount() }, (_, i) => {
+          const point = physicsAt(time, i);
+          const initial = initialVelocity(i);
+          const duration = landingTime(i);
+          const peak = modeSettings[mode].height + initial.vy ** 2 / (2 * G);
+          return `<tr data-particle="${i}"><th style="color:${PARTICLE_COLORS[i]}">${PARTICLE_NAMES[i]}${focusParticle === i ? " · 觀察中" : ""}</th><td>${point.landed ? "已落地" : time === 0 ? "待發射" : "飛行中"}</td><td>${duration.toFixed(2)}</td><td>${(initial.vx * duration).toFixed(2)}</td><td>${peak.toFixed(2)}</td><td>${point.vx.toFixed(2)}</td><td>${point.vy.toFixed(2)}</td></tr>`;
+        }).join("");
+      }
 
       function setupVelocityCharts() {
         const twoComponents = mode === "horizontal" || mode === "oblique";
         document.getElementById("velocity-x-chart").hidden = !twoComponents;
         document.getElementById("velocity-charts").classList.toggle("two-components", twoComponents);
-        const duration = landingTime();
-        const initial = initialVelocity();
+        const duration = flightDuration();
+        const particles = Array.from({ length: activeParticleCount() }, (_, i) => ({ initial: initialVelocity(i), duration: landingTime(i) }));
         for (const axis of ["x", "y"]) {
-          const start = axis === "x" ? initial.vx : initial.vy;
-          const end = axis === "x" ? initial.vx : initial.vy - G * duration;
-          const low = Math.min(0, start, end);
-          const high = Math.max(0, start, end);
+          const values = particles.flatMap(p => axis === "x" ? [p.initial.vx] : [p.initial.vy, p.initial.vy - G * p.duration]);
+          const low = Math.min(0, ...values);
+          const high = Math.max(0, ...values);
           const target = Math.max(2, high - low) / 5;
           const magnitude = 10 ** Math.floor(Math.log10(target));
           const step = [1, 2, 5, 10].find(n => n * magnitude >= target) * magnitude;
@@ -1345,7 +1608,7 @@
           const max = Math.ceil(high / step) * step + step;
           const x = t => 62 + t / duration * 352;
           const y = v => 230 - (v - min) / (max - min) * 194;
-          velocityChartScales[axis] = { x, y, start };
+          velocityChartScales[axis] = { x, y };
           let svg = `<text x="16" y="20" fill="#afc6dc" font-size="14">v${axis === "x" ? "ₓ" : "ᵧ"}（m/s）</text>`;
           for (let i = 0; i <= 5; i++) {
             const t = duration * i / 5;
@@ -1356,29 +1619,35 @@
             const py = y(v);
             svg += `<path d="M 62 ${py} H 414" stroke="${Math.abs(v) < step / 100 ? "#a1bad1" : "#29415a"}"/><text x="54" y="${py + 4}" text-anchor="end" fill="#afc6dc" font-size="13">${formatScaleValue(v)}</text>`;
           }
-          const color = axis === "x" ? "#38d9f2" : "#ff5c87";
-          svg += `<path d="M 62 36 V 230 H 414" fill="none" stroke="#a1bad1"/><text x="414" y="275" text-anchor="end" fill="#afc6dc" font-size="14">時間 t（s）</text>
-            <path id="velocity-${axis}-trace" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
-            <circle id="velocity-${axis}-point" r="5" fill="${color}"/>`;
+          svg += `<path d="M 62 36 V 230 H 414" fill="none" stroke="#a1bad1"/><text x="414" y="275" text-anchor="end" fill="#afc6dc" font-size="14">時間 t（s）</text>`;
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const suffix = i === 0 ? "" : `-${i}`;
+            svg += `<path id="velocity-${axis}-trace${suffix}" fill="none" stroke="${PARTICLE_COLORS[i]}" stroke-width="${3 + i * 2}" stroke-dasharray="${["none", "9 5", "2 6"][i]}" stroke-linecap="round"/><circle id="velocity-${axis}-point${suffix}" r="${4 + i * 2}" fill="${PARTICLE_COLORS[i]}"/>`;
+          }
           document.getElementById(`velocity-${axis}-plot`).innerHTML = svg;
         }
       }
 
       function drawVelocityCharts() {
-        const point = physicsAt(time);
         for (const axis of ["x", "y"]) {
           const scale = velocityChartScales[axis];
           if (!scale) continue;
-          const velocity = axis === "x" ? point.vx : point.vy;
-          const x = scale.x(point.t);
-          const y = scale.y(velocity);
-          document.getElementById(`velocity-${axis}-trace`).setAttribute("d", `M ${scale.x(0)} ${scale.y(scale.start)} L ${x} ${y}`);
-          const dot = document.getElementById(`velocity-${axis}-point`);
-          dot.setAttribute("cx", x);
-          dot.setAttribute("cy", y);
-          const description = `t = ${point.t.toFixed(2)} s · v${axis === "x" ? "ₓ" : "ᵧ"} = ${velocity.toFixed(2)} m/s`;
+          const descriptions = [];
+          for (let i = 0; i < activeParticleCount(); i++) {
+            const point = physicsAt(time, i);
+            const initial = initialVelocity(i);
+            const start = axis === "x" ? initial.vx : initial.vy;
+            const velocity = axis === "x" ? point.vx : point.vy;
+            const x = scale.x(point.t), y = scale.y(velocity);
+            const suffix = i === 0 ? "" : `-${i}`;
+            document.getElementById(`velocity-${axis}-trace${suffix}`).setAttribute("d", `M ${scale.x(0)} ${scale.y(start)} L ${x} ${y}`);
+            const dot = document.getElementById(`velocity-${axis}-point${suffix}`);
+            dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+            descriptions.push(`${PARTICLE_NAMES[i]}：${velocity.toFixed(2)} m/s${point.landed ? "（碰地）" : ""}`);
+          }
+          const description = `t = ${time.toFixed(2)} s · ${descriptions.join(" · ")}`;
           document.getElementById(`velocity-${axis}-value`).textContent = description;
-          document.getElementById(`velocity-${axis}-plot`).setAttribute("aria-label", `${axis === "x" ? "水平" : "鉛直"}速度與時間圖，已描繪至 ${description}`);
+          document.getElementById(`velocity-${axis}-plot`).setAttribute("aria-label", `${axis === "x" ? "水平" : "鉛直"}速度與時間圖，${description}`);
         }
       }
 
@@ -1394,7 +1663,7 @@
         if (!lastTimestamp) lastTimestamp = timestamp;
         const delta = Math.min((timestamp - lastTimestamp) / 1000, 0.08);
         lastTimestamp = timestamp;
-        const duration = landingTime();
+        const duration = flightDuration();
         time = Math.min(duration, time + delta * Number(playbackRate.value));
         if (time >= duration) {
           stopAnimation();
@@ -1412,7 +1681,7 @@
           render();
           return;
         }
-        if (time >= landingTime() - 1e-8) time = 0;
+        if (time >= flightDuration() - 1e-8) time = 0;
         running = true;
         lastTimestamp = 0;
         render();
@@ -1480,6 +1749,7 @@
 
       function syncModeControls() {
         updateSymmetryDiagram();
+        syncParticleControls();
         const settings = modeSettings[mode];
         const heightMinimum = mode === "freefall" || mode === "horizontal" ? 10 : 0;
         const heightMaximum = mode === "vertical" ? 50 : 200;
@@ -1487,8 +1757,8 @@
         heightInput.max = String(heightMaximum);
         if (settings.height < heightMinimum) settings.height = heightMinimum;
         if (settings.height > heightMaximum) settings.height = heightMaximum;
-        const initial = initialVelocity();
-        const duration = landingTime();
+        const initial = initialVelocity(focusParticle);
+        const duration = flightDuration();
         setupVelocityCharts();
         time = Math.min(time, duration);
         updateTimelineScale(duration);
@@ -1505,16 +1775,15 @@
         launchSpeed.value = String(modeSettings.oblique.launchSpeed);
         launchAngle.value = String(modeSettings.oblique.angle);
 
-        massInput.value = String(objectMass);
-        massOutput.textContent = `${objectMass.toFixed(1)} kg`;
         heightOutput.textContent = `${settings.height.toFixed(1)} m`;
         horizontalSpeedOutput.textContent = `${modeSettings.horizontal.horizontalSpeed.toFixed(1)} m/s`;
         verticalSpeedOutput.textContent = `${modeSettings.vertical.verticalSpeed.toFixed(1)} m/s`;
         launchSpeedOutput.textContent = `${modeSettings.oblique.launchSpeed.toFixed(2)} m/s`;
         angleOutput.textContent = `${modeSettings.oblique.angle.toFixed(0)}°`;
-        fixedCondition.textContent = `飛行時間 ${duration.toFixed(2)} s`;
-        conditionDetail.textContent = `重量 W = ${(objectMass * G).toFixed(1)} N；忽略空氣阻力時，質量不影響軌跡，球體大小僅作質量示意。時間軸會依實際落地時間更新。`;
+        fixedCondition.textContent = `${activeParticleCount() > 1 ? "全組最長" : ""}飛行時間 ${duration.toFixed(2)} s`;
+        conditionDetail.textContent = `忽略空氣阻力，g = ${G} m/s²。時間軸會依所有質點中最晚落地的時間更新。`;
 
+        document.getElementById("formula-title").textContent = `運動方程 · 質點 ${PARTICLE_NAMES[focusParticle]}`;
         const h = settings.height.toFixed(1);
         if (mode === "freefall") {
           formulaCopy.innerHTML = `<b>y(t)</b> = ${h} − 5t²<br><b>vᵧ(t)</b> = −10t`;
@@ -1523,13 +1792,16 @@
         } else if (mode === "horizontal") {
           formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} − 5t²<br><b>v(t)</b> = ⟨${initial.vx.toFixed(1)}, −10t⟩`;
         } else {
-          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 5t²<br><b>v₀</b> = ${settings.launchSpeed.toFixed(2)} m/s，θ = ${settings.angle.toFixed(0)}°`;
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 5t²<br><b>v₀</b> = ${particleSettings(focusParticle).launchSpeed.toFixed(2)} m/s，θ = ${particleSettings(focusParticle).angle.toFixed(0)}°`;
         }
+        resizeCanvas();
       }
 
       function setMode(nextMode) {
         if (!modeSettings[nextMode]) return;
         mode = nextMode;
+        focusParticle = 0;
+        activeScenario = "";
         modeButtons.forEach(button => {
           const active = button.dataset.mode === mode;
           button.classList.toggle("active", active);
@@ -1542,10 +1814,45 @@
 
       modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
       vectorInputs.forEach(input => input.addEventListener("change", draw));
+      document.getElementById("show-ghosts").addEventListener("change", draw);
+      document.getElementById("independence-toggle").addEventListener("change", () => {
+        resizeCanvas();
+        render();
+      });
+      document.getElementById("particle-count").addEventListener("click", event => {
+        const button = event.target.closest("[data-count]");
+        if (!button) return;
+        particleCounts[mode] = Number(button.dataset.count);
+        if (activeScenario === "equal-height" && particleCounts[mode] > 1) {
+          applyScenario("equal-height");
+          return;
+        }
+        activeScenario = "";
+        syncModeControls();
+        reset();
+      });
+      document.getElementById("scenario-controls").addEventListener("click", event => {
+        const button = event.target.closest("[data-scenario]");
+        if (button) applyScenario(button.dataset.scenario);
+      });
+      document.getElementById("extra-particle-controls").addEventListener("input", event => {
+        const input = event.target;
+        if (!input.matches("input[data-particle]")) return;
+        extraParticles[mode][Number(input.dataset.particle) - 1][input.dataset.setting] = Number(input.value);
+        activeScenario = "";
+        syncModeControls();
+        reset();
+      });
+      document.getElementById("focus-particle").addEventListener("change", event => {
+        focusParticle = Number(event.target.value);
+        syncModeControls();
+        render();
+      });
 
       function bindRangeControl(input, updateState) {
         const applyValue = () => {
           updateState(Number(input.value));
+          activeScenario = "";
           syncModeControls();
           reset();
         };
@@ -1553,7 +1860,6 @@
         input.addEventListener("change", applyValue);
       }
 
-      bindRangeControl(massInput, value => { objectMass = value; });
       comparisonToggle.addEventListener("change", () => {
         document.getElementById("height-comparison-controls").hidden = !comparisonToggle.checked;
         canvas.style.touchAction = mode === "vertical" && comparisonToggle.checked ? "none" : "auto";
@@ -1603,7 +1909,7 @@
       stageZoomButton.addEventListener("click", () => setStageExpanded(!stageCard.classList.contains("stage-expanded")));
       stepButton.addEventListener("click", () => {
         stopAnimation();
-        time = Math.min(landingTime(), Math.floor(time + 1e-8) + 1);
+        time = Math.min(flightDuration(), Math.floor(time + 1e-8) + 1);
         render();
       });
       timeline.addEventListener("input", () => {
