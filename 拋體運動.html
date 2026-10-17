@@ -170,6 +170,17 @@
     .scenario-buttons button[aria-pressed="true"] { border-color: var(--cyan); background: #163447; }
     .particle-count-buttons button:focus-visible, .scenario-buttons button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
     .particle-controls[hidden], .comparison-results[hidden] { display: none; }
+    .terrain-controls { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .terrain-controls[hidden], .terrain-params[hidden] { display: none; }
+    .terrain-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .terrain-buttons button { min-height: 62px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 10px; background: #13243a; color: var(--ink); cursor: pointer; font-weight: 700; font-size: .78rem; text-align: center; }
+    .terrain-buttons small { display: block; color: var(--muted); font-size: .64rem; font-weight: 400; margin-top: 4px; }
+    .terrain-buttons button[aria-pressed="true"] { border-color: var(--yellow); background: #2a2a1e; color: var(--yellow); }
+    .terrain-buttons button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+    .terrain-params { margin-top: 12px; }
+    .terrain-params .parameter-head { margin: 8px 0 2px; }
+    #terrain-note { margin-top: 10px; line-height: 1.65; }
+    #terrain-note b { color: var(--yellow); font-weight: 700; }
     .particle-settings { margin-top: 10px; padding: 12px; border-left: 3px solid var(--particle-color); background: rgba(255,255,255,.035); border-radius: 8px; }
     .particle-settings strong { color: var(--particle-color); font-size: .82rem; }
     .particle-settings .parameter-head { margin: 10px 0 2px; }
@@ -331,6 +342,39 @@
 
     .stage-action-button:hover { border-color: var(--cyan); background: rgba(13, 52, 75, 0.96); }
     .stage-action-button:focus-visible { outline: 3px solid rgba(56, 217, 242, 0.35); outline-offset: 2px; }
+    .stage-callout {
+      position: absolute;
+      z-index: 3;
+      right: 22px;
+      max-width: min(330px, calc(100% - 44px));
+      padding: 10px 13px;
+      border: 1px solid rgba(255, 209, 102, 0.45);
+      border-radius: 12px;
+      background: rgba(5, 18, 32, 0.92);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+      color: #eaf6ff;
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+    .stage-callout[hidden] { display: none; }
+    .stage-callout.docked { position: static; max-width: none; margin: 10px 0 0; }
+    .stage-callout dl { display: grid; grid-template-columns: auto auto; gap: 2px 14px; margin: 8px 0 0; }
+    .stage-callout dt { color: var(--muted); }
+    .stage-callout dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+    .stage-callout p { margin: 6px 0 0; color: var(--muted); font-size: 0.72rem; }
+    .stage-callout .callout-title { margin: 0; font-weight: 800; color: var(--yellow); }
+    #analysis-callout { pointer-events: auto; text-align: right; border-color: rgba(82, 225, 161, 0.5); }
+    #analysis-callout dl, #analysis-callout p { text-align: left; }
+    #analysis-button[aria-pressed="true"] { color: #061522; background: linear-gradient(135deg, #52e1a1, #38d9f2); }
+    #aid-callout { pointer-events: none; max-width: min(430px, calc(100% - 44px)); padding: 14px 18px; font-size: 1.05rem; line-height: 1.7; animation: callout-in .15s ease-out; }
+    #aid-callout .callout-title { font-size: 1.2rem; margin-bottom: 4px; }
+    #aid-callout b { font-size: 1.15rem; }
+    #aid-callout.docked { max-width: none; }
+    #particle-controls [hidden] { display: none !important; }
+    #stairs-parameters #horizontal-parameter { margin: 4px 0 6px; }
+    @keyframes callout-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    .stairs-aid-switch { margin-top: 12px; }
+    .vector-switch[hidden], .legend span[hidden] { display: none; }
     .stage-card.stage-expanded #stage-zoom-button { color: #061522; background: linear-gradient(135deg, #5be8ed, #55a8ff); }
 
     .legend {
@@ -651,6 +695,7 @@
           </div>
           <label class="rate-control">播放速度
             <select id="playback-rate">
+              <option value="0.25">0.25×</option>
               <option value="0.5">0.5×</option>
               <option value="1" selected>1×</option>
               <option value="2">2×</option>
@@ -665,12 +710,18 @@
           <button class="stage-action-button" id="stage-zoom-button" type="button" aria-pressed="false">⛶ 放大展示</button>
         </div>
         <canvas id="sim-canvas" aria-label="拋體運動動畫畫布"></canvas>
+        <div class="stage-callout" id="analysis-callout" hidden>
+          <button class="stage-action-button" id="analysis-button" type="button" aria-pressed="false">📐 分析位移</button>
+          <div id="analysis-detail" hidden></div>
+        </div>
+        <div class="stage-callout" id="aid-callout" role="status" hidden></div>
         <div class="scale-badge" id="scale-display" aria-live="polite">固定比例尺：每格 40 m</div>
         <div class="legend" aria-hidden="true">
           <span><i style="--swatch: var(--cyan)"></i>速度 v</span>
           <span><i style="--swatch: var(--orange)"></i>加速度 a</span>
           <span><i style="--swatch: var(--pink)"></i>速度分量</span>
           <span><i style="--swatch: var(--green)"></i>位移 Δr</span>
+          <span class="planar-only"><i style="--swatch: #b197fc"></i>位移分量 Δx／Δy</span>
         </div>
         <section class="symmetry-panel" id="symmetry-panel" hidden aria-labelledby="symmetry-title">
           <h2 id="symmetry-title">鉛直上拋的對稱性</h2>
@@ -706,7 +757,29 @@
         <section class="control-card" aria-labelledby="parameter-title">
           <h2 class="panel-title" id="parameter-title">條件設定 <small>僅 g 固定 · 時間由條件決定</small></h2>
           <section class="particle-controls" id="particle-controls" hidden>
-            <h3 class="launch-heading">選擇同時發射數量</h3>
+            <section id="terrain-controls" class="terrain-controls" hidden>
+              <h3 class="launch-heading">平拋情境</h3>
+              <div class="terrain-buttons" id="terrain-buttons" role="group" aria-label="平拋情境">
+                <button type="button" data-terrain="flat" aria-pressed="true">一般平拋<small>落在水平地面</small></button>
+                <button type="button" data-terrain="incline" aria-pressed="false">斜面上的平拋<small>由斜面頂端水平拋出</small></button>
+                <button type="button" data-terrain="stairs" aria-pressed="false">階梯上的平拋<small>會落在第幾階？</small></button>
+              </div>
+              <div class="terrain-params" id="incline-parameters" hidden>
+                <div class="parameter-head"><label for="incline-angle">斜面傾角 θ</label><output id="incline-angle-output">30°</output></div>
+                <input id="incline-angle" type="range" min="10" max="60" step="1" value="30">
+              </div>
+              <div class="terrain-params" id="stairs-parameters" hidden>
+                <div class="parameter-head"><label for="stair-height">每階高度 h</label><output id="stair-height-output">0.40 m</output></div>
+                <input id="stair-height" type="range" min="0.1" max="1" step="0.05" value="0.4">
+                <div class="parameter-head"><label for="stair-width">每階寬度 w</label><output id="stair-width-output">0.60 m</output></div>
+                <input id="stair-width" type="range" min="0.1" max="1.5" step="0.05" value="0.6">
+                <div class="parameter-head"><label for="stair-count">階梯數 N</label><output id="stair-count-output">10 階</output></div>
+                <input id="stair-count" type="range" min="3" max="15" step="1" value="10">
+                <label class="vector-switch stairs-aid-switch" style="--switch-color: var(--yellow)"><input id="stairs-aid" type="checkbox">開啟輔助線（階梯外緣連線）</label>
+              </div>
+              <p id="terrain-note" class="model-note" role="status"></p>
+            </section>
+            <h3 class="launch-heading" id="count-heading">選擇同時發射數量</h3>
             <div class="particle-count-buttons" id="particle-count" role="group" aria-label="同時發射數量">
               <button type="button" data-count="1" aria-pressed="true">●<br>單顆</button>
               <button type="button" data-count="2" aria-pressed="false">● ●<br>兩顆比較</button>
@@ -722,9 +795,9 @@
               </div>
               <p id="scenario-note" class="model-note" role="status">先預測，再播放驗證。案例皆由同一地面高度發射，不計空氣阻力。</p>
             </section>
-            <p class="model-note">各質點可獨立調整初速與角度；按「開始」同時發射。</p>
+            <p class="model-note" id="particle-note">各質點可獨立調整初速與角度；按「開始」同時發射。</p>
             <p id="shared-height-note" class="model-note"></p>
-            <div class="particle-settings" style="--particle-color:#63e6be"><strong>質點 A</strong>
+            <div class="particle-settings" id="particle-a-settings" style="--particle-color:#63e6be"><strong>質點 A</strong>
           <div class="parameter" id="horizontal-parameter" hidden>
             <div class="parameter-head"><label for="horizontal-speed">A · 水平初速 v₀ₓ</label><output id="horizontal-speed-output">18.0 m/s</output></div>
             <input id="horizontal-speed" type="range" min="0" max="40" step="0.5" value="18">
@@ -739,7 +812,7 @@
           </div>
             </div>
             <div id="extra-particle-controls"></div>
-            <div class="parameter-head" style="margin-top:12px"><label for="focus-particle">數值／向量／方程觀察對象</label><select id="focus-particle"><option value="0">質點 A</option></select></div>
+            <div class="parameter-head" id="focus-row" style="margin-top:12px"><label for="focus-particle">數值／向量／方程觀察對象</label><select id="focus-particle"><option value="0">質點 A</option></select></div>
           </section>
           <div class="parameter" id="height-parameter">
             <div class="parameter-head"><label for="initial-height">初始高度 h₀</label><output id="height-output">125 m</output></div>
@@ -780,6 +853,8 @@
             <label class="vector-switch" style="--switch-color: var(--pink)"><input type="checkbox" data-vector="velocity-x">水平速度 vₓ</label>
             <label class="vector-switch" style="--switch-color: var(--pink)"><input type="checkbox" data-vector="velocity-y">鉛直速度 vᵧ</label>
             <label class="vector-switch" style="--switch-color: var(--green)"><input type="checkbox" data-vector="displacement">位移 Δr</label>
+            <label class="vector-switch planar-only" style="--switch-color: #b197fc"><input type="checkbox" data-vector="displacement-x">x 軸位移 Δx</label>
+            <label class="vector-switch planar-only" style="--switch-color: #74c0fc"><input type="checkbox" data-vector="displacement-y">y 軸位移 Δy</label>
           </div>
           <div class="vector-actions">
             <button class="small-button" id="vectors-on" type="button">全部開啟</button>
@@ -790,7 +865,7 @@
         <section class="info-card" aria-labelledby="formula-title">
           <h2 class="panel-title" id="formula-title">此模式的運動方程</h2>
           <p class="formula" id="formula-copy"><b>y(t)</b> = 125 − 5t²<br><b>vᵧ(t)</b> = −10t</p>
-          <p class="model-note">SI 單位；水平向右為 +x，鉛直向上為 +y。平拋、斜拋的兩軸分別縮放以放大軌跡，畫面角度與箭頭長度不代表實際角度及大小，請以設定值、刻度與向量數值為準。</p>
+          <p class="model-note">SI 單位；水平向右為 +x，鉛直向上為 +y。平拋、斜拋的兩軸分別縮放以放大軌跡，畫面角度與箭頭長度不代表實際角度及大小，請以設定值、刻度與向量數值為準。斜面與階梯情境改採兩軸等比例，畫面上的斜面角度即實際角度。</p>
         </section>
       </aside>
     </section>
@@ -804,7 +879,7 @@
     </section>
 
     <section class="teaching-note" aria-label="操作說明與觀察重點">
-      <article><strong>操作</strong><p>選一種運動後按「開始」；淡虛線是預測路徑，彩色實線隨時間描繪。平拋、斜拋可選擇 1～3 個質點同時發射。</p></article>
+      <article><strong>操作</strong><p>選一種運動後按「開始」；淡虛線是預測路徑，彩色實線隨時間描繪。平拋、斜拋可選擇 1～3 個質點同時發射；平拋另有「斜面上」與「階梯上」兩個情境，可調整初速。</p></article>
       <article><strong>觀察</strong><p>用顏色對照各質點的軌跡、比較表與 v–t 圖。可開啟整秒殘影，或切換觀察對象查看向量與即時數值。</p></article>
       <article><strong>想一想</strong><p>把平拋與自由落體設成相同初始高度後，兩者的鉛直位置為何在每個整數秒都相同？</p></article>
     </section>
@@ -851,6 +926,287 @@
         syncModeControls();
         reset();
       }
+
+      // ---- 平拋情境：一般／斜面上／階梯上 ----
+      let terrain = "flat";
+      const terrainSettings = {
+        incline: { angle: 30 },
+        stairs: { stepHeight: 0.4, stepWidth: 0.6, steps: 10 }
+      };
+      // Each situation keeps its own height and speeds so switching back restores them.
+      const terrainMemory = {
+        flat: { height: DEFAULT_DROP_HEIGHT, speeds: [18, 28, 38] },
+        incline: { height: 60, speeds: [20, 10, 25] },
+        stairs: { height: 4, speeds: [2.5, 4, 5.5] }
+      };
+      const TERRAIN_SPEED_RANGE = {
+        flat: { min: 0, max: 40, step: 0.5 },
+        incline: { min: 1, max: 40, step: 0.5 },
+        stairs: { min: 0.2, max: 8, step: 0.1 }
+      };
+
+      function activeTerrain() {
+        return mode === "horizontal" ? terrain : "flat";
+      }
+
+      function stairsTopHeight() {
+        const s = terrainSettings.stairs;
+        return s.steps * s.stepHeight;
+      }
+
+      function inclineFootX(height = modeSettings.horizontal.height) {
+        return height / Math.tan(terrainSettings.incline.angle * Math.PI / 180);
+      }
+
+      // Analytic first contact with the selected surface for a horizontal launch from (0, height).
+      function terrainLanding(speed, height = modeSettings.horizontal.height, kind = activeTerrain()) {
+        if (kind === "incline") {
+          const tan = Math.tan(terrainSettings.incline.angle * Math.PI / 180);
+          const t = 2 * speed * tan / G;
+          if (speed * t <= inclineFootX(height) + 1e-9) return { time: t, surface: "incline" };
+          return { time: Math.sqrt(2 * height / G), surface: "ground" };
+        }
+        if (kind === "stairs") {
+          const { stepHeight: h, stepWidth: w, steps } = terrainSettings.stairs;
+          // Tread n sits n·h below the launch edge and spans x ∈ [(n−1)w, nw].
+          for (let n = 1; n < steps; n++) {
+            const t = Math.sqrt(2 * n * h / G);
+            if (speed * t <= n * w + 1e-9) return { time: t, surface: "step", step: n };
+          }
+          return { time: Math.sqrt(2 * steps * h / G), surface: "ground", step: steps };
+        }
+        return { time: Math.sqrt(2 * height / G), surface: "ground" };
+      }
+
+      function landingSurfaceText(index = 0) {
+        const kind = activeTerrain();
+        if (kind === "flat") return "已落地";
+        const landing = terrainLanding(initialVelocity(index).vx);
+        if (landing.surface === "incline") return "落在斜面";
+        if (landing.surface === "step") return `落在第 ${landing.step} 階`;
+        return kind === "stairs" ? "越過階梯落地" : "越過斜面落地";
+      }
+
+      function planarMode() {
+        return mode === "horizontal" || mode === "oblique";
+      }
+
+      // ---- 階梯輔助線：連接各階外緣，直線 y = H − (h/w)x ----
+      let aidPause = null;
+      function stairsAidEnabled() {
+        return activeTerrain() === "stairs" && document.getElementById("stairs-aid").checked;
+      }
+
+      function aidCrossing(index) {
+        const { stepHeight: h, stepWidth: w } = terrainSettings.stairs;
+        const v = initialVelocity(index).vx;
+        const t = 2 * v * h / (G * w);
+        const x = v * t;
+        const landing = terrainLanding(v);
+        return { index, t, x, y: modeSettings.horizontal.height - h / w * x, ratio: x / w, landing, valid: t > 0 && t <= landing.time + 1e-9 };
+      }
+
+      function nextAidCrossings(previous, next) {
+        if (!stairsAidEnabled()) return [];
+        const hits = Array.from({ length: activeParticleCount() }, (_, i) => aidCrossing(i))
+          .filter(c => c.valid && previous < c.t - 1e-9 && c.t <= next + 1e-9);
+        if (!hits.length) return [];
+        const first = Math.min(...hits.map(c => c.t));
+        return hits.filter(c => c.t <= first + 1e-6);
+      }
+
+      function showAidCallout(hits) {
+        const callout = document.getElementById("aid-callout");
+        const { steps } = terrainSettings.stairs;
+        if (callout.dataset.key === hits.map(c => `${c.index}:${c.t}`).join() && !callout.hidden) return;
+        callout.dataset.key = hits.map(c => `${c.index}:${c.t}`).join();
+        callout.innerHTML = hits.map(c => {
+          const color = PARTICLE_COLORS[c.index];
+          const name = activeParticleCount() > 1 ? `質點 ${PARTICLE_NAMES[c.index]} ` : "";
+          const n = c.landing.step;
+          const position = `此時 x = ${c.x.toFixed(2)} m = ${c.ratio.toFixed(2)} w`;
+          const verdict = c.landing.surface === "step"
+            ? `${position}（介於 ${n - 1}w 與 ${n}w 之間）<br>→ <b style="color:${color}">確定落在第 ${n} 階</b>`
+            : `${position}，已超過 ${steps - 1}w<br>→ <b style="color:${color}">越過全部階梯，落在地面</b>`;
+          return `<p class="callout-title" style="color:${color}">${name}碰到輔助線！</p><div>${verdict}</div>`;
+        }).join("");
+        placeCallouts();
+        callout.style.top = `${getTransform().pad.top + 4}px`;
+        callout.hidden = false;
+      }
+
+      // On narrow stages the canvas has no empty corner, so dock the boxes below it instead of covering the motion.
+      function placeCallouts() {
+        const docked = stageCard.clientWidth < 700 && !stageCard.classList.contains("stage-expanded");
+        for (const id of ["analysis-callout", "aid-callout"]) {
+          const element = document.getElementById(id);
+          if (docked && element.parentElement === stageCard) stageCard.after(element);
+          if (!docked && element.parentElement !== stageCard) stageCard.appendChild(element);
+          element.classList.toggle("docked", docked);
+        }
+        return docked;
+      }
+
+      function hideAidCallout() {
+        document.getElementById("aid-callout").hidden = true;
+      }
+
+      // ---- 斜面：分析位移 ----
+      let analysisOn = false;
+      function analysisAvailable() {
+        return activeTerrain() === "incline" && time >= landingTime(focusParticle) - 1e-8;
+      }
+
+      function analysisValues() {
+        const landing = physicsAt(landingTime(focusParticle), focusParticle);
+        const start = initialPosition();
+        const dx = landing.x - start.x;
+        const dy = landing.y - start.y;
+        return { start, landing, dx, dy, r: Math.hypot(dx, dy), alpha: Math.atan2(-dy, dx) * 180 / Math.PI,
+          onIncline: terrainLanding(initialVelocity(focusParticle).vx).surface === "incline" };
+      }
+
+      function updateStageCallouts(transform) {
+        placeCallouts();
+        const callout = document.getElementById("analysis-callout");
+        const available = analysisAvailable();
+        if (!available) analysisOn = false;
+        callout.hidden = !available;
+        // The helper-line verdict stays on screen from the crossing until reset or rewinding before it.
+        const crossing = stairsAidEnabled() ? aidCrossing(0) : null;
+        if (crossing && crossing.valid && time >= crossing.t - 1e-9) showAidCallout([crossing]);
+        else hideAidCallout();
+        callout.style.top = `${transform.pad.top + 4}px`;
+        document.getElementById("aid-callout").style.top = `${transform.pad.top + 4}px`;
+        document.getElementById("analysis-button").setAttribute("aria-pressed", String(analysisOn));
+        const detail = document.getElementById("analysis-detail");
+        detail.hidden = !analysisOn;
+        if (!analysisOn) return;
+        const a = analysisValues();
+        const theta = terrainSettings.incline.angle;
+        const tanAlpha = -a.dy / a.dx;
+        const html = `<dl>
+            <dt>位移 |Δr|</dt><dd style="color:${COLORS.displacement}">${a.r.toFixed(2)} m</dd>
+            <dt>x 方向位移 Δx</dt><dd style="color:${COLORS.displacementX}">${a.dx.toFixed(2)} m</dd>
+            <dt>y 方向位移 Δy</dt><dd style="color:${COLORS.displacementY}">${a.dy.toFixed(2)} m</dd>
+            <dt>位移與水平夾角 α</dt><dd style="color:${COLORS.aid}">${a.alpha.toFixed(1)}°</dd>
+          </dl>
+          <p>tanα = |Δy| / Δx = ${tanAlpha.toFixed(3)}${a.onIncline
+            ? `，α = θ = ${theta}°：Δy、Δx、Δr 圍成的直角三角形與斜面相似，位移方向就是斜面方向。速度夾角 φ 滿足 tanφ = 2tanα。`
+            : `；初速太大越過斜面，α 小於斜面傾角 θ = ${theta}°。`}</p>`;
+        if (detail.dataset.html !== html) { detail.dataset.html = html; detail.innerHTML = html; }
+      }
+
+      function drawDisplacementAnalysis(transform) {
+        if (!analysisOn || !analysisAvailable()) return;
+        const a = analysisValues();
+        const sx = transform.x(a.start.x), sy = transform.y(a.start.y);
+        const cx = transform.x(a.landing.x), ly = transform.y(a.landing.y);
+        const segment = (x1, y1, x2, y2, color, dash) => {
+          ctx.save();
+          ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3; ctx.lineCap = "round";
+          ctx.setLineDash(dash);
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          ctx.setLineDash([]);
+          const angle = Math.atan2(y2 - y1, x2 - x1);
+          ctx.beginPath(); ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - 12 * Math.cos(angle - 0.4), y2 - 12 * Math.sin(angle - 0.4));
+          ctx.lineTo(x2 - 12 * Math.cos(angle + 0.4), y2 - 12 * Math.sin(angle + 0.4));
+          ctx.closePath(); ctx.fill();
+          ctx.restore();
+        };
+        // Δy first (straight down from the launch point), then Δx along the bottom: the right triangle
+        // sits inside the incline and shares the same corner angle as the slope foot → similar triangles.
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 209, 102, 0.10)";
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, ly); ctx.lineTo(cx, ly); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        segment(sx, sy, sx, ly, COLORS.displacementY, [8, 5]);
+        segment(sx, ly, cx, ly, COLORS.displacementX, [8, 5]);
+        segment(sx, sy, cx, ly, COLORS.displacement, []);
+        ctx.save();
+        ctx.strokeStyle = "rgba(234, 246, 255, 0.7)"; ctx.lineWidth = 1.2;
+        ctx.strokeRect(sx, ly - 10, 10, 10);
+        const angle = Math.atan2(ly - sy, cx - sx);
+        // α at the landing corner, opening the same way as θ at the foot of the incline.
+        ctx.strokeStyle = COLORS.aid; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, ly, 40, -Math.PI, -Math.PI + angle); ctx.stroke();
+        ctx.restore();
+        roundedLabel(`α = ${a.alpha.toFixed(1)}°`, cx + 66 * Math.cos(-Math.PI + angle / 2) - 22, ly + 66 * Math.sin(-Math.PI + angle / 2), { color: COLORS.aid, border: `${COLORS.aid}88` });
+        roundedLabel(`Δy = ${a.dy.toFixed(2)} m`, sx - 62, (sy + ly) / 2, { color: COLORS.displacementY, border: `${COLORS.displacementY}88` });
+        roundedLabel(`Δx = ${a.dx.toFixed(2)} m`, (sx + cx) / 2, ly + 18, { color: COLORS.displacementX, border: `${COLORS.displacementX}88` });
+        const nx = Math.sin(angle), ny = -Math.cos(angle);
+        roundedLabel(`|Δr| = ${a.r.toFixed(2)} m`, (sx + cx) / 2 + nx * 28, (sy + ly) / 2 + ny * 28, { color: COLORS.displacement, border: `${COLORS.displacement}88` });
+      }
+
+      function setTerrain(next) {
+        if (!terrainMemory[next]) return;
+        if (next !== terrain) {
+          terrainMemory[terrain] = {
+            height: modeSettings.horizontal.height,
+            speeds: [modeSettings.horizontal.horizontalSpeed, ...extraParticles.horizontal.map(p => p.horizontalSpeed)]
+          };
+          terrain = next;
+          const memory = terrainMemory[next];
+          modeSettings.horizontal.height = next === "stairs" ? stairsTopHeight() : memory.height;
+          modeSettings.horizontal.horizontalSpeed = memory.speeds[0];
+          extraParticles.horizontal.forEach((p, i) => { p.horizontalSpeed = memory.speeds[i + 1]; });
+        }
+        focusParticle = 0;
+        syncModeControls();
+        reset();
+      }
+
+      function updateTerrainControls() {
+        const visible = mode === "horizontal";
+        document.getElementById("terrain-controls").hidden = !visible;
+        document.querySelectorAll("[data-terrain]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.terrain === terrain)));
+        document.getElementById("incline-parameters").hidden = terrain !== "incline";
+        document.getElementById("stairs-parameters").hidden = terrain !== "stairs";
+        const { angle } = terrainSettings.incline;
+        const { stepHeight, stepWidth, steps } = terrainSettings.stairs;
+        document.getElementById("incline-angle").value = String(angle);
+        document.getElementById("incline-angle-output").textContent = `${angle}°`;
+        document.getElementById("stair-height").value = String(stepHeight);
+        document.getElementById("stair-height-output").textContent = `${stepHeight.toFixed(2)} m`;
+        document.getElementById("stair-width").value = String(stepWidth);
+        document.getElementById("stair-width-output").textContent = `${stepWidth.toFixed(2)} m`;
+        document.getElementById("stair-count").value = String(steps);
+        document.getElementById("stair-count-output").textContent = `${steps} 階`;
+        const note = document.getElementById("terrain-note");
+        if (!visible) return;
+        const name = PARTICLE_NAMES[focusParticle];
+        const v0 = initialVelocity(focusParticle).vx;
+        const landing = terrainLanding(v0);
+        const H = modeSettings.horizontal.height;
+        if (terrain === "flat") {
+          note.innerHTML = "從高處水平拋出，落在水平地面。飛行時間只由高度決定：t = √(2h₀ / g)。";
+        } else if (terrain === "incline") {
+          const rad = angle * Math.PI / 180;
+          const tan = Math.tan(rad);
+          const phi = Math.atan(2 * tan) * 180 / Math.PI;
+          if (landing.surface === "incline") {
+            const t = landing.time;
+            const x = v0 * t;
+            note.innerHTML = `質點 ${name}：位移與水平夾角 = θ，故 <b>t = 2v₀tanθ / g = ${t.toFixed(2)} s</b>，水平 ${x.toFixed(2)} m、沿斜面 <b>${(x / Math.cos(rad)).toFixed(2)} m</b>。`
+              + `<br>落點速度與水平夾角 φ：tanφ = 2tanθ = ${(2 * tan).toFixed(3)} → <b>φ ≈ ${phi.toFixed(1)}°</b>，與初速無關${activeParticleCount() > 1 ? "，各質點落點速度互相平行" : ""}。`
+              + `<br>離斜面最遠發生在 t/2 = ${(t / 2).toFixed(2)} s（此時速度平行斜面）。`;
+          } else {
+            note.innerHTML = `質點 ${name} 初速太大，飛越斜面底端（水平 ${inclineFootX().toFixed(1)} m），改落在地面：t = √(2H / g) = ${landing.time.toFixed(2)} s。`
+              + `<br>要落在斜面上需 v₀ ≤ √(gH / 2) / tanθ = ${(Math.sqrt(G * H / 2) / tan).toFixed(2)} m/s。`;
+          }
+        } else {
+          const ratio = 2 * v0 * v0 * stepHeight / (G * stepWidth * stepWidth);
+          const rule = `n ≥ 2v₀²h / (g w²) = ${ratio.toFixed(2)}`;
+          if (landing.surface === "step") {
+            note.innerHTML = `質點 ${name} <b>落在第 ${landing.step} 階</b>：下落 ${landing.step} 階高 ${(landing.step * stepHeight).toFixed(2)} m 需 ${landing.time.toFixed(2)} s，水平飛 ${(v0 * landing.time).toFixed(2)} m ≤ ${landing.step} × ${stepWidth.toFixed(2)} m。`
+              + `<br>判斷式：落下 n 階時 x ≤ n·w ⇒ ${rule}，取最小整數 n = ${landing.step}。`;
+          } else {
+            note.innerHTML = `質點 ${name} 越過全部 ${steps} 階，落在底端地面（${landing.time.toFixed(2)} s，水平 ${(v0 * landing.time).toFixed(2)} m）。`
+              + `<br>判斷式：${rule}，大於階梯數，故落在地面。頂端高 ${H.toFixed(2)} m。`;
+          }
+        }
+      }
       const COLORS = {
         trajectory: "#67d7ea",
         current: "#f5fbff",
@@ -859,6 +1215,9 @@
         acceleration: "#ff9f43",
         components: "#ff5c87",
         displacement: "#52e1a1",
+        displacementX: "#b197fc",
+        displacementY: "#74c0fc",
+        aid: "#ffd166",
         ground: "#49657c",
         grid: "rgba(113, 151, 181, 0.12)"
       };
@@ -930,6 +1289,7 @@
       let vectorArrowQueue = [];
 
       function activeParticleCount() {
+        if (mode === "horizontal" && terrain === "stairs") return 1;
         return particleCounts[mode] || 1;
       }
 
@@ -960,6 +1320,7 @@
       }
 
       function landingTime(index = 0) {
+        if (activeTerrain() !== "flat") return terrainLanding(initialVelocity(index).vx).time;
         const { vy } = initialVelocity(index);
         const height = modeSettings[mode].height;
         return (vy + Math.sqrt(vy * vy + 2 * G * height)) / G;
@@ -1011,6 +1372,19 @@
           const span = Math.max(8, peak * 1.25);
           return { minX: -span * 0.18, maxX: span * 0.18, minY: -span * 0.1, maxY: span, gridStep: niceGridStep(span) };
         }
+        if (activeTerrain() !== "flat") {
+          // Equal-axis view so the slope / steps keep their real angle; fixed for the speed range.
+          const kind = activeTerrain();
+          const height = modeSettings.horizontal.height;
+          const maximumSpeed = Number(horizontalSpeed.max);
+          const farthest = maximumSpeed * terrainLanding(maximumSpeed, height, kind).time;
+          const surfaceEnd = kind === "incline" ? inclineFootX(height) : terrainSettings.stairs.steps * terrainSettings.stairs.stepWidth;
+          const span = Math.max(farthest, surfaceEnd, 1e-3);
+          const pad = Math.max(span, height) * 0.07;
+          const step = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 40, 50, 80, 100].find(s => s >= Math.max(span, height) / 8) || 120;
+          return { minX: -pad * 1.5, maxX: span + pad, minY: -pad, maxY: height + pad,
+            uniform: true, gridStep: step, gridStepX: step, gridStepY: step };
+        }
         if (mode === "horizontal" || mode === "oblique") {
           const height = modeSettings[mode].height;
           // Keep the view fixed while speed or angle changes, using the full speed range.
@@ -1050,8 +1424,9 @@
         const plotHeight = Math.max(1, canvasSize.height - pad.top - pad.bottom);
         const scale = Math.min(plotWidth / (bounds.maxX - bounds.minX), plotHeight / (bounds.maxY - bounds.minY));
         const alignToLeft = mode === "horizontal" || mode === "oblique";
-        const scaleX = alignToLeft ? plotWidth / (bounds.maxX - bounds.minX) : scale;
-        const scaleY = alignToLeft ? plotHeight / (bounds.maxY - bounds.minY) : scale;
+        const stretch = alignToLeft && !bounds.uniform;
+        const scaleX = stretch ? plotWidth / (bounds.maxX - bounds.minX) : scale;
+        const scaleY = stretch ? plotHeight / (bounds.maxY - bounds.minY) : scale;
         const usedWidth = (bounds.maxX - bounds.minX) * scaleX;
         const usedHeight = (bounds.maxY - bounds.minY) * scaleY;
         const horizontalGap = alignToLeft ? 0 : (plotWidth - usedWidth) / 2;
@@ -1159,14 +1534,17 @@
         velocity: { x: -76, y: -38 },
         acceleration: { x: -76, y: 2 },
         "velocity-x": { x: 72, y: -38 },
-        "velocity-y": { x: 72, y: 2 }
+        "velocity-y": { x: 72, y: 2 },
+        "displacement-x": { x: 0, y: -17 },
+        "displacement-y": { x: 58, y: 0 }
       };
 
       function drawQueuedVectorLabels() {
         for (const arrow of vectorArrowQueue) {
           const offset = VECTOR_LABEL_OFFSETS[arrow.kind] || { x: 70, y: 54 };
-          const anchorX = arrow.kind === "displacement" ? arrow.endX : arrow.startX;
-          const anchorY = arrow.kind === "displacement" ? arrow.endY : arrow.startY;
+          const component = arrow.kind === "displacement-x" || arrow.kind === "displacement-y";
+          const anchorX = component ? (arrow.startX + arrow.endX) / 2 : arrow.kind === "displacement" ? arrow.endX : arrow.startX;
+          const anchorY = component ? (arrow.startY + arrow.endY) / 2 : arrow.kind === "displacement" ? arrow.endY : arrow.startY;
           const position = { x: anchorX + offset.x, y: anchorY + offset.y };
           roundedLabel(arrow.label, position.x, position.y, {
             color: arrow.color,
@@ -1241,6 +1619,113 @@
         ctx.restore();
       }
 
+      function drawTerrain(transform) {
+        const kind = activeTerrain();
+        if (kind === "flat") return;
+        const bounds = transform.bounds;
+        const H = modeSettings.horizontal.height;
+        const surface = [[bounds.minX, H], [0, H]];
+        const { stepHeight: h, stepWidth: w, steps } = terrainSettings.stairs;
+        if (kind === "incline") {
+          surface.push([inclineFootX(), 0]);
+        } else {
+          for (let n = 1; n <= steps; n++) {
+            surface.push([(n - 1) * w, (steps - n) * h]);
+            if (n < steps) surface.push([n * w, (steps - n) * h]);
+          }
+        }
+        ctx.save();
+        ctx.beginPath();
+        surface.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, transform.x(x), transform.y(y)));
+        ctx.lineTo(transform.x(bounds.minX), transform.y(0));
+        ctx.closePath();
+        const fill = ctx.createLinearGradient(0, transform.y(H), 0, transform.y(0));
+        fill.addColorStop(0, "rgba(120, 150, 178, 0.34)");
+        fill.addColorStop(1, "rgba(60, 86, 110, 0.22)");
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.beginPath();
+        surface.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, transform.x(x), transform.y(y)));
+        ctx.strokeStyle = "#a9c6de";
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = "round";
+        ctx.stroke();
+
+        if (kind === "stairs" && stairsAidEnabled()) {
+          ctx.save();
+          ctx.strokeStyle = COLORS.aid; ctx.lineWidth = 1.8; ctx.setLineDash([7, 6]); ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.moveTo(transform.x(0), transform.y(H));
+          ctx.lineTo(transform.x(steps * w), transform.y(0));
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = COLORS.aid;
+          for (let n = 0; n < steps; n++) {
+            ctx.beginPath(); ctx.arc(transform.x(n * w), transform.y((steps - n) * h), 2.6, 0, Math.PI * 2); ctx.fill();
+          }
+          // After the ball crosses the line, mark the crossing and drop a guide to the tread it will hit.
+          for (let i = 0; i < activeParticleCount(); i++) {
+            const c = aidCrossing(i);
+            if (!c.valid || time < c.t - 1e-9) continue;
+            const px = transform.x(c.x), py = transform.y(c.y);
+            ctx.strokeStyle = PARTICLE_COLORS[i]; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
+            ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, transform.y(H - (c.landing.step || steps) * h)); ctx.stroke();
+            ctx.setLineDash([]); ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Highlight the tread / slope point each particle actually hit once it has landed.
+        for (let i = 0; i < activeParticleCount(); i++) {
+          const landing = terrainLanding(initialVelocity(i).vx);
+          if (time < landing.time - 1e-8) continue;
+          ctx.strokeStyle = PARTICLE_COLORS[i];
+          ctx.lineWidth = 5;
+          ctx.globalAlpha = 0.85;
+          ctx.beginPath();
+          if (landing.surface === "step") {
+            const y = transform.y((steps - landing.step) * h);
+            ctx.moveTo(transform.x((landing.step - 1) * w), y);
+            ctx.lineTo(transform.x(landing.step * w), y);
+          } else {
+            const p = physicsAt(landing.time, i);
+            const half = (bounds.maxX - bounds.minX) * 0.025;
+            const slope = landing.surface === "incline" ? -Math.tan(terrainSettings.incline.angle * Math.PI / 180) : 0;
+            ctx.moveTo(transform.x(p.x - half), transform.y(p.y - slope * half));
+            ctx.lineTo(transform.x(p.x + half), transform.y(p.y + slope * half));
+          }
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+
+        ctx.fillStyle = "#cfe0ee";
+        if (kind === "incline") {
+          const rad = terrainSettings.incline.angle * Math.PI / 180;
+          const fx = transform.x(inclineFootX());
+          const fy = transform.y(0);
+          ctx.strokeStyle = "#ffd166";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(fx, fy, 34, -Math.PI, -Math.PI + rad);
+          ctx.stroke();
+          ctx.font = "700 13px Inter, sans-serif";
+          ctx.fillStyle = "#ffd166";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`θ = ${terrainSettings.incline.angle}°`, fx - 40, fy - 14);
+        } else {
+          const treadPixels = Math.abs(transform.x(w) - transform.x(0));
+          if (treadPixels >= 16) {
+            ctx.font = `600 ${treadPixels >= 30 ? 11 : 9}px Inter, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            for (let n = 1; n < steps; n++) ctx.fillText(String(n), transform.x((n - 0.5) * w), transform.y((steps - n) * h) + 4);
+          }
+        }
+        ctx.restore();
+      }
+
       function drawPredictedTrajectory(transform, particle = 0) {
         const duration = landingTime(particle);
         const color = PARTICLE_COLORS[particle];
@@ -1284,7 +1769,10 @@
         ctx.arc(lx, ly, 12, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
-        if (activeParticleCount() === 1) roundedLabel(`落地 ${duration.toFixed(2)} s`, lx, ly + 31, { color, border: `${color}66` });
+        if (activeParticleCount() === 1) {
+          const landText = activeTerrain() === "flat" ? "落地" : landingSurfaceText(particle);
+          roundedLabel(`${landText} ${duration.toFixed(2)} s`, lx, ly + 31, { color, border: `${color}66` });
+        }
       }
 
       function drawGhosts(transform, particle = 0) {
@@ -1334,21 +1822,43 @@
       }
 
       function drawVectors(point) {
+        // Small terrain worlds (stairs) need shorter arrows; flat modes keep their original scale.
+        let velocityScale = 0.78;
+        let accelerationScale = 2.05;
+        if (activeTerrain() !== "flat") {
+          const b = getWorldBounds();
+          const span = Math.max(b.maxX - b.minX, b.maxY - b.minY);
+          velocityScale *= span / 200 * 40 / Number(horizontalSpeed.max);
+          accelerationScale *= span / 200;
+        }
         if (isVectorVisible("displacement")) {
           const initial = initialPosition();
           drawArrow(initial.x, initial.y, point.x - initial.x, point.y - initial.y, COLORS.displacement, `Δr ${Math.hypot(point.x - initial.x, point.y - initial.y).toFixed(1)} m`, 1, "displacement");
         }
+        if (planarMode()) {
+          const initial = initialPosition();
+          const dx = point.x - initial.x;
+          const dy = point.y - initial.y;
+          const meters = value => `${value.toFixed(Math.abs(value) < 10 ? 2 : 1)} m`;
+          if (isVectorVisible("displacement-x") && Math.abs(dx) > 1e-3) {
+            drawArrow(initial.x, initial.y, dx, 0, COLORS.displacementX, `Δx ${meters(dx)}`, 1, "displacement-x");
+          }
+          if (isVectorVisible("displacement-y") && Math.abs(dy) > 1e-3) {
+            // Drawn from the end of Δx so Δx, Δy and Δr close a right triangle.
+            drawArrow(point.x, initial.y, 0, dy, COLORS.displacementY, `Δy ${meters(dy)}`, 1, "displacement-y");
+          }
+        }
         if (isVectorVisible("velocity")) {
-          drawArrow(point.x, point.y, point.vx, point.vy, COLORS.velocity, `v ${point.speed.toFixed(1)} m/s`, 0.78, "velocity");
+          drawArrow(point.x, point.y, point.vx, point.vy, COLORS.velocity, `v ${point.speed.toFixed(1)} m/s`, velocityScale, "velocity");
         }
         if (isVectorVisible("acceleration")) {
-          drawArrow(point.x, point.y, point.ax, point.ay, COLORS.acceleration, `a ${G.toFixed(1)} m/s²`, 2.05, "acceleration");
+          drawArrow(point.x, point.y, point.ax, point.ay, COLORS.acceleration, `a ${G.toFixed(1)} m/s²`, accelerationScale, "acceleration");
         }
         if (isVectorVisible("velocity-x") && Math.abs(point.vx) > 0.01) {
-          drawArrow(point.x, point.y, point.vx, 0, COLORS.components, `vₓ ${point.vx.toFixed(1)}`, 0.78, "velocity-x");
+          drawArrow(point.x, point.y, point.vx, 0, COLORS.components, `vₓ ${point.vx.toFixed(1)}`, velocityScale, "velocity-x");
         }
         if (isVectorVisible("velocity-y") && Math.abs(point.vy) > 0.01) {
-          drawArrow(point.x, point.y, 0, point.vy, COLORS.components, `vᵧ ${point.vy.toFixed(1)}`, 0.78, "velocity-y");
+          drawArrow(point.x, point.y, 0, point.vy, COLORS.components, `vᵧ ${point.vy.toFixed(1)}`, velocityScale, "velocity-y");
         }
       }
 
@@ -1491,12 +2001,15 @@
         vectorArrowQueue = [];
         const transform = getTransform();
         const scalePrefix = mode === "vertical" ? "依上拋高度縮放" : "固定比例尺";
-        scaleDisplay.textContent = mode === "horizontal" || mode === "oblique"
+        scaleDisplay.textContent = transform.bounds.uniform
+          ? `兩軸等比例（角度真實）｜每格 ${formatScaleValue(transform.gridStep)} m`
+          : mode === "horizontal" || mode === "oblique"
           ? `最高初速固定視野｜橫格 ${formatScaleValue(transform.gridStepX)} m · 縱格 ${formatScaleValue(transform.gridStepY)} m`
           : `${scalePrefix}：每格 ${formatScaleValue(transform.gridStep)} m`;
         const point = physicsAt(time, focusParticle);
         drawGrid(transform);
         drawGround(transform);
+        drawTerrain(transform);
         drawIndependence(transform);
         for (let i = 0; i < activeParticleCount(); i++) {
           drawPredictedTrajectory(transform, i);
@@ -1505,7 +2018,9 @@
         drawHeightComparison(transform);
         drawVectors(point);
         drawQueuedVectorLabels();
+        drawDisplacementAnalysis(transform);
         for (let i = 0; i < activeParticleCount(); i++) drawProjectile(transform, physicsAt(time, i), i);
+        updateStageCallouts(transform);
       }
 
       function updateReadout() {
@@ -1540,20 +2055,21 @@
         document.getElementById("launch-summary").hidden = !available;
         document.getElementById("comparison-results").hidden = !available;
         document.querySelectorAll("[data-count]").forEach(button => button.setAttribute("aria-pressed", String(Number(button.dataset.count) === count)));
-        document.getElementById("height-parameter").hidden = available && count > 1;
-        document.getElementById("shared-height-note").textContent = count > 1 ? `共同起始高度 ${modeSettings[mode].height.toFixed(1)} m；多質點模式僅調整初速${mode === "oblique" ? "與角度" : ""}。要改高度請切回單顆。` : "";
+        document.getElementById("height-parameter").hidden = (available && count > 1) || activeTerrain() === "stairs";
+        document.getElementById("shared-height-note").textContent = count > 1 && activeTerrain() === "stairs" ? `共同由階梯頂端（${modeSettings.horizontal.height.toFixed(2)} m）水平拋出；多質點模式僅調整初速。` : count > 1 ? `共同起始高度 ${modeSettings[mode].height.toFixed(1)} m；多質點模式僅調整初速${mode === "oblique" ? "與角度" : ""}。要改高度請切回單顆。` : "";
         document.getElementById("scenario-controls").hidden = mode !== "oblique";
         document.querySelectorAll("[data-scenario]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.scenario === activeScenario)));
         document.getElementById("scenario-note").textContent = scenarioNotes[activeScenario] || "目前為自訂條件。先預測，再播放驗證；套用案例會從同一地面高度發射。";
         const host = document.getElementById("extra-particle-controls");
-        const key = `${mode}-${count}`;
+        const key = `${mode}-${count}-${activeTerrain()}`;
+        const speedRange = TERRAIN_SPEED_RANGE[activeTerrain()];
         if (host.dataset.key !== key) {
           host.dataset.key = key;
           host.innerHTML = Array.from({ length: count - 1 }, (_, n) => {
             const i = n + 1;
             return `<div class="particle-settings" style="--particle-color:${PARTICLE_COLORS[i]}"><strong>質點 ${PARTICLE_NAMES[i]}</strong>
               <div class="parameter-head"><label for="particle-${i}-speed">${mode === "horizontal" ? "水平初速" : "初速"}</label><output id="particle-${i}-speed-output"></output></div>
-              <input id="particle-${i}-speed" data-particle="${i}" data-setting="${mode === "horizontal" ? "horizontalSpeed" : "launchSpeed"}" type="range" min="${mode === "horizontal" ? 0 : 5}" max="${mode === "horizontal" ? 40 : 50}" step="0.01">
+              <input id="particle-${i}-speed" data-particle="${i}" data-setting="${mode === "horizontal" ? "horizontalSpeed" : "launchSpeed"}" type="range" min="${mode === "horizontal" ? speedRange.min : 5}" max="${mode === "horizontal" ? speedRange.max : 50}" step="0.01">
               ${mode === "oblique" ? `<div class="parameter-head"><label for="particle-${i}-angle">仰角</label><output id="particle-${i}-angle-output"></output></div><input id="particle-${i}-angle" data-particle="${i}" data-setting="angle" type="range" min="10" max="90" step="1">` : ""}</div>`;
           }).join("");
           document.getElementById("focus-particle").innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i}">質點 ${PARTICLE_NAMES[i]}</option>`).join("");
@@ -1587,7 +2103,7 @@
           const initial = initialVelocity(i);
           const duration = landingTime(i);
           const peak = modeSettings[mode].height + initial.vy ** 2 / (2 * G);
-          return `<tr data-particle="${i}"><th style="color:${PARTICLE_COLORS[i]}">${PARTICLE_NAMES[i]}${focusParticle === i ? " · 觀察中" : ""}</th><td>${point.landed ? "已落地" : time === 0 ? "待發射" : "飛行中"}</td><td>${duration.toFixed(2)}</td><td>${(initial.vx * duration).toFixed(2)}</td><td>${peak.toFixed(2)}</td><td>${point.vx.toFixed(2)}</td><td>${point.vy.toFixed(2)}</td></tr>`;
+          return `<tr data-particle="${i}"><th style="color:${PARTICLE_COLORS[i]}">${PARTICLE_NAMES[i]}${focusParticle === i ? " · 觀察中" : ""}</th><td>${point.landed ? landingSurfaceText(i) : time === 0 ? "待發射" : "飛行中"}</td><td>${duration.toFixed(2)}</td><td>${(initial.vx * duration).toFixed(2)}</td><td>${peak.toFixed(2)}</td><td>${point.vx.toFixed(2)}</td><td>${point.vy.toFixed(2)}</td></tr>`;
         }).join("");
       }
 
@@ -1652,6 +2168,7 @@
       }
 
       function stopAnimation() {
+        aidPause = null;
         running = false;
         lastTimestamp = 0;
         if (frameId !== null) cancelAnimationFrame(frameId);
@@ -1661,10 +2178,29 @@
       function animationLoop(timestamp) {
         if (!running) return;
         if (!lastTimestamp) lastTimestamp = timestamp;
+        if (aidPause) {
+          // Hold for 0.5 s of real time at the helper-line crossing, then remove the hint and continue.
+          lastTimestamp = timestamp;
+          if (timestamp < aidPause.until) {
+            frameId = requestAnimationFrame(animationLoop);
+            return;
+          }
+          aidPause = null;
+        }
         const delta = Math.min((timestamp - lastTimestamp) / 1000, 0.08);
         lastTimestamp = timestamp;
         const duration = flightDuration();
-        time = Math.min(duration, time + delta * Number(playbackRate.value));
+        const nextTime = Math.min(duration, time + delta * Number(playbackRate.value));
+        const hits = nextAidCrossings(time, nextTime);
+        if (hits.length) {
+          time = hits[0].t;
+          aidPause = { until: timestamp + 500 };
+          showAidCallout(hits);
+          render();
+          frameId = requestAnimationFrame(animationLoop);
+          return;
+        }
+        time = nextTime;
         if (time >= duration) {
           stopAnimation();
           time = duration;
@@ -1749,9 +2285,17 @@
 
       function syncModeControls() {
         updateSymmetryDiagram();
+        const speedRange = TERRAIN_SPEED_RANGE[terrain];
+        horizontalSpeed.min = String(speedRange.min);
+        horizontalSpeed.max = String(speedRange.max);
+        horizontalSpeed.step = String(speedRange.step);
+        const clampSpeed = value => Math.min(speedRange.max, Math.max(speedRange.min, value));
+        modeSettings.horizontal.horizontalSpeed = clampSpeed(modeSettings.horizontal.horizontalSpeed);
+        extraParticles.horizontal.forEach(p => { p.horizontalSpeed = clampSpeed(p.horizontalSpeed); });
+        if (terrain === "stairs") modeSettings.horizontal.height = stairsTopHeight();
         syncParticleControls();
         const settings = modeSettings[mode];
-        const heightMinimum = mode === "freefall" || mode === "horizontal" ? 10 : 0;
+        const heightMinimum = activeTerrain() === "stairs" ? 0 : mode === "freefall" || mode === "horizontal" ? 10 : 0;
         const heightMaximum = mode === "vertical" ? 50 : 200;
         heightInput.min = String(heightMinimum);
         heightInput.max = String(heightMaximum);
@@ -1776,6 +2320,18 @@
         launchAngle.value = String(modeSettings.oblique.angle);
 
         heightOutput.textContent = `${settings.height.toFixed(1)} m`;
+        document.querySelector('label[for="initial-height"]').textContent = activeTerrain() === "incline" ? "斜面頂端高度 H" : "初始高度 h₀";
+        document.querySelector('label[for="horizontal-speed"]').textContent = activeTerrain() === "flat" ? "A · 水平初速 v₀ₓ" : activeTerrain() === "stairs" ? "平拋初速 v₀" : "A · 平拋初速 v₀";
+        updateTerrainControls();
+        const stairs = activeTerrain() === "stairs";
+        const stairsPanel = document.getElementById("stairs-parameters");
+        const particleA = document.getElementById("particle-a-settings");
+        if (stairs && horizontalParameter.parentElement !== stairsPanel) stairsPanel.prepend(horizontalParameter);
+        if (!stairs && horizontalParameter.parentElement !== particleA) particleA.querySelector("strong").after(horizontalParameter);
+        for (const id of ["count-heading", "particle-count", "particle-note", "particle-a-settings", "extra-particle-controls", "focus-row"]) {
+          document.getElementById(id).hidden = stairs;
+        }
+        document.querySelectorAll(".planar-only").forEach(element => { element.hidden = !planarMode(); });
         horizontalSpeedOutput.textContent = `${modeSettings.horizontal.horizontalSpeed.toFixed(1)} m/s`;
         verticalSpeedOutput.textContent = `${modeSettings.vertical.verticalSpeed.toFixed(1)} m/s`;
         launchSpeedOutput.textContent = `${modeSettings.oblique.launchSpeed.toFixed(2)} m/s`;
@@ -1789,6 +2345,12 @@
           formulaCopy.innerHTML = `<b>y(t)</b> = ${h} − 5t²<br><b>vᵧ(t)</b> = −10t`;
         } else if (mode === "vertical") {
           formulaCopy.innerHTML = `<b>y(t)</b> = ${h} + ${initial.vy.toFixed(1)}t − 5t²<br><b>vᵧ(t)</b> = ${initial.vy.toFixed(1)} − 10t`;
+        } else if (mode === "horizontal" && activeTerrain() === "incline") {
+          const tan = Math.tan(terrainSettings.incline.angle * Math.PI / 180);
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} − 5t²<br>落在斜面：(H − y) / x = tanθ<br>⇒ <b>t</b> = 2v₀tanθ / g = ${(2 * initial.vx * tan / G).toFixed(2)} s<br>速度方向：tanφ = 2tanθ`;
+        } else if (mode === "horizontal" && activeTerrain() === "stairs") {
+          const { stepHeight: sh, stepWidth: sw } = terrainSettings.stairs;
+          formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${settings.height.toFixed(2)} − 5t²<br>落下 n 階：t = √(2nh / g)，需 x ≤ n·w<br>⇒ <b>n</b> ≥ 2v₀²h / (g w²) = ${(2 * initial.vx ** 2 * sh / (G * sw * sw)).toFixed(2)}`;
         } else if (mode === "horizontal") {
           formulaCopy.innerHTML = `<b>x(t)</b> = ${initial.vx.toFixed(1)}t　<b>y(t)</b> = ${h} − 5t²<br><b>v(t)</b> = ⟨${initial.vx.toFixed(1)}, −10t⟩`;
         } else {
@@ -1900,6 +2462,22 @@
       canvas.addEventListener("pointercancel", endComparisonDrag);
       canvas.addEventListener("lostpointercapture", endComparisonDrag);
       bindRangeControl(heightInput, value => { modeSettings[mode].height = value; });
+      document.getElementById("terrain-buttons").addEventListener("click", event => {
+        const button = event.target.closest("[data-terrain]");
+        if (button) setTerrain(button.dataset.terrain);
+      });
+      document.getElementById("stairs-aid").addEventListener("change", () => {
+        if (aidPause) aidPause = null;
+        draw();
+      });
+      document.getElementById("analysis-button").addEventListener("click", () => {
+        analysisOn = !analysisOn;
+        draw();
+      });
+      bindRangeControl(document.getElementById("incline-angle"), value => { terrainSettings.incline.angle = value; });
+      bindRangeControl(document.getElementById("stair-height"), value => { terrainSettings.stairs.stepHeight = value; });
+      bindRangeControl(document.getElementById("stair-width"), value => { terrainSettings.stairs.stepWidth = value; });
+      bindRangeControl(document.getElementById("stair-count"), value => { terrainSettings.stairs.steps = value; });
       bindRangeControl(horizontalSpeed, value => { modeSettings.horizontal.horizontalSpeed = value; });
       bindRangeControl(verticalSpeed, value => { modeSettings.vertical.verticalSpeed = value; });
       bindRangeControl(launchSpeed, value => { modeSettings.oblique.launchSpeed = value; });
@@ -1915,6 +2493,8 @@
       timeline.addEventListener("input", () => {
         stopAnimation();
         time = Number(timeline.value);
+        // The slider max is rounded to 0.01 s; snap the end so the final landing frame is reachable.
+        if (time >= Number(timeline.max) - 1e-8) time = flightDuration();
         render();
       });
       document.getElementById("vectors-on").addEventListener("click", () => {
